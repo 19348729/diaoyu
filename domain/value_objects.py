@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional, Tuple
 
 
 # ──────────────────────────────────────────────
@@ -78,6 +78,77 @@ class ApiData:
 
 
 # ──────────────────────────────────────────────
+#  入参：传感器单条读数（与小程序 protocol.js 实时帧对齐）
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class SensorReading:
+    """来自 ESP32 的单条传感器读数。
+
+    Attributes:
+        timestamp:  Unix 时间戳（秒）
+        t_bottom:   水底温度（3m），可为 None
+        t_mid:      水下1米温度，可为 None
+        t_surface:  水面温度，可为 None
+        p_local:    本地绝对气压（hPa），可为 None
+    """
+
+    timestamp: int
+    t_bottom: Optional[float] = None
+    t_mid: Optional[float] = None
+    t_surface: Optional[float] = None
+    p_local: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class SensorTimeSeries:
+    """传感器时序数据集（小程序上报的历史 + 实时数据汇总）。
+
+    Attributes:
+        readings:  按时间升序排列的传感器读数列表
+    """
+
+    readings: Tuple[SensorReading, ...] = field(default_factory=tuple)
+
+    @property
+    def latest(self) -> Optional[SensorReading]:
+        """最新一条读数。"""
+        return self.readings[-1] if self.readings else None
+
+    @property
+    def earliest(self) -> Optional[SensorReading]:
+        """最早一条读数。"""
+        return self.readings[0] if self.readings else None
+
+    @property
+    def duration_seconds(self) -> int:
+        """数据跨度（秒）。"""
+        if len(self.readings) < 2:
+            return 0
+        return self.readings[-1].timestamp - self.readings[0].timestamp
+
+    @property
+    def count(self) -> int:
+        return len(self.readings)
+
+
+@dataclass(frozen=True)
+class SessionContext:
+    """会话上下文：时段、季节、连接时长、报告阶段。
+
+    Attributes:
+        time_period:      当前时段 "morning"/"noon"/"afternoon"/"evening"
+        season:           当前季节 "spring"/"summer"/"autumn"/"winter"
+        duration_seconds: 已连续采集时长（秒）
+        report_stage:     报告阶段 "instant"/"brief"/"standard"/"full"
+    """
+
+    time_period: str
+    season: str
+    duration_seconds: int
+    report_stage: str
+
+
+# ──────────────────────────────────────────────
 #  出参：预测结果
 # ──────────────────────────────────────────────
 @dataclass(frozen=True)
@@ -85,14 +156,22 @@ class PredictionResult:
     """多因子融合预测的最终输出。
 
     Attributes:
-        do_trend:       虚拟溶解氧指数（mg/L 量纲的估算值）
-        bite_index:     最终开口评分（0-100，整数）
-        tactical_tags:  触发的战术标签集合，供下游 Agent 组装话术
+        do_trend:            虚拟溶解氧指数（mg/L 量纲的估算值）
+        bite_index:          最终开口评分（0-100，整数）
+        tactical_tags:       触发的战术标签集合，供下游 Agent 组装话术
+        report_stage:        报告阶段 "instant"/"brief"/"standard"/"full"
+        confidence:          置信度（0-100），随采集时长递增
+        time_period_advice:  时段建议文案
+        season_note:         季节备注
     """
 
     do_trend: float
     bite_index: int
     tactical_tags: List[str] = field(default_factory=list)
+    report_stage: str = "instant"
+    confidence: int = 30
+    time_period_advice: str = ""
+    season_note: str = ""
 
     def __post_init__(self) -> None:
         if not (0 <= self.bite_index <= 100):

@@ -1,0 +1,105 @@
+/* 实时监测页面样式 */
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.status-header .card-title {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+/* 设备信息 */
+.device-info {
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8rpx 0;
+}
+
+.info-label {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.info-value {
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.info-value.link {
+  color: #1a73e8;
+}
+
+/* 三层水温网格 */
+.temp-grid {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+}
+
+.temp-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16rpx 0;
+}
+
+/* 温差显示 */
+.temp-diff {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20rpx;
+  padding-top: 16rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.diff-label {
+  font-size: 24rpx;
+  color: #999999;
+  margin-right: 16rpx;
+}
+
+.diff-value {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.diff-value.warn {
+  color: #e53935;
+}
+
+/* 气压显示 */
+.pressure-display {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  padding: 20rpx 0;
+}
+
+.data-value.large {
+  font-size: 64rpx;
+}
+
+/* 更新时间 */
+.update-time {
+  text-align: center;
+  padding: 20rpx 0;
+  font-size: 22rpx;
+  color: #bbbbbb;
+}

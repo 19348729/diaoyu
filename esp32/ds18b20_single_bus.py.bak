@@ -1,0 +1,131 @@
+"""
+DS18B20 温度传感器读取程序 - MicroPython (ESP32)
+功能：使用单个GPIO引脚同时读取3个DS18B20温度传感器数据
+接线：所有传感器共用一个GPIO引脚（需要外部4.7k上拉电阻到3.3V）
+      DS18B20 #0, #1, #2 DATA -> GPIO15（共用）
+      所有 VCC -> 3.3V（或parasite模式接GND）
+      所有 GND -> GND
+"""
+
+import time
+from machine import Pin
+import onewire
+import ds18x20
+
+# 共用GPIO引脚
+SHARED_PIN = 15
+SENSOR_LABELS = ["水温", "气温", "地温"]
+
+
+def init_sensors(pin_num):
+    """初始化单总线上的所有传感器"""
+    pin = Pin(pin_num, Pin.IN, Pin.PULL_UP)
+    ow = onewire.OneWire(pin)
+    ds = ds18x20.DS18X20(ow)
+    
+    # 扫描总线上所有设备
+    roms = ds.scan()
+    sensors = []
+    
+    if roms:
+        print("[DS18B20] 在GPIO{}上检测到{}个传感器".format(pin_num, len(roms)))
+        for i, rom in enumerate(roms):
+            addr_str = "".join("{:02X}".format(b) for b in rom)
+            label = SENSOR_LABELS[i] if i < len(SENSOR_LABELS) else "传感器{}".format(i+1)
+            print("[DS18B20] {} 地址: {}".format(label, addr_str))
+            sensors.append({"ds": ds, "rom": rom, "label": label})
+    else:
+        print("[DS18B20] GPIO{}上未检测到任何传感器!".format(pin_num))
+    
+    return sensors
+
+
+def read_all_temps(sensors, max_retries=3):
+    """批量读取所有传感器温度，带CRC重试机制"""
+    if not sensors:
+        return []
+    
+    # 所有传感器使用同一个ds实例
+    ds = sensors[0]["ds"]
+    
+    for attempt in range(max_retries):
+        try:
+            # 启动温度转换（所有传感器同时转换）
+            ds.convert_temp()
+            # 等待转换完成（12位精度需要约750ms）
+            time.sleep_ms(750)
+            
+            results = []
+            all_success = True
+            
+            for sensor in sensors:
+                temp = ds.read_temp(sensor["rom"])
+                # 过滤异常值（-127或85通常代表读取失败）
+                if temp == 85.0 or temp == -127.0:
+                    raise ValueError("{}异常值: {:.1f}".format(sensor["label"], temp))
+                results.append({"label": sensor["label"], "temp": temp})
+            
+            return results
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print("[DS18B20] 批量读取失败(重试{}/{}): {}".format(
+                    attempt + 1, max_retries, e))
+                time.sleep_ms(200)
+            else:
+                print("[DS18B20] 批量读取失败(已重试{}次): {}".format(
+                    max_retries, e))
+                # 返回部分结果
+                return [{"label": s["label"], "temp": None} for s in sensors]
+    
+    return [{"label": s["label"], "temp": None} for s in sensors]
+
+
+def main():
+    print("=" * 40)
+    print("DS18B20 多传感器温度读取程序（单GPIO共享模式）")
+    print("接线方式: 所有传感器DATA引脚共用GPIO{}".format(SHARED_PIN))
+    print("  需要: 外部4.7kΩ上拉电阻连接到3.3V")
+    for i in range(len(SENSOR_LABELS)):
+        print("  {} DATA -> GPIO{}".format(SENSOR_LABELS[i], SHARED_PIN))
+    print("读取间隔: 5 秒")
+    print("=" * 40)
+
+    # 初始化传感器
+    sensors = init_sensors(SHARED_PIN)
+
+    if not sensors:
+        print("[DS18B20] 错误: 未检测到任何传感器，请检查接线！")
+        print("[DS18B20] 接线方法:")
+        print("[DS18B20]   所有传感器DATA引脚连接到同一个GPIO")
+        print("[DS18B20]   需要一个4.7kΩ上拉电阻连接到3.3V")
+        print("[DS18B20]   所有VCC -> 3.3V（或使用parasite模式）")
+        print("[DS18B20]   所有GND -> GND")
+        return
+
+    print("\n成功初始化 {} 个传感器".format(len(sensors)))
+    print("开始每5秒读取温度...\n")
+
+    # 主循环：每5秒读取一次温度
+    while True:
+        timestamp = time.localtime()
+        time_str = "{:02d}:{:02d}:{:02d}".format(
+            timestamp[3], timestamp[4], timestamp[5]
+        )
+        
+        results = read_all_temps(sensors)
+        
+        parts = []
+        for result in results:
+            if result["temp"] is not None:
+                parts.append("{}: {:.2f}°C".format(result["label"], result["temp"]))
+            else:
+                parts.append("{}: --".format(result["label"]))
+        
+        print("[{}] {}".format(time_str, " | ".join(parts)))
+
+        time.sleep(5)
+
+
+if __name__ == "__main__":
+    main()

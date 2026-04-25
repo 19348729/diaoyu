@@ -61,3 +61,33 @@ class TacticalTag(str, Enum):
     RATING_FAIR = "RATING_FAIR"
     RATING_POOR = "RATING_POOR"
     RATING_VETO = "RATING_VETO"
+
+    # ── 时段标签 ──
+    PERIOD_MORNING_GOLDEN = "PERIOD_MORNING_GOLDEN"      # 早口黄金期（5:00-10:00）
+    PERIOD_NOON_REST = "PERIOD_NOON_REST"                # 午休口（10:00-14:00）
+    PERIOD_AFTERNOON_ACTIVE = "PERIOD_AFTERNOON_ACTIVE"  # 午后开口期（14:00-18:00）
+    PERIOD_EVENING_PEAK = "PERIOD_EVENING_PEAK"          # 傍晚爆口期（18:00-22:00）
+    PERIOD_NIGHT_SPECIAL = "PERIOD_NIGHT_SPECIAL"        # 夜钓模式（22:00-5:00）
+
+    # ── 季节标签 ──
+    SEASON_SPRING_WARMING = "SEASON_SPRING_WARMING"      # 春季回暖期
+    SEASON_SUMMER_HEAT = "SEASON_SUMMER_HEAT"            # 盛夏高温期
+    SEASON_AUTUMN_COOLING = "SEASON_AUTUMN_COOLING"      # 秋季肥秋期
+    SEASON_WINTER_COLD = "SEASON_WINTER_COLD"            # 冬季严寒期
+
+    # ── 温跃层/分层标签 ──
+    STATUS_THERMOCLINE_STRONG = "STATUS_THERMOCLINE_STRONG"  # 温跃层明显（表底温差>3℃）
+    STATUS_THERMOCLINE_WEAK = "STATUS_THERMOCLINE_WEAK"      # 温跃层弱（表底温差1~3℃）
+    STATUS_TEMP_INVERSION = "STATUS_TEMP_INVERSION"          # 逆温现象（底层温度>表层）
+
+    # ── 趋势标签 ──
+    TREND_PRESSURE_RISING_SLOW = "TREND_PRESSURE_RISING_SLOW"    # 气压缓慢回升
+    TREND_TEMP_STABLE = "TREND_TEMP_STABLE"                      # 水温稳定
+    TREND_IMPROVING = "TREND_IMPROVING"                          # 鱼情转好
+    TREND_DETERIORATING = "TREND_DETERIORATING"                  # 鱼情转差
+
+    # ── 报告阶段标签 ──
+    STAGE_INSTANT = "STAGE_INSTANT"        # 速报阶段
+    STAGE_BRIEF = "STAGE_BRIEF"            # 简报阶段（5min+）
+    STAGE_STANDARD = "STAGE_STANDARD"      # 标准报告（10min+）
+    STAGE_FULL = "STAGE_FULL"              # 完整报告（30min+）

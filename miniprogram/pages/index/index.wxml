@@ -1,0 +1,75 @@
+<!--
+  实时监测页面
+  展示 BLE 连接状态和传感器实时数据
+-->
+<view class="container">
+
+  <!-- 连接状态卡片 -->
+  <view class="card">
+    <view class="status-header">
+      <text class="card-title">设备连接</text>
+      <text class="status-tag {{statusClass}}">{{statusText}}</text>
+    </view>
+
+    <button
+      class="{{bleConnected ? 'btn-danger' : 'btn-primary'}} {{connecting ? 'disabled' : ''}}"
+      disabled="{{connecting}}"
+      bindtap="onTapConnect"
+    >
+      {{connecting ? '搜索中...' : (bleConnected ? '断开连接' : '连接 FishProbe')}}
+    </button>
+
+    <!-- 设备信息 -->
+    <view wx:if="{{bleConnected}}" class="device-info">
+      <view class="info-row">
+        <text class="info-label">数据接收</text>
+        <text class="info-value">实时 {{realtimeCount}} 条 / 历史补传 {{historyCount}} 条</text>
+      </view>
+      <view class="info-row" bindtap="onTapQueryStatus">
+        <text class="info-label">设备缓存</text>
+        <text class="info-value link">{{bufferUnsent}}/{{bufferCount}} 条待同步 (点击刷新)</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 三层水温卡片 -->
+  <view class="card">
+    <text class="card-title">三层水温</text>
+    <view class="temp-grid">
+      <view class="temp-item">
+        <text class="data-value">{{tSurface}}</text>
+        <text class="data-unit">℃</text>
+        <text class="data-label">水面温度</text>
+      </view>
+      <view class="temp-item">
+        <text class="data-value">{{tMid}}</text>
+        <text class="data-unit">℃</text>
+        <text class="data-label">水下1米</text>
+      </view>
+      <view class="temp-item">
+        <text class="data-value">{{tBottom}}</text>
+        <text class="data-unit">℃</text>
+        <text class="data-label">水底温度</text>
+      </view>
+    </view>
+    <view class="temp-diff">
+      <text class="diff-label">水面-水底温差</text>
+      <text class="diff-value {{tDiff !== '--' && tDiff > 5 ? 'warn' : ''}}">{{tDiff}} ℃</text>
+    </view>
+  </view>
+
+  <!-- 气压卡片 -->
+  <view class="card">
+    <text class="card-title">本地气压</text>
+    <view class="pressure-display">
+      <text class="data-value large">{{pLocal}}</text>
+      <text class="data-unit">hPa</text>
+    </view>
+  </view>
+
+  <!-- 更新时间 -->
+  <view class="update-time">
+    <text>最后更新: {{updateTime}}</text>
+  </view>
+
+</view>

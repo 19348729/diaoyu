@@ -1,0 +1,66 @@
+<!--
+  趋势分析页面
+  展示历史传感器数据统计和详细记录
+-->
+<view class="container">
+
+  <!-- 统计摘要卡片 -->
+  <view class="card">
+    <text class="card-title">数据概览 (共 {{recordCount}} 条，持续 {{summary.duration}})</text>
+
+    <view class="summary-grid">
+      <view class="summary-item">
+        <text class="summary-label">水底温度</text>
+        <text class="summary-value">{{summary.tBottomMin}} ~ {{summary.tBottomMax}} ℃</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-label">水面温度</text>
+        <text class="summary-value">{{summary.tSurfaceMin}} ~ {{summary.tSurfaceMax}} ℃</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-label">气压范围</text>
+        <text class="summary-value">{{summary.pLocalMin}} ~ {{summary.pLocalMax}} hPa</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-label">最大温差</text>
+        <text class="summary-value {{summary.tDiffMax !== '--' && summary.tDiffMax > 5 ? 'warn' : ''}}">
+          {{summary.tDiffMax}} ℃
+        </text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 数据列表 -->
+  <view class="card list-card">
+    <text class="card-title">详细记录</text>
+
+    <!-- 表头 -->
+    <view class="list-header">
+      <text class="col-time">时间</text>
+      <text class="col-data">水底</text>
+      <text class="col-data">1米</text>
+      <text class="col-data">水面</text>
+      <text class="col-data">气压</text>
+    </view>
+
+    <!-- 数据行 -->
+    <scroll-view scroll-y class="list-scroll" enhanced show-scrollbar="{{false}}">
+      <view class="list-empty" wx:if="{{records.length === 0}}">
+        <text>暂无数据，请连接设备后等待数据采集</text>
+      </view>
+
+      <view
+        class="list-row"
+        wx:for="{{records}}"
+        wx:key="timestamp"
+      >
+        <text class="col-time">{{item.timeStr}}</text>
+        <text class="col-data">{{item.tBottomStr}}</text>
+        <text class="col-data">{{item.tMidStr}}</text>
+        <text class="col-data">{{item.tSurfaceStr}}</text>
+        <text class="col-data">{{item.pLocalStr}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
+</view>

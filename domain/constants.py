@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Tuple
+from typing import Dict, Tuple
 
 
 @dataclass(frozen=True)
@@ -144,3 +144,151 @@ class BiteIndexConfig:
         "rainy": -5,
         "stormy": -15,
     })
+
+
+# ──────────────────────────────────────────────
+#  四时段配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class TimePeriodConfig:
+    """四时段划分与基础权重。
+
+    早口期 (5:00-10:00) ─ 早晨气温回升，溶氧较高，鱼类活跃
+    午休口 (10:00-14:00) ─ 日照强烈，表层水温升高，底层鱼不活跃
+    午后开口 (14:00-18:00) ─ 水温达到峰值后开始回落，鱼类重新活跃
+    晚间/夜铓 (18:00-5:00) ─ 应激口期 + 夜铓模式
+
+    Attributes:
+        periods:    时段名 -> (开始小时, 结束小时)。注意 evening 跨午夜。
+        modifiers:  时段名 -> 开口分加减分
+    """
+
+    periods: Dict[str, Tuple[int, int]] = field(default_factory=lambda: {
+        "morning":   (5, 10),     # 05:00 ~ 10:00
+        "noon":      (10, 14),    # 10:00 ~ 14:00
+        "afternoon": (14, 18),    # 14:00 ~ 18:00
+        "evening":   (18, 5),     # 18:00 ~ 05:00 (跨午夜)
+    })
+    modifiers: Dict[str, int] = field(default_factory=lambda: {
+        "morning":    8,   # 早口黄金期，加分
+        "noon":      -5,   # 午休口，扣分
+        "afternoon":  3,   # 午后恢复期，小幅加分
+        "evening":   10,   # 傍晚爆口期，加分最多
+    })
+
+
+# ──────────────────────────────────────────────
+#  四季节配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class SeasonConfig:
+    """四季节的铓鱼影响配置。
+
+    每个季节包含：
+      - score_modifier: 开口分加减
+      - optimal_temp_shift: 对鱼种最适温度的季节性偏移（℃）
+      - advice: 季节性铓鱼建议文案
+
+    Attributes:
+        months_map:       季节名 -> 包含的月份列表
+        season_modifiers:  季节名 -> {配置参数}
+    """
+
+    months_map: Dict[str, Tuple[int, ...]] = field(default_factory=lambda: {
+        "spring": (3, 4, 5),
+        "summer": (6, 7, 8),
+        "autumn": (9, 10, 11),
+        "winter": (12, 1, 2),
+    })
+    season_modifiers: Dict[str, dict] = field(default_factory=lambda: {
+        "spring": {
+            "score_modifier": 5,
+            "optimal_temp_shift": -2.0,    # 春季水温偏低，鱼对稍低温度更敏感
+            "advice": "春季回暖期，鱼类经过冬天休眠后急需补充能量，食欲逐渐增强。"
+              "建议铓浅滩向阳处，使用腔味饵料。",
+        },
+        "summer": {
+            "score_modifier": -3,
+            "optimal_temp_shift": 0.0,
+            "advice": "盛夏高温期，水面温度过高，底层鱼可能转移至深水或荐草区。"
+              "建议早晚作铓，避开正午高温时段。",
+        },
+        "autumn": {
+            "score_modifier": 8,
+            "optimal_temp_shift": 1.0,     # 秋季降温前鱼类抢食肥秋，对稍高温度仍有食欲
+            "advice": "秋季肥秋期，鱼类为越冬抢食储能，食欲旺盛，是全年最佳作铓季节。"
+              "全天候均可作铓，营养型饵料效果极佳。",
+        },
+        "winter": {
+            "score_modifier": -8,
+            "optimal_temp_shift": 0.0,
+            "advice": "冬季低温期，鱼类代谢放缓，开口轻、吃口小。"
+              "建议重腔味小钩细线，铓向阳深水区，午后升温后作铓。",
+        },
+    })
+
+
+# ──────────────────────────────────────────────
+#  渐进式报告阶段配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class ProgressiveStageConfig:
+    """渐进式报告阶段定义。
+
+    随着连接时长增加，提供递进式的分析深度：
+      - instant:  0s+，仅基于最新单帧，置信度 30%
+      - brief:    300s (5min)+，含气压趋势 + 温度趋势，置信度 55%
+      - standard: 600s (10min)+，含完整趋势分析，置信度 75%
+      - full:     1800s (30min)+，含深度时序分析 + 高置信度建议，置信度 90%
+
+    Attributes:
+        stages: 阶段名 -> {min_seconds, confidence, features}
+    """
+
+    stages: Dict[str, dict] = field(default_factory=lambda: {
+        "instant": {
+            "min_seconds": 0,
+            "confidence": 30,
+            "features": ["base_score", "pressure_snapshot"],
+        },
+        "brief": {
+            "min_seconds": 300,     # 5 分钟
+            "confidence": 55,
+            "features": ["base_score", "pressure_trend", "temp_trend"],
+        },
+        "standard": {
+            "min_seconds": 600,     # 10 分钟
+            "confidence": 75,
+            "features": ["base_score", "pressure_trend", "temp_trend",
+                         "thermocline", "do_estimate"],
+        },
+        "full": {
+            "min_seconds": 1800,    # 30 分钟
+            "confidence": 90,
+            "features": ["base_score", "pressure_trend", "temp_trend",
+                         "thermocline", "do_estimate", "deep_analysis",
+                         "time_period_advice", "season_advice"],
+        },
+    })
+
+
+# ──────────────────────────────────────────────
+#  温跃层阈值配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class ThermoclineConfig:
+    """温跃层（表底温差）分析配置。
+
+    Attributes:
+        strong_threshold:  强温跃层阈值（℃）─ 表底温差 > 此值视为明显分层
+        weak_threshold:    弱温跃层阈值（℃）
+        inversion_threshold: 逆温阈值（底层 > 表层，差值超过此值）
+        strong_penalty:    强温跃层扣分
+        inversion_penalty: 逆温扣分
+    """
+
+    strong_threshold: float = 3.0
+    weak_threshold: float = 1.0
+    inversion_threshold: float = 1.5
+    strong_penalty: int = 8
+    inversion_penalty: int = 10
