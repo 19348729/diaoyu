@@ -34,5 +34,6 @@
       "desc": "用于获取钓点位置信息"
     }
   },
+  "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
 }
