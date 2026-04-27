@@ -204,6 +204,20 @@ async def upload_history(req: BatchSensorRequest):
     }
 
 
+@app.post("/api/login", tags=["用户"])
+async def login(req: Dict):
+    """小程序登录（换取 openid）
+
+    目前仅做演示，返回固定 openid。
+    实际生产环境需调用微信 API: https://api.weixin.qq.com/sns/jscode2session
+    """
+    return {
+        "status": "ok",
+        "openid": "test_openid_user_001",
+        "message": "登录成功（演示模式）",
+    }
+
+
 # ── 开发模式入口 ──────────────────────────────
 if __name__ == "__main__":
     import uvicorn
