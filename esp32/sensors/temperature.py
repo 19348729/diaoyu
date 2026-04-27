@@ -53,20 +53,20 @@ class TemperatureSensor:
             if len(roms_deep) >= 2:
                 # 如果配置了固定 ROM 地址，按配置匹配
                 if ROM_ADDR_BOTTOM and ROM_ADDR_MID:
-                    self._rom_bottom = ROM_ADDR_BOTTOM
-                    self._rom_mid = ROM_ADDR_MID
+                    self._rom_bottom = bytes(ROM_ADDR_BOTTOM)
+                    self._rom_mid = bytes(ROM_ADDR_MID)
                     print("[温度] GPIO{} 使用预配置 ROM 地址".format(PIN_TEMP_DEEP))
                 else:
                     # 按扫描顺序分配（第一个=水底，第二个=水下1米）
-                    self._rom_bottom = roms_deep[0]
-                    self._rom_mid = roms_deep[1]
+                    self._rom_bottom = bytes(roms_deep[0])
+                    self._rom_mid = bytes(roms_deep[1])
                     print("[温度] GPIO{} 自动分配: 水底={}, 水下1米={}".format(
                         PIN_TEMP_DEEP,
-                        self._format_rom(roms_deep[0]),
-                        self._format_rom(roms_deep[1]),
+                        self._format_rom(self._rom_bottom),
+                        self._format_rom(self._rom_mid),
                     ))
             elif len(roms_deep) == 1:
-                self._rom_bottom = roms_deep[0]
+                self._rom_bottom = bytes(roms_deep[0])
                 print("[温度] 警告: GPIO{} 仅检测到1个探头（预期2个）".format(PIN_TEMP_DEEP))
             else:
                 print("[温度] 错误: GPIO{} 未检测到探头!".format(PIN_TEMP_DEEP))
@@ -83,10 +83,10 @@ class TemperatureSensor:
             roms_surface = self._ds_surface.scan()
 
             if roms_surface:
-                self._rom_surface = roms_surface[0]
+                self._rom_surface = bytes(roms_surface[0])
                 print("[温度] GPIO{} 水面探头: {}".format(
                     PIN_TEMP_SURFACE,
-                    self._format_rom(roms_surface[0]),
+                    self._format_rom(self._rom_surface),
                 ))
             else:
                 print("[温度] 错误: GPIO{} 未检测到水面探头!".format(PIN_TEMP_SURFACE))
@@ -164,7 +164,7 @@ class TemperatureSensor:
                     # 过滤异常值（85.0 = 上电默认值，-127.0 = 通信失败）
                     if temp == 85.0 or temp == -127.0:
                         raise ValueError("异常温度值: {:.1f}".format(temp))
-                    temps[rom] = round(temp, 2)
+                    temps[bytes(rom)] = round(temp, 2)
 
                 return temps
 

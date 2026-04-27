@@ -8,7 +8,7 @@ BMP280 气压传感器采集模块 (Pressure Sensor)
 """
 
 import time
-from machine import Pin, SoftI2C
+from machine import Pin, I2C
 import struct
 
 from config import PIN_I2C_SDA, PIN_I2C_SCL, BMP280_I2C_ADDR
@@ -64,7 +64,7 @@ class PressureSensor:
             True 表示初始化成功
         """
         try:
-            self._i2c = SoftI2C(
+            self._i2c = I2C(
                 scl=Pin(PIN_I2C_SCL),
                 sda=Pin(PIN_I2C_SDA),
                 freq=100000,
