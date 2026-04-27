@@ -27,7 +27,7 @@ App({
     historyData: [],
 
     // 后端 API 地址（部署后替换）
-    apiBaseUrl: 'https://your-api-domain.com/api',
+    apiBaseUrl: 'https://ks.gzbaoge.com/api',
   },
 
   onLaunch() {
