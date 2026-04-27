@@ -195,17 +195,20 @@ class TestTimeUtils:
     # A2-10
     def test_stage_brief(self):
         assert get_report_stage(300) == "brief"
-        assert get_confidence(300) == 55
+        # 平滑置信度：300s → ~48%
+        assert 45 <= get_confidence(300) <= 55
 
     # A2-11
     def test_stage_standard(self):
         assert get_report_stage(600) == "standard"
-        assert get_confidence(600) == 75
+        # 平滑置信度：600s → ~61%
+        assert 58 <= get_confidence(600) <= 68
 
     # A2-12
     def test_stage_full(self):
         assert get_report_stage(1800) == "full"
-        assert get_confidence(1800) == 90
+        # 平滑置信度：1800s → ~83%
+        assert 80 <= get_confidence(1800) <= 92
 
     # A2-13
     def test_build_session_context(self):
@@ -385,7 +388,7 @@ class TestPredictionService:
         series = SensorTimeSeries(readings=tuple(readings))
         result = svc.predict_from_series(series, self._api())
         assert result.report_stage == "full"
-        assert result.confidence == 90
+        assert result.confidence >= 80  # 平滑置信度 1800s → ~83-86%
 
     # A4-5 时段标签
     def test_series_period_tag(self):

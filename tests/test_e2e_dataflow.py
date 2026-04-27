@@ -146,7 +146,7 @@ class TestDataFlowConversion:
         result = svc.predict_from_series(series, _make_api())
 
         assert result.report_stage == "brief"
-        assert result.confidence == 55
+        assert 45 <= result.confidence <= 55  # 平滑置信度
         assert 0 <= result.bite_index <= 100
 
     # C1-3 字段名映射验证
@@ -231,7 +231,7 @@ class TestProgressiveReportE2E:
         svc = FishingPredictionService()
         result = svc.predict_from_series(series, _make_api())
         assert result.report_stage == "brief"
-        assert result.confidence == 55
+        assert 45 <= result.confidence <= 55  # 平滑置信度
 
     # C2-3
     def test_standard_stage(self):
@@ -239,7 +239,7 @@ class TestProgressiveReportE2E:
         svc = FishingPredictionService()
         result = svc.predict_from_series(series, _make_api())
         assert result.report_stage == "standard"
-        assert result.confidence == 75
+        assert 58 <= result.confidence <= 68  # 平滑置信度
 
     # C2-4
     def test_full_stage(self):
@@ -247,7 +247,7 @@ class TestProgressiveReportE2E:
         svc = FishingPredictionService()
         result = svc.predict_from_series(series, _make_api())
         assert result.report_stage == "full"
-        assert result.confidence == 90
+        assert result.confidence >= 80  # 平滑置信度
 
     # C2-5 渐进置信度递增
     def test_confidence_increases(self):

@@ -105,7 +105,26 @@ def get_report_stage(duration_seconds: int, config: ProgressiveStageConfig = Non
 
 
 def get_confidence(duration_seconds: int, config: ProgressiveStageConfig = None) -> int:
-    """根据采集时长获取当前置信度。"""
+    """根据采集时长获取当前置信度（连续平滑曲线）。
+
+    使用对数增长模型：confidence = 30 + 65 × (1 - e^(-t/900))
+    - 0s   → 30%
+    - 300s → ~49%
+    - 600s → ~63%
+    - 1800 → ~83%
+    - 3600 → ~92%
+
+    比阶段跳变更平滑，用户体验更好。
+    """
+    import math
+    if duration_seconds <= 0:
+        return 30
+    conf = 30 + 65 * (1 - math.exp(-duration_seconds / 900))
+    return min(95, int(conf))
+
+
+def get_confidence_staged(duration_seconds: int, config: ProgressiveStageConfig = None) -> int:
+    """根据采集时长获取当前置信度（阶段跳变版，保留供测试对比）。"""
     cfg = config or _DEFAULT_STAGE_CFG
     stage_name = get_report_stage(duration_seconds, cfg)
     return cfg.stages[stage_name]["confidence"]

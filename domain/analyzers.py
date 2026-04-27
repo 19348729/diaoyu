@@ -247,3 +247,179 @@ class TimeSeriesAnalyzer:
             "trend": trend,
             "rate_per_hour": round(rate_per_hour, 3),
         }
+
+    @staticmethod
+    def calc_pressure_multi_window(
+        readings: List[SensorReading],
+        windows: tuple = (900, 1800, 3600, 7200),
+    ) -> dict:
+        """多窗口气压变化分析。
+
+        同时计算 15min/30min/1h/2h 窗口的气压变化，
+        捕获不同时间尺度的气压动态。
+
+        Args:
+            readings: 按时间升序排列的读数列表
+            windows:  分析窗口列表（秒）
+
+        Returns:
+            {"delta_15min": float, "delta_30min": float, ..., "volatility_1h": float}
+        """
+        result = {}
+        window_names = {900: "15min", 1800: "30min", 3600: "1h", 7200: "2h"}
+
+        for w in windows:
+            key = window_names.get(w, f"{w}s")
+            result[f"delta_{key}"] = TimeSeriesAnalyzer.calc_pressure_delta(readings, w)
+
+        # 计算过去 1 小时的气压波动标准差
+        result["volatility_1h"] = TimeSeriesAnalyzer.calc_pressure_volatility(
+            readings, 3600
+        )
+
+        return result
+
+    @staticmethod
+    def calc_pressure_volatility(
+        readings: List[SensorReading],
+        window_seconds: int = 3600,
+    ) -> float:
+        """计算指定窗口内气压值的标准差（波动率）。
+
+        Args:
+            readings:       按时间升序排列的读数列表
+            window_seconds: 分析窗口（秒），默认 1 小时
+
+        Returns:
+            标准差 (hPa)，数据不足时返回 0.0
+        """
+        if not readings:
+            return 0.0
+
+        latest_ts = readings[-1].timestamp
+        cutoff_ts = latest_ts - window_seconds
+
+        values = [
+            r.p_local for r in readings
+            if r.p_local is not None and r.timestamp >= cutoff_ts
+        ]
+
+        if len(values) < 2:
+            return 0.0
+
+        mean = sum(values) / len(values)
+        variance = sum((v - mean) ** 2 for v in values) / len(values)
+        return round(variance ** 0.5, 3)
+
+    @staticmethod
+    def calc_temp_trend_detail(
+        readings: List[SensorReading],
+        field: str = "t_bottom",
+        window_seconds: int = 600,
+    ) -> dict:
+        """计算温度变化的详细特征（含速率量化）。
+
+        Args:
+            readings:       按时间升序排列的读数列表
+            field:          温度字段名
+            window_seconds: 分析窗口（秒）
+
+        Returns:
+            {
+                "direction": "rising"/"dropping"/"stable",
+                "rate_per_hour": float,  # ℃/h
+                "is_rapid": bool,        # 是否快速变化（>1.5℃/h）
+            }
+        """
+        direction = TimeSeriesAnalyzer.calc_temp_trend(readings, field, window_seconds)
+
+        # 计算精确速率
+        rate_per_hour = 0.0
+        if len(readings) >= 2:
+            latest_ts = readings[-1].timestamp
+            cutoff_ts = latest_ts - window_seconds
+
+            points = []
+            for r in readings:
+                if r.timestamp >= cutoff_ts:
+                    val = getattr(r, field, None)
+                    if val is not None:
+                        points.append((r.timestamp, val))
+
+            if len(points) >= 2:
+                span_hours = (points[-1][0] - points[0][0]) / 3600
+                if span_hours > 0:
+                    delta = points[-1][1] - points[0][1]
+                    rate_per_hour = delta / span_hours
+
+        is_rapid = abs(rate_per_hour) > 1.5
+
+        return {
+            "direction": direction,
+            "rate_per_hour": round(rate_per_hour, 3),
+            "is_rapid": is_rapid,
+        }
+
+    @staticmethod
+    def analyze_thermal_profile(
+        readings: List[SensorReading],
+        window_seconds: int = 600,
+    ) -> dict:
+        """三层水温空间分布综合分析。
+
+        分析表层/中层/底层温度的空间关系和时间趋势差异。
+
+        Args:
+            readings:       按时间升序排列的读数列表
+            window_seconds: 分析窗口（秒）
+
+        Returns:
+            {
+                "stratification": float|None,     # 表底温差 (℃)
+                "mixing_state": str,               # well_mixed/weakly/strongly_stratified
+                "surface_rate": float,             # 表层温度变化率 ℃/h
+                "bottom_rate": float,              # 底层温度变化率 ℃/h
+                "layers_diverging": bool,          # 各层趋势是否分化
+            }
+        """
+        latest = readings[-1] if readings else None
+
+        # 分层强度
+        stratification = None
+        mixing_state = "unknown"
+        if latest and latest.t_surface is not None and latest.t_bottom is not None:
+            stratification = round(latest.t_surface - latest.t_bottom, 2)
+            abs_strat = abs(stratification)
+            if abs_strat < 1.0:
+                mixing_state = "well_mixed"
+            elif abs_strat < 3.0:
+                mixing_state = "weakly_stratified"
+            else:
+                mixing_state = "strongly_stratified"
+
+        # 各层变化速率
+        surface_detail = TimeSeriesAnalyzer.calc_temp_trend_detail(
+            readings, "t_surface", window_seconds
+        )
+        bottom_detail = TimeSeriesAnalyzer.calc_temp_trend_detail(
+            readings, "t_bottom", window_seconds
+        )
+
+        surface_rate = surface_detail["rate_per_hour"]
+        bottom_rate = bottom_detail["rate_per_hour"]
+
+        # 趋势分化判断：一层升温另一层降温，或速率差异大于 1℃/h
+        layers_diverging = False
+        if surface_rate * bottom_rate < 0:
+            layers_diverging = True  # 一升一降
+        elif abs(surface_rate - bottom_rate) > 1.0:
+            layers_diverging = True  # 速率差异大
+
+        return {
+            "stratification": stratification,
+            "mixing_state": mixing_state,
+            "surface_rate": surface_rate,
+            "bottom_rate": bottom_rate,
+            "layers_diverging": layers_diverging,
+        }
+

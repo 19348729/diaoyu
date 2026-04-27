@@ -86,6 +86,37 @@ class TacticalTag(str, Enum):
     TREND_IMPROVING = "TREND_IMPROVING"                          # 鱼情转好
     TREND_DETERIORATING = "TREND_DETERIORATING"                  # 鱼情转差
 
+    # ── 月相 / Solunar 标签 ──
+    SOLUNAR_NEW_MOON = "SOLUNAR_NEW_MOON"              # 新月（最佳钓鱼日之一）
+    SOLUNAR_FULL_MOON = "SOLUNAR_FULL_MOON"            # 满月（最佳钓鱼日之一）
+    SOLUNAR_FIRST_QUARTER = "SOLUNAR_FIRST_QUARTER"    # 上弦月（鱼口一般）
+    SOLUNAR_LAST_QUARTER = "SOLUNAR_LAST_QUARTER"      # 下弦月（鱼口一般）
+    SOLUNAR_WAXING = "SOLUNAR_WAXING"                  # 渐盈期
+    SOLUNAR_WANING = "SOLUNAR_WANING"                  # 渐亏期
+    SOLUNAR_MAJOR_PERIOD = "SOLUNAR_MAJOR_PERIOD"      # 大口期（月中天/月对冲，约2h）
+    SOLUNAR_MINOR_PERIOD = "SOLUNAR_MINOR_PERIOD"      # 小口期（月出/月落，约1h）
+
+    # ── 短期气压突变标签 ──
+    PRESSURE_SHORT_DROP = "PRESSURE_SHORT_DROP"        # 15~30分钟内气压急降
+    PRESSURE_SHORT_SPIKE = "PRESSURE_SHORT_SPIKE"      # 15~30分钟内气压急升
+    PRESSURE_HIGH_VOLATILITY = "PRESSURE_HIGH_VOLATILITY"  # 气压波动剧烈
+
+    # ── 温度速率标签 ──
+    TEMP_RAPID_RISE = "TEMP_RAPID_RISE"                # 水温快速上升（>1.5℃/h）
+    TEMP_RAPID_DROP = "TEMP_RAPID_DROP"                # 水温快速下降（>1.5℃/h）
+
+    # ── 风向标签 ──
+    STATUS_WIND_DIRECTION_FAVORABLE = "STATUS_WIND_DIRECTION_FAVORABLE"  # 风向有利
+    STATUS_WIND_DIRECTION_ADVERSE = "STATUS_WIND_DIRECTION_ADVERSE"      # 风向不利（东风等）
+
+    # ── 湿度标签 ──
+    STATUS_HUMIDITY_MUGGY = "STATUS_HUMIDITY_MUGGY"    # 闷热高湿（>85%），溶氧可能偏低
+    STATUS_HUMIDITY_NORMAL = "STATUS_HUMIDITY_NORMAL"  # 湿度正常
+
+    # ── 三层水温空间分布标签 ──
+    THERMAL_WELL_MIXED = "THERMAL_WELL_MIXED"          # 水体混合良好（温差<1℃）
+    THERMAL_LAYERS_DIVERGING = "THERMAL_LAYERS_DIVERGING"  # 各层温度趋势分化
+
     # ── 报告阶段标签 ──
     STAGE_INSTANT = "STAGE_INSTANT"        # 速报阶段
     STAGE_BRIEF = "STAGE_BRIEF"            # 简报阶段（5min+）

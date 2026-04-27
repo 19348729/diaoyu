@@ -292,3 +292,153 @@ class ThermoclineConfig:
     inversion_threshold: float = 1.5
     strong_penalty: int = 8
     inversion_penalty: int = 10
+
+
+# ──────────────────────────────────────────────
+#  溶解氧饱和度查找表（Benson & Krause 标准）
+# ──────────────────────────────────────────────
+# 标准大气压（1013.25 hPa）下，纯淡水中的溶解氧饱和浓度 (mg/L)
+# 数据来源：USGS DOTABLES / Benson & Krause (1984)
+DO_SAT_TABLE: dict = {
+    0: 14.62, 1: 14.22, 2: 13.83, 3: 13.46, 4: 13.11,
+    5: 12.77, 6: 12.45, 7: 12.14, 8: 11.84, 9: 11.56,
+    10: 11.29, 11: 11.03, 12: 10.78, 13: 10.54, 14: 10.31,
+    15: 10.08, 16: 9.87, 17: 9.67, 18: 9.47, 19: 9.28,
+    20: 9.09, 21: 8.92, 22: 8.74, 23: 8.58, 24: 8.42,
+    25: 8.26, 26: 8.11, 27: 7.97, 28: 7.83, 29: 7.69,
+    30: 7.56, 31: 7.43, 32: 7.31, 33: 7.18, 34: 7.07,
+    35: 6.95, 36: 6.84, 37: 6.73, 38: 6.62, 39: 6.52,
+    40: 6.41,
+}
+
+
+def interpolate_do_saturation(t_water: float) -> float:
+    """从查找表中线性插值获取指定水温下的饱和溶解氧。
+
+    Args:
+        t_water: 水温（℃），范围 0~40
+
+    Returns:
+        标准大气压下的饱和溶解氧 (mg/L)
+    """
+    t_clamped = max(0.0, min(40.0, t_water))
+    t_low = int(t_clamped)
+    t_high = min(t_low + 1, 40)
+
+    if t_low == t_high:
+        return DO_SAT_TABLE[t_low]
+
+    frac = t_clamped - t_low
+    return DO_SAT_TABLE[t_low] + frac * (DO_SAT_TABLE[t_high] - DO_SAT_TABLE[t_low])
+
+
+# ──────────────────────────────────────────────
+#  Solunar 月相评分配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class SolunarConfig:
+    """月相 (Solunar) 对鱼类活跃度的影响配置。
+
+    基于 Solunar Theory（John Alden Knight, 1926）：
+    新月和满月期间，潮汐力最强，鱼类活跃度最高。
+
+    Attributes:
+        phase_modifiers:     月相名称 → 开口分加减分
+        major_period_bonus:  处于大口期时的额外加分
+        minor_period_bonus:  处于小口期时的额外加分
+    """
+
+    phase_modifiers: Dict[str, int] = field(default_factory=lambda: {
+        "new_moon": 8,           # 新月：潮汐力最强，鱼口最好
+        "waxing_crescent": 3,
+        "first_quarter": -2,     # 上弦月：潮汐力最弱
+        "waxing_gibbous": 2,
+        "full_moon": 8,          # 满月：潮汐力最强
+        "waning_gibbous": 3,
+        "last_quarter": -2,      # 下弦月：潮汐力最弱
+        "waning_crescent": 2,
+    })
+    major_period_bonus: int = 5   # 大口期（月中天/月对冲）额外加分
+    minor_period_bonus: int = 3   # 小口期（月出/月落）额外加分
+
+
+# ──────────────────────────────────────────────
+#  多窗口气压分析配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class PressureAnalysisConfig:
+    """多窗口气压分析参数。
+
+    Attributes:
+        windows:            分析窗口列表 (秒)
+        short_drop_threshold:   短窗口(15min)气压急降阈值 (hPa)
+        short_spike_threshold:  短窗口(15min)气压急升阈值 (hPa)
+        volatility_threshold:   波动标准差阈值 (hPa)
+        short_drop_penalty:     短期急降扣分
+        short_spike_bonus:      短期急升加分
+        volatility_penalty:     高波动扣分
+    """
+
+    windows: Tuple[int, ...] = (900, 1800, 3600, 7200)  # 15min, 30min, 1h, 2h
+    short_drop_threshold: float = -1.5   # 15min 内降 1.5hPa 视为急降
+    short_spike_threshold: float = 1.5   # 15min 内升 1.5hPa 视为急升
+    volatility_threshold: float = 1.0    # 1h 内标准差 > 1.0 hPa 视为高波动
+    short_drop_penalty: int = 8
+    short_spike_bonus: int = 5
+    volatility_penalty: int = 5
+
+
+# ──────────────────────────────────────────────
+#  风向配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class WindDirectionConfig:
+    """风向 × 季节组合评分矩阵。
+
+    中国钓鱼谚语："东风不钓鱼，西风钓鱼勤"。
+    北风降温鱼下底，南风回暖促开口。
+
+    Attributes:
+        direction_modifiers:  风向 → 基础加减分
+        season_overrides:     (风向, 季节) → 覆盖分数（优先级高于基础分）
+    """
+
+    direction_modifiers: Dict[str, int] = field(default_factory=lambda: {
+        "N": -3,      # 北风：降温，鱼活性降低
+        "NE": -2,
+        "E": -5,      # 东风：最不利钓鱼的风向
+        "SE": 0,
+        "S": 3,       # 南风：回暖，促开口
+        "SW": 4,      # 西南风：最适宜
+        "W": 2,       # 西风
+        "NW": -1,     # 西北风：降温但氧气充足
+    })
+    season_overrides: Dict[Tuple[str, str], int] = field(default_factory=lambda: {
+        # (风向, 季节) → 覆盖分数
+        ("N", "winter"): -6,     # 冬季北风雪上加霜
+        ("S", "winter"): 6,      # 冬季南风回暖是强正面信号
+        ("N", "summer"): 2,      # 夏季北风降温反而好（解暑）
+        ("S", "summer"): -3,     # 夏季南风闷热，溶氧低
+        ("SW", "summer"): -2,    # 夏季西南风闷热
+    })
+
+
+# ──────────────────────────────────────────────
+#  湿度配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class HumidityConfig:
+    """湿度对鱼情的影响配置。
+
+    高湿度通常伴随低气压、闷热，水体溶氧差。
+
+    Attributes:
+        muggy_threshold:  闷热阈值（%），高于此值触发扣分
+        muggy_penalty:    闷热扣分
+        comfort_range:    舒适湿度范围
+    """
+
+    muggy_threshold: float = 85.0
+    muggy_penalty: int = 5
+    comfort_range: Tuple[float, float] = (40.0, 75.0)
+

@@ -46,19 +46,26 @@ class ApiData:
     """来自云端气象服务的补充数据。
 
     Attributes:
-        wind_speed:     风速（m/s），用于推算风力等级及增氧修正
-        altitude:       海拔（米），用于修正标准气压
-        weather_trend:  短临天气标签，枚举值示例：
-                        "sunny" / "cloudy" / "rainy" / "stormy" / "overcast"
+        wind_speed:      风速（m/s），用于推算风力等级及增氧修正
+        altitude:        海拔（米），用于修正标准气压
+        weather_trend:   短临天气标签，枚举值示例：
+                         "sunny" / "cloudy" / "rainy" / "stormy" / "overcast"
+        wind_direction:  风向，8 方位：N/NE/E/SE/S/SW/W/NW，空串表示未知
+        humidity:        相对湿度（%），0~100，0 表示未提供
     """
 
     wind_speed: float
     altitude: float
     weather_trend: str
+    wind_direction: str = ""     # 可选，向后兼容
+    humidity: float = 0.0        # 可选，向后兼容
 
     # 允许的天气标签白名单（可按需扩展）
     _VALID_TRENDS = frozenset(
         {"sunny", "cloudy", "rainy", "stormy", "overcast"}
+    )
+    _VALID_DIRECTIONS = frozenset(
+        {"", "N", "NE", "E", "SE", "S", "SW", "W", "NW"}
     )
 
     def __post_init__(self) -> None:
@@ -74,6 +81,15 @@ class ApiData:
             raise ValueError(
                 f"weather_trend 不在白名单中：{self.weather_trend}，"
                 f"允许值：{self._VALID_TRENDS}"
+            )
+        if self.wind_direction not in self._VALID_DIRECTIONS:
+            raise ValueError(
+                f"wind_direction 不在白名单中：{self.wind_direction}，"
+                f"允许值：{self._VALID_DIRECTIONS}"
+            )
+        if not (0.0 <= self.humidity <= 100.0):
+            raise ValueError(
+                f"humidity 超出 [0, 100] 范围：{self.humidity}"
             )
 
 
@@ -163,6 +179,8 @@ class PredictionResult:
         confidence:          置信度（0-100），随采集时长递增
         time_period_advice:  时段建议文案
         season_note:         季节备注
+        solunar_info:        月相信息 {phase, illumination, is_peak_day}
+        tactical_advice:     结构化战术建议 {depth, layer, bait, rhythm, risk}
     """
 
     do_trend: float
@@ -172,6 +190,8 @@ class PredictionResult:
     confidence: int = 30
     time_period_advice: str = ""
     season_note: str = ""
+    solunar_info: dict = field(default_factory=dict)
+    tactical_advice: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not (0 <= self.bite_index <= 100):

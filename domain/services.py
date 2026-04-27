@@ -1,5 +1,4 @@
-"""
-领域服务层 (Domain Services)
+"""领域服务层 (Domain Services)
 ============================
 封装跨值对象的纯业务逻辑。高内聚、低耦合。
 纯面向对象，不依赖任何数据库或外部框架，方便被 Django Service 层直接调用。
@@ -14,9 +13,12 @@ from .value_objects import (
 from .constants import (
     DissolvedOxygenConfig, FishSpeciesProfile, BiteIndexConfig,
     TimePeriodConfig, SeasonConfig, ProgressiveStageConfig, ThermoclineConfig,
+    SolunarConfig, PressureAnalysisConfig, WindDirectionConfig, HumidityConfig,
+    interpolate_do_saturation,
 )
 from .tags import TacticalTag
 from .analyzers import TimeSeriesAnalyzer
+from .solunar import calc_moon_phase, calc_solunar_rating
 from .time_utils import (
     get_time_period, get_season, get_report_stage,
     get_confidence, get_stage_features, build_session_context,
@@ -40,6 +42,10 @@ class FishingPredictionService:
         season_config: SeasonConfig = None,
         stage_config: ProgressiveStageConfig = None,
         thermocline_config: ThermoclineConfig = None,
+        solunar_config: SolunarConfig = None,
+        pressure_analysis_config: PressureAnalysisConfig = None,
+        wind_direction_config: WindDirectionConfig = None,
+        humidity_config: HumidityConfig = None,
     ):
         """支持依赖注入配置，方便针对不同水域/鱼种动态实例化。"""
         self.do_config = do_config or DissolvedOxygenConfig()
@@ -49,6 +55,10 @@ class FishingPredictionService:
         self.season_config = season_config or SeasonConfig()
         self.stage_config = stage_config or ProgressiveStageConfig()
         self.thermocline_config = thermocline_config or ThermoclineConfig()
+        self.solunar_config = solunar_config or SolunarConfig()
+        self.pressure_config = pressure_analysis_config or PressureAnalysisConfig()
+        self.wind_config = wind_direction_config or WindDirectionConfig()
+        self.humidity_config = humidity_config or HumidityConfig()
         self._analyzer = TimeSeriesAnalyzer()
 
     def predict(self, hardware: HardwareData, api: ApiData) -> PredictionResult:
@@ -96,20 +106,16 @@ class FishingPredictionService:
         )
 
     def _calculate_do(self, hardware: HardwareData, api: ApiData, tags: List[str]) -> float:
-        """虚拟溶解氧估算模块。
-        
-        公式：DO_est ≈ (P_local / scale) * (1 + k * Wind_api) / exp(α * T_water)
-        注意：此处对气压稍作缩放(除以100)，使结果回落到 mg/L 的常规量纲级别（如 4~10），
-        从而匹配常数类里面的阈值。
+        """虚拟溶解氧估算模块（查表插值法）。
+
+        基于 Benson & Krause 标准查表：
+          1. 根据水温查表得到标准气压下的饱和溶解氧
+          2. 乘以气压修正系数 (P_actual / P_standard)
+          3. 乘以风力增氧系数（微风促进气体交换，实际 DO 趋近饱和值）
         """
-        k = self.do_config.k
-        alpha = self.do_config.alpha
-        
-        # 将气压缩放到类似“标准大气压倍数*10”的级别，以贴近真实的溶氧数值 (mg/L)
-        p_scaled = hardware.p_local / 100.0  
-        
-        do_est = p_scaled * (1 + k * api.wind_speed) / math.exp(alpha * hardware.t_water)
-        return do_est
+        return self._calculate_do_from_values(
+            hardware.p_local, hardware.t_water, api, tags
+        )
 
     def _calc_temp_base_score(self, t_water: float, tags: List[str]) -> int:
         """根据水温落在目标鱼种的适宜区间计算基准分。"""
@@ -298,6 +304,7 @@ class FishingPredictionService:
             thermocline_modifier = self._calc_thermocline_modifier(latest, tags)
 
         # ── 9. 温度趋势分析 ──
+        temp_rate_modifier = 0
         if "temp_trend" in features and len(readings) >= 2:
             temp_field = {"bottom": "t_bottom", "mid": "t_mid", "top": "t_surface"}.get(
                 self.fish_profile.water_layer, "t_bottom"
@@ -310,8 +317,34 @@ class FishingPredictionService:
             else:
                 tags.append(TacticalTag.TREND_TEMP_STABLE.value)
 
-        # ── 10. 汇总评分 ──
-        final_score = (
+            # P0: 温度速率量化分析
+            temp_rate_modifier = self._calc_temp_rate_modifier(readings, tags)
+
+        # ── 10. 月相 (Solunar) 评分 ── [P0 新增]
+        solunar_modifier = self._calc_solunar_modifier(latest.timestamp, tags)
+        solunar_info = calc_solunar_rating(latest.timestamp)
+
+        # ── 11. 短期气压突变检测 ── [P0 新增]
+        short_pressure_modifier = self._calc_short_pressure_modifier(readings, tags)
+
+        # ── 12. 风向评分 ── [P1 新增]
+        wind_dir_modifier = self._calc_wind_direction_modifier(
+            api, session.season, tags
+        )
+
+        # ── 13. 湿度评分 ── [P1 新增]
+        humidity_modifier = self._calc_humidity_modifier(api, tags)
+
+        # ── 14. 三层水温空间分析 ── [P1 新增]
+        thermal_profile_modifier = 0
+        if "thermocline" in features and len(readings) >= 2:
+            thermal_profile_modifier = self._calc_thermal_profile_modifier(
+                readings, tags
+            )
+
+        # ── 15. 汇总评分（加权混合体系） ──
+        # 基础分 + 传统修正（加法）
+        additive_score = (
             base_score
             + pressure_modifier
             + do_modifier
@@ -319,19 +352,30 @@ class FishingPredictionService:
             + period_modifier
             + season_modifier
             + thermocline_modifier
+            + solunar_modifier
+            + short_pressure_modifier
+            + wind_dir_modifier
+            + humidity_modifier
+            + thermal_profile_modifier
+            + temp_rate_modifier
         )
-        final_score = max(0, min(100, int(final_score)))
+        final_score = max(0, min(100, int(additive_score)))
 
-        # ── 11. 综合评级 ──
+        # ── 16. 综合评级 ──
         self._add_rating_tag(final_score, tags)
 
-        # ── 12. 鱼情趋势判断（标准阶段以上） ──
+        # ── 17. 鱼情趋势判断（标准阶段以上） ──
         if "deep_analysis" in features:
             self._add_trend_tags(readings, tags)
 
-        # ── 13. 生成时段建议和季节备注 ──
+        # ── 18. 生成时段建议和季节备注 ──
         period_advice = self._generate_period_advice(session.time_period, tags)
         season_note = self._generate_season_note(session.season, tags)
+
+        # ── 19. 生成结构化战术建议 ── [P1 新增]
+        tactical_advice = self._generate_tactical_advice(
+            final_score, tags, session, latest
+        )
 
         return PredictionResult(
             do_trend=round(do_est, 2),
@@ -341,6 +385,8 @@ class FishingPredictionService:
             confidence=confidence,
             time_period_advice=period_advice,
             season_note=season_note,
+            solunar_info=solunar_info,
+            tactical_advice=tactical_advice,
         )
 
     # ================================================================
@@ -350,11 +396,24 @@ class FishingPredictionService:
     def _calculate_do_from_values(
         self, p_local: float, t_water: float, api: ApiData, tags: List[str]
     ) -> float:
-        """纯数值版溶氧估算（从时序提取后的值调用）。"""
-        k = self.do_config.k
-        alpha = self.do_config.alpha
-        p_scaled = p_local / 100.0
-        do_est = p_scaled * (1 + k * api.wind_speed) / math.exp(alpha * t_water)
+        """基于 Benson & Krause 查表的溶氧估算（替代原始指数衰减公式）。
+
+        计算步骤：
+          1. 查表插值得到标准气压下饱和 DO
+          2. 气压修正：DO_sat × (P_actual / 1013.25)
+          3. 风力增氧：微风促进水面气体交换，实际 DO 趋近或超过饱和值
+        """
+        # 1. 查表插值
+        do_sat_std = interpolate_do_saturation(t_water)
+
+        # 2. 气压修正
+        p_correction = p_local / 1013.25
+        do_sat = do_sat_std * p_correction
+
+        # 3. 风力增氧系数（微风促进气体交换，上限 15%）
+        wind_factor = min(1.0 + 0.02 * api.wind_speed, 1.15)
+        do_est = do_sat * wind_factor
+
         return do_est
 
     def _calc_time_period_modifier(self, time_period: str, tags: List[str]) -> int:
@@ -466,3 +525,193 @@ class FishingPredictionService:
         """生成季节铓鱼备注。"""
         mod = self.season_config.season_modifiers.get(season, {})
         return mod.get("advice", "")
+
+    # ================================================================
+    #  新增评分模块（P0/P1/P2）
+    # ================================================================
+
+    def _calc_solunar_modifier(self, timestamp: int, tags: List[str]) -> int:
+        """月相 (Solunar) 评分模块。"""
+        phase, _ = calc_moon_phase(timestamp)
+        cfg = self.solunar_config
+
+        # 月相标签
+        phase_tag_map = {
+            "new_moon": TacticalTag.SOLUNAR_NEW_MOON,
+            "full_moon": TacticalTag.SOLUNAR_FULL_MOON,
+            "first_quarter": TacticalTag.SOLUNAR_FIRST_QUARTER,
+            "last_quarter": TacticalTag.SOLUNAR_LAST_QUARTER,
+        }
+        if phase in phase_tag_map:
+            tags.append(phase_tag_map[phase].value)
+        elif "waxing" in phase:
+            tags.append(TacticalTag.SOLUNAR_WAXING.value)
+        elif "waning" in phase:
+            tags.append(TacticalTag.SOLUNAR_WANING.value)
+
+        return cfg.phase_modifiers.get(phase, 0)
+
+    def _calc_short_pressure_modifier(
+        self, readings: List[SensorReading], tags: List[str]
+    ) -> int:
+        """短窗口气压突变检测模块。
+
+        检查 15 分钟内的急速气压变化，补充 2 小时窗口无法捕获的瞬态事件。
+        """
+        if len(readings) < 2:
+            return 0
+
+        cfg = self.pressure_config
+        multi = self._analyzer.calc_pressure_multi_window(
+            readings, cfg.windows
+        )
+
+        modifier = 0
+
+        # 15 分钟短窗口急降
+        d15 = multi.get("delta_15min", 0.0)
+        if d15 <= cfg.short_drop_threshold:
+            tags.append(TacticalTag.PRESSURE_SHORT_DROP.value)
+            modifier -= cfg.short_drop_penalty
+        elif d15 >= cfg.short_spike_threshold:
+            tags.append(TacticalTag.PRESSURE_SHORT_SPIKE.value)
+            modifier += cfg.short_spike_bonus
+
+        # 波动率
+        vol = multi.get("volatility_1h", 0.0)
+        if vol > cfg.volatility_threshold:
+            tags.append(TacticalTag.PRESSURE_HIGH_VOLATILITY.value)
+            modifier -= cfg.volatility_penalty
+
+        return modifier
+
+    def _calc_temp_rate_modifier(
+        self, readings: List[SensorReading], tags: List[str]
+    ) -> int:
+        """温度变化速率分析模块。
+
+        快速水温变化（>1.5℃/h）通常触发鱼类应激反应。
+        """
+        if len(readings) < 2:
+            return 0
+
+        temp_field = {"bottom": "t_bottom", "mid": "t_mid", "top": "t_surface"}.get(
+            self.fish_profile.water_layer, "t_bottom"
+        )
+        detail = self._analyzer.calc_temp_trend_detail(readings, field=temp_field)
+
+        if detail["is_rapid"]:
+            if detail["rate_per_hour"] > 0:
+                tags.append(TacticalTag.TEMP_RAPID_RISE.value)
+            else:
+                tags.append(TacticalTag.TEMP_RAPID_DROP.value)
+            return -5  # 快速变化通常对鱼口不利（应激）
+
+        return 0
+
+    def _calc_wind_direction_modifier(
+        self, api: ApiData, season: str, tags: List[str]
+    ) -> int:
+        """风向评分模块（含季节交叉效应）。"""
+        if not api.wind_direction:
+            return 0
+
+        cfg = self.wind_config
+        direction = api.wind_direction.upper()
+
+        # 优先检查季节覆盖
+        override_key = (direction, season)
+        if override_key in cfg.season_overrides:
+            score = cfg.season_overrides[override_key]
+        else:
+            score = cfg.direction_modifiers.get(direction, 0)
+
+        if score >= 2:
+            tags.append(TacticalTag.STATUS_WIND_DIRECTION_FAVORABLE.value)
+        elif score <= -3:
+            tags.append(TacticalTag.STATUS_WIND_DIRECTION_ADVERSE.value)
+
+        return score
+
+    def _calc_humidity_modifier(self, api: ApiData, tags: List[str]) -> int:
+        """湿度评分模块。高湿闷热扣分。"""
+        if api.humidity <= 0:
+            return 0  # 未提供湿度数据
+
+        cfg = self.humidity_config
+        if api.humidity >= cfg.muggy_threshold:
+            tags.append(TacticalTag.STATUS_HUMIDITY_MUGGY.value)
+            return -cfg.muggy_penalty
+        else:
+            tags.append(TacticalTag.STATUS_HUMIDITY_NORMAL.value)
+            return 0
+
+    def _calc_thermal_profile_modifier(
+        self, readings: List[SensorReading], tags: List[str]
+    ) -> int:
+        """三层水温空间分布分析模块。"""
+        if len(readings) < 2:
+            return 0
+
+        profile = self._analyzer.analyze_thermal_profile(readings)
+        modifier = 0
+
+        if profile["mixing_state"] == "well_mixed":
+            tags.append(TacticalTag.THERMAL_WELL_MIXED.value)
+            modifier += 3  # 水体混合良好，溶氧均匀，加分
+        elif profile["mixing_state"] == "strongly_stratified":
+            modifier -= 3  # 强分层可能底层缺氧
+
+        if profile["layers_diverging"]:
+            tags.append(TacticalTag.THERMAL_LAYERS_DIVERGING.value)
+            modifier -= 2  # 各层趋势分化，鱼情不稳定
+
+        return modifier
+
+    def _generate_tactical_advice(
+        self, result_score: int, tags: List[str],
+        session: SessionContext, latest: SensorReading = None,
+    ) -> dict:
+        """生成结构化战术建议。"""
+        advice = {}
+
+        # 水层建议
+        if TacticalTag.TACTIC_FISH_SUSPENDED.value in tags:
+            advice["layer"] = "钓离底或半水（鱼因缺氧上浮）"
+        elif TacticalTag.TACTIC_FISH_MID.value in tags:
+            advice["layer"] = "钓中层，打行程搜索鱼层"
+        elif TacticalTag.TACTIC_FISH_TOP.value in tags:
+            advice["layer"] = "钓浮或打水皮"
+        else:
+            advice["layer"] = "钓底"
+
+        # 用饵建议
+        if TacticalTag.STATUS_TEMP_EXTREME_COLD.value in tags:
+            advice["bait"] = "重腥味饵料或活饵（蚯蚓/红虫），促低温开口"
+        elif TacticalTag.STATUS_TEMP_EXTREME_HOT.value in tags:
+            advice["bait"] = "清淡型饵料，减少雾化"
+        else:
+            advice["bait"] = "腥香均衡型商品饵"
+
+        # 节奏建议
+        if result_score >= 80:
+            advice["rhythm"] = "高频抛竿，积极逗钓"
+        elif result_score >= 50:
+            advice["rhythm"] = "正常节奏，耐心守候"
+        else:
+            advice["rhythm"] = "放慢节奏，守钓为主"
+
+        # 风险提示
+        risks = []
+        if TacticalTag.PRESSURE_SHORT_DROP.value in tags:
+            risks.append("气压短期急降中，鱼口可能随时变差")
+        if TacticalTag.PRESSURE_HIGH_VOLATILITY.value in tags:
+            risks.append("气压波动剧烈，鱼情不稳定")
+        if TacticalTag.STATUS_HUMIDITY_MUGGY.value in tags:
+            risks.append("高湿闷热，水体溶氧可能偏低")
+        if TacticalTag.TEMP_RAPID_DROP.value in tags:
+            risks.append("水温正在快速下降，鱼类可能应激停口")
+        advice["risk"] = "；".join(risks) if risks else "当前无明显风险"
+
+        return advice
+
