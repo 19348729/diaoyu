@@ -20,13 +20,13 @@ timeout = 30           # Worker 响应超时（秒）
 graceful_timeout = 10  # 优雅关闭等待时间
 keepalive = 5          # Keep-Alive 超时
 
-# ── 日志 ──
-accesslog = "/home/fishapp/diaoyu/logs/access.log"
-errorlog = "/home/fishapp/diaoyu/logs/error.log"
+# ── 日志（使用相对路径，相对于 WorkingDirectory） ──
+accesslog = "logs/access.log"
+errorlog = "logs/error.log"
 loglevel = "info"
 
 # ── 进程管理 ──
-pidfile = "/home/fishapp/diaoyu/gunicorn.pid"
+pidfile = "gunicorn.pid"
 daemon = False  # 由 systemd 管理，不启用守护模式
 
 # ── 性能调优 ──

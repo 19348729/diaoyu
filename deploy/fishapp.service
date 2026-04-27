@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=fishapp
 Group=fishapp
-WorkingDirectory=/home/fishapp/diaoyu
+WorkingDirectory=/mnt/diaoyu
 Environment="PATH=/usr/local/bin:/usr/bin:/bin"
 ExecStart=/usr/local/bin/gunicorn server:app -c gunicorn.conf.py
 ExecReload=/bin/kill -HUP $MAINPID
@@ -17,7 +17,7 @@ RestartSec=5
 PrivateTmp=true
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/home/fishapp/diaoyu/logs
+ReadWritePaths=/mnt/diaoyu/logs
 
 # 资源限制
 LimitNOFILE=65535
