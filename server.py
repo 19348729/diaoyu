@@ -17,6 +17,7 @@ from domain.value_objects import (
 )
 from domain.services import FishingPredictionService
 from domain.constants import FISH_PROFILES
+from domain.weather import QWeatherService
 
 
 # ── FastAPI 实例 ──────────────────────────────
@@ -53,17 +54,17 @@ class SensorDataIn(BaseModel):
 
 class PredictRequest(BaseModel):
     """预测请求"""
-    fish_type: str = Field("鲫鱼", description="目标鱼种名称")
+    fish_type: str = Field("auto", description="目标鱼种名称，传 'auto' 则全鱼种测算并推荐")
     sensors: List[SensorDataIn] = Field(..., description="传感器时序数据（按时间升序）", min_length=1)
-    wind_speed: float = Field(0.0, ge=0, description="风速 m/s")
+    lat: float = Field(0.0, description="纬度")
+    lng: float = Field(0.0, description="经度")
     altitude: float = Field(0.0, ge=0, description="海拔 米")
-    weather_trend: str = Field("sunny", description="天气: sunny/cloudy/rainy/stormy/overcast")
-    wind_direction: str = Field("", description="风向: N/NE/E/SE/S/SW/W/NW 或空串")
-    humidity: float = Field(0.0, ge=0, le=100, description="相对湿度 %")
 
 
 class PredictResponse(BaseModel):
     """预测响应"""
+    recommended_fish: str = Field(..., description="系统推荐的最佳作钓鱼种")
+    recommended_fishes: List[Dict] = Field(default_factory=list, description="全鱼种得分排行榜")
     bite_index: int = Field(..., description="开口评分 0-100")
     do_trend: float = Field(..., description="虚拟溶解氧 mg/L")
     report_stage: str = Field(..., description="报告阶段: instant/brief/standard/full")
@@ -78,9 +79,9 @@ class PredictResponse(BaseModel):
 class RealtimeSensorRequest(BaseModel):
     """实时数据上报（单条）"""
     sensor: SensorDataIn
-    wind_speed: float = 0.0
+    lat: float = 0.0
+    lng: float = 0.0
     altitude: float = 0.0
-    weather_trend: str = "sunny"
 
 
 class BatchSensorRequest(BaseModel):
@@ -127,25 +128,20 @@ async def predict(req: PredictRequest):
     - `standard` (≥10分钟): 启用温度趋势 + 温跃层分析
     - `full` (≥30分钟): 全量深度分析
     """
-    # 校验鱼种
-    if req.fish_type not in FISH_PROFILES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"不支持的鱼种: {req.fish_type}，"
-                   f"可选: {', '.join(FISH_PROFILES.keys())}",
-        )
+    # 校验并决定要计算的鱼种列表
+    if req.fish_type == "auto":
+        target_fishes = list(FISH_PROFILES.keys())
+    else:
+        if req.fish_type not in FISH_PROFILES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的鱼种: {req.fish_type}，可选: {', '.join(FISH_PROFILES.keys())}",
+            )
+        target_fishes = [req.fish_type]
 
-    # 构建领域对象
-    fish_profile = FISH_PROFILES[req.fish_type]
-    service = FishingPredictionService(fish_profile=fish_profile)
-
-    api_data = ApiData(
-        wind_speed=req.wind_speed,
-        altitude=req.altitude,
-        weather_trend=req.weather_trend,
-        wind_direction=req.wind_direction,
-        humidity=req.humidity,
-    )
+    # 获取实时天气数据
+    weather_service = QWeatherService()
+    api_data = await weather_service.get_realtime_weather(req.lat, req.lng, req.altitude)
 
     # 构建时序数据
     readings = tuple(
@@ -160,19 +156,38 @@ async def predict(req: PredictRequest):
     )
     series = SensorTimeSeries(readings=readings)
 
-    # 执行预测
-    result = service.predict_from_series(series=series, api=api_data)
+    # 对目标鱼种循环跑分
+    fish_results = []
+    for f_name in target_fishes:
+        profile = FISH_PROFILES[f_name]
+        service = FishingPredictionService(fish_profile=profile)
+        res = service.predict_from_series(series=series, api=api_data)
+        fish_results.append({
+            "name": f_name,
+            "result": res,
+            "bite_index": res.bite_index
+        })
+
+    # 按照 bite_index 降序排列
+    fish_results.sort(key=lambda x: x["bite_index"], reverse=True)
+    best_match = fish_results[0]
+    best_result = best_match["result"]
+    
+    # 提取推荐榜单
+    recommended_fishes = [{"name": item["name"], "score": item["bite_index"]} for item in fish_results]
 
     return PredictResponse(
-        bite_index=result.bite_index,
-        do_trend=result.do_trend,
-        report_stage=result.report_stage,
-        confidence=result.confidence,
-        tactical_tags=result.tactical_tags,
-        time_period_advice=result.time_period_advice or None,
-        season_note=result.season_note or None,
-        solunar_info=result.solunar_info,
-        tactical_advice=result.tactical_advice,
+        recommended_fish=best_match["name"],
+        recommended_fishes=recommended_fishes,
+        bite_index=best_result.bite_index,
+        do_trend=best_result.do_trend,
+        report_stage=best_result.report_stage,
+        confidence=best_result.confidence,
+        tactical_tags=best_result.tactical_tags,
+        time_period_advice=best_result.time_period_advice or None,
+        season_note=best_result.season_note or None,
+        solunar_info=best_result.solunar_info,
+        tactical_advice=best_result.tactical_advice,
     )
 
 

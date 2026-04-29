@@ -76,12 +76,27 @@ function reportHistoryBatch(records, location = null) {
 
 /**
  * 获取预测结果
+ * @param {Array} sensors - 传感器历史数据数组
+ * @param {number} lat - 纬度
+ * @param {number} lng - 经度
  * @param {string} fishType - 目标鱼种名称
  * @returns {Promise<object>} 预测结果
  */
-function getPrediction(fishType = '鲫鱼') {
+function getPrediction(sensors, lat, lng, fishType = 'auto') {
+  const formattedSensors = sensors.map(s => ({
+    timestamp: s.timestamp,
+    t_bottom: s.tBottom !== undefined ? s.tBottom : null,
+    t_mid: s.tMid !== undefined ? s.tMid : null,
+    t_surface: s.tSurface !== undefined ? s.tSurface : null,
+    p_local: s.pLocal !== undefined ? s.pLocal : null
+  }));
+
   return request('/predict', 'POST', {
-    fishType,
+    fish_type: fishType,
+    sensors: formattedSensors,
+    lat: lat,
+    lng: lng,
+    altitude: 0
   });
 }
 

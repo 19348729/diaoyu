@@ -67,6 +67,45 @@
     </view>
   </view>
 
+  <!-- 调试测试区 -->
+  <view class="card" style="margin-top: 20rpx; border: 1px dashed #1a73e8;">
+    <text class="card-title" style="color: #1a73e8;">⚙️ 调试工具 (无需蓝牙)</text>
+    <button class="btn-primary" bindtap="onTapMockData" style="margin-bottom: 20rpx; background-color: #f0f0f0; color: #333;">生成 3 条模拟数据</button>
+    <button class="btn-primary" bindtap="onTapManualPredict" disabled="{{predicting}}">
+      {{predicting ? '请求后端中...' : '向后端发送预测请求'}}
+    </button>
+  </view>
+
+  <!-- 预测结果展示 -->
+  <view class="card" wx:if="{{biteIndex !== '--'}}">
+    <view class="card-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+      <text>🎯 最适宜作钓: {{recommendedFish}}</text>
+      <text style="font-size: 24rpx; color: #666; font-weight: normal;">(系统智能推荐)</text>
+    </view>
+    
+    <view style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20rpx; margin-top: 10rpx;">
+      <text style="font-size: 28rpx; color: #666;">开口指数:</text>
+      <text style="font-size: 48rpx; font-weight: bold; color: #e53935;">{{biteIndex}}</text>
+    </view>
+    
+    <view style="display: flex; flex-wrap: wrap; gap: 10rpx; margin-bottom: 30rpx;">
+      <text wx:for="{{tacticalTags}}" wx:key="*this" style="background: #e3f2fd; color: #1565c0; padding: 6rpx 16rpx; border-radius: 8rpx; font-size: 24rpx;">{{item}}</text>
+    </view>
+
+    <!-- 鱼种开口排行榜 -->
+    <view style="border-top: 1px dashed #eee; padding-top: 20rpx;">
+      <text style="font-size: 26rpx; color: #999; display: block; margin-bottom: 15rpx;">🏆 全鱼种适宜度排行榜</text>
+      <view style="display: flex; flex-direction: column; gap: 10rpx;">
+        <view wx:for="{{fishRanking}}" wx:key="name" style="display: flex; justify-content: space-between; align-items: center; background: #f9f9f9; padding: 10rpx 20rpx; border-radius: 8rpx;">
+          <view style="display: flex; align-items: center; gap: 10rpx;">
+            <text style="font-size: 28rpx; color: {{index === 0 ? '#e53935' : '#333'}}; font-weight: {{index === 0 ? 'bold' : 'normal'}};">{{index + 1}}. {{item.name}}</text>
+          </view>
+          <text style="font-size: 28rpx; font-weight: bold; color: {{item.score >= 60 ? (item.score >= 80 ? '#e53935' : '#fb8c00') : '#757575'}};">{{item.score}} 分</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
   <!-- 更新时间 -->
   <view class="update-time">
     <text>最后更新: {{updateTime}}</text>

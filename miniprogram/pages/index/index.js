@@ -4,6 +4,8 @@
  */
 const { getBLEManager } = require('../../utils/ble');
 const protocol = require('../../utils/protocol');
+const api = require('../../utils/api');
+const { translateTags } = require('../../utils/tagMap');
 
 Page({
   data: {
@@ -29,6 +31,14 @@ Page({
     // 数据接收计数
     realtimeCount: 0,
     historyCount: 0,
+
+    // 预测相关
+    predicting: false,
+    lastPredictTime: 0,
+    biteIndex: '--',
+    tacticalTags: [],
+    recommendedFish: '',
+    fishRanking: [],
   },
 
   onLoad() {
@@ -126,6 +136,7 @@ Page({
       case protocol.CMD.REALTIME_DATA:
         this._updateRealtimeDisplay(data);
         this.setData({ realtimeCount: this.data.realtimeCount + 1 });
+        this._tryTriggerPrediction();
         break;
 
       case protocol.CMD.HISTORY_DATA:
@@ -134,6 +145,7 @@ Page({
         if (data.records && data.records.length > 0) {
           this._updateRealtimeDisplay(data.records[data.records.length - 1]);
         }
+        this._tryTriggerPrediction();
         break;
 
       case protocol.CMD.STATUS_REPLY:
@@ -183,4 +195,91 @@ Page({
   _pad(n) {
     return n < 10 ? '0' + n : '' + n;
   },
+
+  /**
+   * 尝试触发后端预测请求（带 5 分钟防抖限流）
+   */
+  _tryTriggerPrediction() {
+    const now = Date.now();
+    // 5 分钟 = 300,000 毫秒
+    if (now - this.data.lastPredictTime < 300000 || this.data.predicting) {
+      return;
+    }
+
+    const app = getApp();
+    const historyData = app.globalData.historyData || [];
+    if (historyData.length === 0 && !app.globalData.latestData.timestamp) {
+      return; // 暂无任何数据
+    }
+
+    this.setData({ predicting: true });
+
+    // 获取位置
+    wx.getLocation({
+      type: 'wgs84',
+      success: async (res) => {
+        try {
+          const sensors = historyData.length > 0 ? historyData : [app.globalData.latestData];
+          const prediction = await api.getPrediction(sensors, res.latitude, res.longitude);
+          
+          this.setData({
+            lastPredictTime: now,
+            biteIndex: prediction.bite_index !== undefined ? prediction.bite_index : '--',
+            tacticalTags: translateTags(prediction.tactical_tags || []),
+            recommendedFish: prediction.recommended_fish || '',
+            fishRanking: prediction.recommended_fishes || [],
+            predicting: false
+          });
+        } catch (e) {
+          console.error('[Index] 预测请求失败:', e);
+          this.setData({ predicting: false });
+        }
+      },
+      fail: (err) => {
+        console.error('[Index] 获取位置失败，无法预测:', err);
+        this.setData({ predicting: false });
+        wx.showToast({ title: '定位失败', icon: 'error' });
+      }
+    });
+  },
+
+  /**
+   * 调试：生成 3 条模拟数据
+   */
+  onTapMockData() {
+    const app = getApp();
+    const now = Math.floor(Date.now() / 1000);
+    const mockRecords = [
+      { timestamp: now - 10, tBottom: 20.1, tMid: 21.0, tSurface: 22.5, pLocal: 1012.3 },
+      { timestamp: now - 5, tBottom: 20.2, tMid: 21.1, tSurface: 22.4, pLocal: 1012.5 },
+      { timestamp: now, tBottom: 20.1, tMid: 21.2, tSurface: 22.6, pLocal: 1012.4 }
+    ];
+    
+    // 更新全局状态
+    app.globalData.historyData = mockRecords;
+    app.globalData.latestData = mockRecords[2];
+
+    // 更新页面展示
+    const latest = mockRecords[2];
+    this.setData({
+      tBottom: latest.tBottom.toFixed(1),
+      tMid: latest.tMid.toFixed(1),
+      tSurface: latest.tSurface.toFixed(1),
+      tDiff: (latest.tSurface - latest.tBottom).toFixed(1),
+      pLocal: latest.pLocal.toFixed(1),
+      updateTime: new Date(latest.timestamp * 1000).toLocaleTimeString(),
+      historyCount: this.data.historyCount + 3
+    });
+
+    wx.showToast({ title: '模拟数据已生成', icon: 'success' });
+  },
+
+  /**
+   * 调试：无视时间限制，强制触发一次后端预测
+   */
+  onTapManualPredict() {
+    // 强制把最后预测时间归零，绕过防抖检查
+    this.setData({ lastPredictTime: 0 });
+    this._tryTriggerPrediction();
+  }
 });

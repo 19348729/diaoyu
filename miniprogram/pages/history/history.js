@@ -106,13 +106,21 @@ Page({
     // 计算持续时间
     let duration = '--';
     if (records.length >= 2) {
-      const firstTs = records[0].timestamp;
-      const lastTs = records[records.length - 1].timestamp;
-      const diffMin = Math.round((lastTs - firstTs) / 60);
-      if (diffMin >= 60) {
-        duration = `${Math.floor(diffMin / 60)}小时${diffMin % 60}分钟`;
-      } else {
-        duration = `${diffMin}分钟`;
+      // 过滤掉未校准的相对时间戳（小于 2000-01-01 的都视为无效）
+      const validRecords = records.filter(r => r.timestamp > 946656000);
+      
+      if (validRecords.length >= 2) {
+        const firstTs = validRecords[0].timestamp;
+        const lastTs = validRecords[validRecords.length - 1].timestamp;
+        const diffMin = Math.round((lastTs - firstTs) / 60);
+        if (diffMin >= 60) {
+          duration = `${Math.floor(diffMin / 60)}小时${diffMin % 60}分钟`;
+        } else {
+          duration = `${diffMin}分钟`;
+        }
+      } else if (records.length > 0) {
+        // 如果只有相对时间，或者数据量太少，简单显示采集点数
+        duration = `已采集${records.length}组数据`;
       }
     }
 
