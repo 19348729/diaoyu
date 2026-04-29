@@ -1,0 +1,81 @@
+<view class="container">
+  
+  <!-- 加载中状态 -->
+  <view class="loading-state" wx:if="{{loading}}">
+    <text>加载历史日志中...</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:elif="{{logs.length === 0}}">
+    <text class="empty-icon">🎣</text>
+    <text class="empty-text">暂无作钓日志</text>
+    <text class="empty-subtext">前往“实时监测”发起预测，您的专属日志将自动记录在这里。</text>
+  </view>
+
+  <!-- 日志列表 -->
+  <scroll-view wx:else scroll-y class="logs-scroll">
+    <view class="log-card" wx:for="{{logs}}" wx:key="id">
+      
+      <!-- 卡片头部：时间与得分 -->
+      <view class="log-header">
+        <text class="log-time">📅 {{item.created_at}}</text>
+        <view class="log-score {{item.bite_index >= 80 ? 'high' : (item.bite_index >= 60 ? 'mid' : 'low')}}">
+          开口度: <text style="font-weight: bold; font-size: 32rpx;">{{item.bite_index}}</text>
+        </view>
+      </view>
+
+      <!-- 卡片主体：天气与决策 -->
+      <view class="log-body">
+        
+        <!-- 天气概览 -->
+        <view class="weather-row" wx:if="{{item.weather_snapshot}}">
+          <view class="weather-item">
+            <text class="w-label">天气</text>
+            <text class="w-value">{{item.weather_snapshot.text || '--'}}</text>
+          </view>
+          <view class="weather-item">
+            <text class="w-label">风况</text>
+            <text class="w-value">{{item.weather_snapshot.wind_dir || '--'}} {{item.weather_snapshot.wind_speed}}m/s</text>
+          </view>
+          <view class="weather-item">
+            <text class="w-label">湿度</text>
+            <text class="w-value">{{item.weather_snapshot.humidity || '--'}}%</text>
+          </view>
+        </view>
+
+        <!-- 系统推荐 -->
+        <view class="recommend-box">
+          <text class="r-title">🐟 最佳鱼种推荐</text>
+          <text class="r-fish">{{item.recommended_fish}}</text>
+        </view>
+
+        <!-- 战术建议 -->
+        <view class="tactics-box" wx:if="{{item.tactical_advice}}">
+          <view class="tactic-item">
+            <text class="t-label">🌊 水层:</text>
+            <text class="t-val">{{item.tactical_advice.layer || '常规'}}</text>
+          </view>
+          <view class="tactic-item">
+            <text class="t-label">🍤 用饵:</text>
+            <text class="t-val">{{item.tactical_advice.bait || '常规'}}</text>
+          </view>
+          <view class="tactic-item">
+            <text class="t-label">🎣 节奏:</text>
+            <text class="t-val">{{item.tactical_advice.rhythm || '常规'}}</text>
+          </view>
+        </view>
+        
+        <!-- 战术标签 -->
+        <view class="tags-row" wx:if="{{item.tags && item.tags.length > 0}}">
+          <text class="tag" wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
+        </view>
+
+      </view>
+    </view>
+    
+    <view class="bottom-tip">
+      <text>- 仅保留最近 20 条预测记录 -</text>
+    </view>
+  </scroll-view>
+
+</view>

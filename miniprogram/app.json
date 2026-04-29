@@ -2,6 +2,7 @@
   "pages": [
     "pages/index/index",
     "pages/history/history",
+    "pages/logs/logs",
     "pages/privacy/privacy"
   ],
   "window": {
@@ -24,6 +25,10 @@
       {
         "pagePath": "pages/history/history",
         "text": "趋势分析"
+      },
+      {
+        "pagePath": "pages/logs/logs",
+        "text": "作钓日志"
       }
     ]
   },

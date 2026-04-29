@@ -310,6 +310,39 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
     }
 
 
+@app.get("/api/history/logs", tags=["用户"])
+async def get_history_logs(
+    limit: int = 20,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取用户的作钓预测历史记录"""
+    if not x_openid:
+        raise HTTPException(status_code=401, detail="未提供用户标识")
+        
+    records = db.query(PredictionHistory).filter(
+        PredictionHistory.openid == x_openid
+    ).order_by(PredictionHistory.created_at.desc()).limit(limit).all()
+    
+    return {
+        "status": "ok",
+        "data": [
+            {
+                "id": r.id,
+                "created_at": r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else None,
+                "lat": r.lat,
+                "lng": r.lng,
+                "recommended_fish": r.recommended_fish,
+                "bite_index": r.bite_index,
+                "weather_snapshot": r.weather_snapshot,
+                "tactical_advice": r.tactical_advice,
+                "tags": r.tags,
+            }
+            for r in records
+        ]
+    }
+
+
 # ── 开发模式入口 ──────────────────────────────
 if __name__ == "__main__":
     import uvicorn

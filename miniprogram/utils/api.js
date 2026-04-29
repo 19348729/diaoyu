@@ -112,12 +112,12 @@ function getPredictionReport(fishType = '鲫鱼') {
 }
 
 /**
- * 获取用户的钓鱼会话历史
+ * 获取用户的智能作钓预测日志
  * @param {number} limit - 返回条数
  * @returns {Promise<object>}
  */
-function getSessionHistory(limit = 10) {
-  return request(`/sessions?limit=${limit}`, 'GET');
+function getPredictionLogs(limit = 20) {
+  return request(`/history/logs?limit=${limit}`, 'GET');
 }
 
 module.exports = {
@@ -125,5 +125,5 @@ module.exports = {
   reportHistoryBatch,
   getPrediction,
   getPredictionReport,
-  getSessionHistory,
+  getPredictionLogs,
 };

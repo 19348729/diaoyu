@@ -1,0 +1,171 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f5f7fa;
+}
+
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 0 40rpx;
+}
+
+.empty-icon {
+  font-size: 100rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  font-size: 36rpx;
+  color: #333;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+}
+
+.empty-subtext {
+  font-size: 28rpx;
+  color: #888;
+  text-align: center;
+}
+
+.logs-scroll {
+  flex: 1;
+  padding: 20rpx;
+  box-sizing: border-box;
+}
+
+.log-card {
+  background: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.04);
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed #eee;
+  padding-bottom: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.log-time {
+  font-size: 26rpx;
+  color: #666;
+  font-weight: 500;
+}
+
+.log-score {
+  font-size: 24rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 30rpx;
+  color: #fff;
+}
+.log-score.high { background-color: #f44336; }
+.log-score.mid { background-color: #ff9800; }
+.log-score.low { background-color: #4caf50; }
+
+.log-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.weather-row {
+  display: flex;
+  justify-content: space-between;
+  background: #f8f9fa;
+  padding: 12rpx 20rpx;
+  border-radius: 8rpx;
+}
+
+.weather-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.w-label {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.w-value {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 500;
+  margin-top: 4rpx;
+}
+
+.recommend-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.r-title {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: bold;
+}
+
+.r-fish {
+  font-size: 30rpx;
+  color: #1a73e8;
+  font-weight: bold;
+}
+
+.tactics-box {
+  background: #fff8e1;
+  border: 1px solid #ffecb3;
+  border-radius: 8rpx;
+  padding: 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.tactic-item {
+  display: flex;
+}
+
+.t-label {
+  font-size: 24rpx;
+  color: #f57f17;
+  font-weight: bold;
+  width: 90rpx;
+}
+
+.t-val {
+  font-size: 24rpx;
+  color: #424242;
+  flex: 1;
+}
+
+.tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 8rpx;
+}
+
+.tag {
+  background: #e3f2fd;
+  color: #1565c0;
+  font-size: 22rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+}
+
+.bottom-tip {
+  text-align: center;
+  padding: 20rpx 0;
+  color: #ccc;
+  font-size: 24rpx;
+}
