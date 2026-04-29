@@ -1,0 +1,37 @@
+<view class="container">
+  <view class="header">
+    <text class="title">钓鱼预测小程序隐私保护指引</text>
+    <text class="date">更新日期：2026年04月29日</text>
+  </view>
+
+  <scroll-view scroll-y="true" class="content-box">
+    <view class="section">
+      <text class="p">欢迎您使用“钓鱼预测”小程序（以下简称“本程序”）。我们深知个人隐私的重要性，在此向您说明我们在您使用本程序期间收集、使用和保护您个人信息的具体规则。</text>
+    </view>
+
+    <view class="section">
+      <text class="h2">一、 我们如何收集和使用您的信息</text>
+      <text class="p">为了向您提供精准的钓鱼条件预测服务，在您使用本程序的过程中，我们会收集以下信息：</text>
+      <text class="p"><text class="bold">1. 蓝牙连接信息：</text>本程序需要连接您专属的 ESP32 传感器硬件。我们需要申请蓝牙（Bluetooth）权限，以便接收硬件测量的水底温度、表层水温及气压等现场气象数据。这部分数据将用于核心算法预测。</text>
+      <text class="p"><text class="bold">2. 位置信息（GPS）：</text>为了获取您钓点当前的“风向”、“风速”、“湿度”及“云量”等补充气象数据，我们需要向您申请地理位置权限。经纬度数据将发送至云端，并同步给“和风天气”接口以获取天气快照。</text>
+      <text class="p"><text class="bold">3. 微信 OpenID：</text>当您授权登录时，我们会收集您的微信 OpenID。它仅作为区分不同用户的唯一身份标识，用于在云端为您构建专属的“个人钓鱼水文历史记录”，以提供更加智能和连续的趋势预测。我们不会收集您的微信昵称、头像等其他无关信息。</text>
+    </view>
+
+    <view class="section">
+      <text class="h2">二、 我们如何保护您的信息</text>
+      <text class="p">1. 我们承诺，您的蓝牙上传数据及位置数据仅用于算法预测及构建您的专属钓鱼日志，<text class="bold">绝不会出售或泄露给任何第三方机构</text>用于商业推销。</text>
+      <text class="p">2. 我们采用 HTTPS 加密传输以及数据库防注入等标准安全措施来保护您的数据安全。</text>
+    </view>
+
+    <view class="section">
+      <text class="h2">三、 您的权利</text>
+      <text class="p">1. 您可以在微信中随时撤销对本程序的“地理位置”及“蓝牙”授权。撤销后，程序将无法连接硬件或获取精准天气，但这不影响您浏览历史数据。</text>
+      <text class="p">2. 如果您希望彻底删除您在云端的历史数据，您可以通过联系客服渠道要求注销并删除。</text>
+    </view>
+
+    <view class="section">
+      <text class="h2">四、 联系我们</text>
+      <text class="p">如果您对本隐私政策或个人信息保护有任何疑问或建议，请联系开发者获取支持。</text>
+    </view>
+  </scroll-view>
+</view>

@@ -33,6 +33,12 @@ App({
   onLaunch() {
     console.log('[App] 小程序启动');
 
+    // 先尝试从本地缓存恢复 openid
+    const cachedOpenid = wx.getStorageSync('openid');
+    if (cachedOpenid) {
+      this.globalData.openid = cachedOpenid;
+    }
+
     // 检查蓝牙权限
     this.checkBlePermission();
 
@@ -76,21 +82,23 @@ App({
       success: (res) => {
         if (res.code) {
           // 将 code 发送到后端换取 openid
-          // 实际部署时取消注释下方代码
-          /*
           wx.request({
             url: `${this.globalData.apiBaseUrl}/login`,
             method: 'POST',
             data: { code: res.code },
             success: (resp) => {
-              this.globalData.openid = resp.data.openid;
-              console.log('[App] 获取 openid 成功');
+              if (resp.data && resp.data.openid) {
+                this.globalData.openid = resp.data.openid;
+                wx.setStorageSync('openid', resp.data.openid);
+                console.log('[App] 获取 openid 成功:', resp.data.openid);
+              } else {
+                console.error('[App] 后端登录返回异常:', resp.data);
+              }
             },
             fail: (err) => {
               console.error('[App] 获取 openid 失败:', err);
             },
           });
-          */
           console.log('[App] 获取登录 code:', res.code);
         }
       },

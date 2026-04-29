@@ -8,9 +8,11 @@ FastAPI 应用入口 — AI 钓鱼预测 API 服务
 import time
 from typing import Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
+import uuid
 
 from domain.value_objects import (
     ApiData, SensorReading, SensorTimeSeries,
@@ -18,6 +20,11 @@ from domain.value_objects import (
 from domain.services import FishingPredictionService
 from domain.constants import FISH_PROFILES
 from domain.weather import QWeatherService
+from infrastructure.database import engine, Base, get_db
+from infrastructure.models import User, SensorRecord, PredictionHistory
+
+# 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
+Base.metadata.create_all(bind=engine)
 
 
 # ── FastAPI 实例 ──────────────────────────────
@@ -116,7 +123,11 @@ async def list_fish_types():
 
 
 @app.post("/api/predict", response_model=PredictResponse, tags=["预测"])
-async def predict(req: PredictRequest):
+async def predict(
+    req: PredictRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
     """
     🎯 钓鱼预测主接口
 
@@ -185,7 +196,7 @@ async def predict(req: PredictRequest):
         "humidity": api_data.humidity
     }
 
-    return PredictResponse(
+    response = PredictResponse(
         recommended_fish=best_match["name"],
         recommended_fishes=recommended_fishes,
         bite_index=best_result.bite_index,
@@ -196,18 +207,49 @@ async def predict(req: PredictRequest):
         time_period_advice=best_result.time_period_advice or None,
         season_note=best_result.season_note or None,
         weather_info=weather_info,
-        solunar_info=best_result.solunar_info,
         tactical_advice=best_result.tactical_advice,
     )
 
+    # 如果有登录态，异步或同步保存预测日志
+    if x_openid:
+        history = PredictionHistory(
+            openid=x_openid,
+            lat=req.lat,
+            lng=req.lng,
+            recommended_fish=best_match["name"],
+            bite_index=best_result.bite_index,
+            weather_snapshot=weather_info,
+            tactical_advice=best_result.tactical_advice,
+            tags=best_result.tactical_tags,
+            solunar_info=best_result.solunar_info
+        )
+        db.add(history)
+        db.commit()
+
+    return response
+
 
 @app.post("/api/sensor/realtime", tags=["数据上报"])
-async def upload_realtime(req: RealtimeSensorRequest):
-    """上报实时传感器数据（单条）
+async def upload_realtime(
+    req: RealtimeSensorRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """上报实时传感器数据（单条）"""
+    if x_openid:
+        record = SensorRecord(
+            openid=x_openid,
+            timestamp=req.sensor.timestamp,
+            t_bottom=req.sensor.t_bottom,
+            t_mid=req.sensor.t_mid,
+            t_surface=req.sensor.t_surface,
+            p_local=req.sensor.p_local,
+            lat=req.lat,
+            lng=req.lng
+        )
+        db.add(record)
+        db.commit()
 
-    小程序每收到一条 BLE 实时帧后调用此接口。
-    当前版本仅做 ACK，后续可接入存储层。
-    """
     return {
         "status": "ok",
         "received_at": int(time.time()),
@@ -216,12 +258,26 @@ async def upload_realtime(req: RealtimeSensorRequest):
 
 
 @app.post("/api/sensor/history", tags=["数据上报"])
-async def upload_history(req: BatchSensorRequest):
-    """批量上报历史传感器数据
+async def upload_history(
+    req: BatchSensorRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """批量上报历史传感器数据"""
+    if x_openid:
+        records = [
+            SensorRecord(
+                openid=x_openid,
+                timestamp=s.timestamp,
+                t_bottom=s.t_bottom,
+                t_mid=s.t_mid,
+                t_surface=s.t_surface,
+                p_local=s.p_local
+            ) for s in req.records
+        ]
+        db.add_all(records)
+        db.commit()
 
-    小程序收到 BLE 历史帧（CMD=0x03）后批量调用此接口。
-    当前版本仅做 ACK，后续可接入存储层。
-    """
     return {
         "status": "ok",
         "received_at": int(time.time()),
@@ -229,17 +285,28 @@ async def upload_history(req: BatchSensorRequest):
     }
 
 
-@app.post("/api/login", tags=["用户"])
-async def login(req: Dict):
-    """小程序登录（换取 openid）
+class LoginRequest(BaseModel):
+    code: str = Field(..., description="微信登录code")
 
-    目前仅做演示，返回固定 openid。
-    实际生产环境需调用微信 API: https://api.weixin.qq.com/sns/jscode2session
-    """
+
+@app.post("/api/login", tags=["用户"])
+async def login(req: LoginRequest, db: Session = Depends(get_db)):
+    """小程序登录（换取 openid）并记录"""
+    from sqlalchemy.sql import func
+    mock_openid = f"wx_{req.code[:8]}_{uuid.uuid4().hex[:8]}" if req.code != "test" else "test_openid_user_001"
+    
+    user = db.query(User).filter(User.openid == mock_openid).first()
+    if not user:
+        user = User(openid=mock_openid)
+        db.add(user)
+    else:
+        user.last_login = func.now()
+    
+    db.commit()
     return {
         "status": "ok",
-        "openid": "test_openid_user_001",
-        "message": "登录成功（演示模式）",
+        "openid": mock_openid,
+        "message": "登录成功",
     }
 
 
