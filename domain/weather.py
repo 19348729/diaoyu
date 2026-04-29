@@ -69,15 +69,15 @@ class QWeatherService:
         cache_key = self._get_cache_key(lat, lng)
         now = int(time.time())
         
+        import dataclasses
         # 1. 查缓存
         if cache_key in _WEATHER_CACHE:
             cached_item = _WEATHER_CACHE[cache_key]
             if now < cached_item["expire_at"]:
                 logger.debug(f"命中天气缓存: {cache_key}")
-                # 海拔可能会变，更新缓存数据的海拔
+                # 海拔可能会变，返回更新了海拔的新对象
                 data = cached_item["data"]
-                data.altitude = altitude
-                return data
+                return dataclasses.replace(data, altitude=altitude)
                 
         # 2. 调用 API
         location_str = f"{round(lng, 3)},{round(lat, 3)}" # 和风要求 lon,lat
