@@ -105,6 +105,30 @@
       <text wx:for="{{tacticalTags}}" wx:key="*this" style="background: #e3f2fd; color: #1565c0; padding: 6rpx 16rpx; border-radius: 8rpx; font-size: 24rpx;">{{item}}</text>
     </view>
 
+    <!-- 智能作钓策略展示 -->
+    <view wx:if="{{tacticalAdvice}}" style="background: #fff8e1; border: 1px solid #ffecb3; border-radius: 8rpx; padding: 20rpx; margin-bottom: 30rpx;">
+      <text style="font-size: 28rpx; color: #f57f17; font-weight: bold; display: block; margin-bottom: 15rpx;">💡 智能作钓策略</text>
+      
+      <view style="display: flex; flex-direction: column; gap: 12rpx;">
+        <view style="display: flex; align-items: flex-start;">
+          <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">🌊 建议水层:</text>
+          <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.layer}}</text>
+        </view>
+        <view style="display: flex; align-items: flex-start;">
+          <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">🍤 用饵建议:</text>
+          <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.bait}}</text>
+        </view>
+        <view style="display: flex; align-items: flex-start;">
+          <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">🎣 抛竿节奏:</text>
+          <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.rhythm}}</text>
+        </view>
+        <view style="display: flex; align-items: flex-start; margin-top: 5rpx; padding-top: 10rpx; border-top: 1px dashed #ffecb3;" wx:if="{{tacticalAdvice.risk}}">
+          <text style="font-size: 24rpx; color: #d32f2f; min-width: 120rpx; font-weight: bold;">⚠️ 风险提示:</text>
+          <text style="font-size: 24rpx; color: #d32f2f; flex: 1;">{{tacticalAdvice.risk}}</text>
+        </view>
+      </view>
+    </view>
+
     <!-- 鱼种开口排行榜 -->
     <view style="border-top: 1px dashed #eee; padding-top: 20rpx;">
       <text style="font-size: 26rpx; color: #999; display: block; margin-bottom: 15rpx;">🏆 全鱼种适宜度排行榜</text>

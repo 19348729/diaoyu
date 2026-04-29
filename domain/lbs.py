@@ -28,13 +28,9 @@ class TencentLBSService:
             "get_poi": 1,  # 是否返回周边POI
         }
         
-        headers = {
-            "Referer": "https://ks.gzbaoge.com/"
-        }
-        
         try:
             async with httpx.AsyncClient() as client:
-                resp = await client.get(cls.BASE_URL, params=params, headers=headers, timeout=5.0)
+                resp = await client.get(cls.BASE_URL, params=params, timeout=5.0)
                 
             if resp.status_code != 200:
                 logger.error(f"[LBS] HTTP {resp.status_code}")

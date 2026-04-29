@@ -40,6 +40,7 @@ Page({
     recommendedFish: '',
     fishRanking: [],
     weatherInfo: null,
+    tacticalAdvice: null,
   },
 
   onLoad() {
@@ -230,6 +231,7 @@ Page({
             recommendedFish: prediction.recommended_fish || '',
             fishRanking: prediction.recommended_fishes || [],
             weatherInfo: prediction.weather_info || null,
+            tacticalAdvice: prediction.tactical_advice || null,
             predicting: false
           });
         } catch (e) {
