@@ -79,14 +79,13 @@ class QWeatherService:
                 
         # 2. 调用 API
         location_str = f"{round(lng, 3)},{round(lat, 3)}" # 和风要求 lon,lat
-        params = {
-            "location": location_str,
-            "key": self.api_key
-        }
+        
+        # 直接拼接 URL，防止 httpx 默认将逗号编码为 %2C 导致某些服务商 403
+        url = f"{self.BASE_URL}?location={location_str}&key={self.api_key}"
         
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(self.BASE_URL, params=params)
+                response = await client.get(url)
                 response.raise_for_status()
                 res_data = response.json()
                 
