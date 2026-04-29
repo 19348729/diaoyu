@@ -15,7 +15,7 @@ CACHE_TTL_SECONDS = 300  # 5 分钟缓存
 class QWeatherService:
     """和风天气服务（实时天气）"""
     
-    BASE_URL = "https://devapi.qweather.com/v7/weather/now"
+    BASE_URL = "https://kx4jac59km.re.qweatherapi.com/v7/weather/now"
     
     def __init__(self, api_key: Optional[str] = None):
         # 优先从传入参数获取，或者环境变量获取，最后直接使用您写入的 Key
