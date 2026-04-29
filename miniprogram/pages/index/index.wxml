@@ -76,6 +76,19 @@
     </button>
   </view>
 
+  <!-- 天气情况展示 -->
+  <view class="card" wx:if="{{weatherInfo}}" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);">
+    <text class="card-title" style="color: #1565c0;">⛅ 实时天气 (基于GPS)</text>
+    <view style="display: flex; justify-content: space-between; margin-top: 15rpx; margin-bottom: 15rpx;">
+      <text style="font-size: 32rpx; color: #0d47a1; font-weight: bold;">{{weatherInfo.text}}</text>
+      <text style="font-size: 28rpx; color: #1565c0;">{{weatherInfo.wind_dir}}</text>
+    </view>
+    <view style="display: flex; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.5); padding-top: 15rpx;">
+      <text style="font-size: 26rpx; color: #1565c0;">风速: {{weatherInfo.wind_speed}} m/s</text>
+      <text style="font-size: 26rpx; color: #1565c0;">相对湿度: {{weatherInfo.humidity}}%</text>
+    </view>
+  </view>
+
   <!-- 预测结果展示 -->
   <view class="card" wx:if="{{biteIndex !== '--'}}">
     <view class="card-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">

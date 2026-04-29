@@ -72,6 +72,7 @@ class PredictResponse(BaseModel):
     tactical_tags: List[str] = Field(default_factory=list, description="战术标签列表")
     time_period_advice: Optional[str] = Field(None, description="时段建议")
     season_note: Optional[str] = Field(None, description="季节备注")
+    weather_info: Optional[Dict] = Field(default=None, description="实时天气数据汇总")
     solunar_info: Dict = Field(default_factory=dict, description="月相信息")
     tactical_advice: Dict = Field(default_factory=dict, description="结构化战术建议")
 
@@ -176,6 +177,14 @@ async def predict(req: PredictRequest):
     # 提取推荐榜单
     recommended_fishes = [{"name": item["name"], "score": item["bite_index"]} for item in fish_results]
 
+    # 提取用于前端展示的天气数据
+    weather_info = {
+        "text": api_data.original_text,
+        "wind_dir": api_data.original_wind_dir,
+        "wind_speed": api_data.wind_speed,
+        "humidity": api_data.humidity
+    }
+
     return PredictResponse(
         recommended_fish=best_match["name"],
         recommended_fishes=recommended_fishes,
@@ -186,6 +195,7 @@ async def predict(req: PredictRequest):
         tactical_tags=best_result.tactical_tags,
         time_period_advice=best_result.time_period_advice or None,
         season_note=best_result.season_note or None,
+        weather_info=weather_info,
         solunar_info=best_result.solunar_info,
         tactical_advice=best_result.tactical_advice,
     )

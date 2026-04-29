@@ -61,7 +61,9 @@ class QWeatherService:
                 altitude=altitude,
                 weather_trend="sunny",
                 wind_direction="",
-                humidity=50.0
+                humidity=50.0,
+                original_text="无",
+                original_wind_dir="无"
             )
 
         cache_key = self._get_cache_key(lat, lng)
@@ -105,7 +107,9 @@ class QWeatherService:
                         altitude=altitude,
                         weather_trend=weather_trend,
                         wind_direction=mapped_wind_dir,
-                        humidity=humidity
+                        humidity=humidity,
+                        original_text=text,
+                        original_wind_dir=wind_dir
                     )
                     
                     # 写入缓存
@@ -127,5 +131,7 @@ class QWeatherService:
             altitude=altitude,
             weather_trend="sunny",
             wind_direction="",
-            humidity=50.0
+            humidity=50.0,
+            original_text="晴(兜底)",
+            original_wind_dir="无持续风向"
         )

@@ -59,6 +59,8 @@ class ApiData:
     weather_trend: str
     wind_direction: str = ""     # 可选，向后兼容
     humidity: float = 0.0        # 可选，向后兼容
+    original_text: str = ""      # 原始天气描述文本（用于UI展示）
+    original_wind_dir: str = ""  # 原始风向描述文本（用于UI展示）
 
     # 允许的天气标签白名单（可按需扩展）
     _VALID_TRENDS = frozenset(
