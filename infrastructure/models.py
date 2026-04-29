@@ -30,6 +30,7 @@ class SensorRecord(Base):
     # 冗余的经纬度，便于后续做区域性热力图
     lat = Column(Float, nullable=True, comment="纬度")
     lng = Column(Float, nullable=True, comment="经度")
+    location_name = Column(String(128), nullable=True, comment="解析后的钓点名称")
 
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
 
@@ -46,6 +47,7 @@ class PredictionHistory(Base):
     
     lat = Column(Float, nullable=True, comment="请求发生纬度")
     lng = Column(Float, nullable=True, comment="请求发生经度")
+    location_name = Column(String(128), nullable=True, comment="解析后的钓点名称")
     
     recommended_fish = Column(String(32), nullable=True, comment="最高推荐鱼种")
     bite_index = Column(Integer, nullable=True, comment="开口指数得分")

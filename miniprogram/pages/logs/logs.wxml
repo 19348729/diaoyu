@@ -18,7 +18,10 @@
       
       <!-- 卡片头部：时间与得分 -->
       <view class="log-header">
-        <text class="log-time">📅 {{item.created_at}}</text>
+        <view class="header-left">
+          <text class="log-time">📅 {{item.created_at}}</text>
+          <text class="log-location" wx:if="{{item.location_name && item.location_name !== '未知位置'}}">📍 {{item.location_name}}</text>
+        </view>
         <view class="log-score {{item.bite_index >= 80 ? 'high' : (item.bite_index >= 60 ? 'mid' : 'low')}}">
           开口度: <text style="font-weight: bold; font-size: 32rpx;">{{item.bite_index}}</text>
         </view>

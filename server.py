@@ -20,6 +20,7 @@ from domain.value_objects import (
 from domain.services import FishingPredictionService
 from domain.constants import FISH_PROFILES
 from domain.weather import QWeatherService
+from domain.lbs import TencentLBSService
 from infrastructure.database import engine, Base, get_db
 from infrastructure.models import User, SensorRecord, PredictionHistory
 
@@ -151,9 +152,10 @@ async def predict(
             )
         target_fishes = [req.fish_type]
 
-    # 获取实时天气数据
+    # 获取实时天气数据与地名解析并列执行
     weather_service = QWeatherService()
     api_data = await weather_service.get_realtime_weather(req.lat, req.lng, req.altitude)
+    location_name = await TencentLBSService.reverse_geocode(req.lat, req.lng)
 
     # 构建时序数据
     readings = tuple(
@@ -216,6 +218,7 @@ async def predict(
             openid=x_openid,
             lat=req.lat,
             lng=req.lng,
+            location_name=location_name,
             recommended_fish=best_match["name"],
             bite_index=best_result.bite_index,
             weather_snapshot=weather_info,
@@ -332,6 +335,7 @@ async def get_history_logs(
                 "created_at": r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else None,
                 "lat": r.lat,
                 "lng": r.lng,
+                "location_name": r.location_name,
                 "recommended_fish": r.recommended_fish,
                 "bite_index": r.bite_index,
                 "weather_snapshot": r.weather_snapshot,

@@ -49,16 +49,28 @@
 .log-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   border-bottom: 1px dashed #eee;
   padding-bottom: 16rpx;
   margin-bottom: 16rpx;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
 }
 
 .log-time {
   font-size: 26rpx;
   color: #666;
   font-weight: 500;
+}
+
+.log-location {
+  font-size: 24rpx;
+  color: #1a73e8;
+  font-weight: bold;
 }
 
 .log-score {
