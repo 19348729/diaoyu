@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text, JSON
 from sqlalchemy.sql import func
+from datetime import datetime
 from .database import Base
 
 class User(Base):
@@ -7,8 +8,8 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     openid = Column(String(64), unique=True, index=True, nullable=False, comment="微信OpenID")
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="注册时间")
-    last_login = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), comment="最后活跃时间")
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now(), comment="注册时间")
+    last_login = Column(DateTime(timezone=True), default=datetime.now, onupdate=datetime.now, server_default=func.now(), comment="最后活跃时间")
 
 
 class SensorRecord(Base):
@@ -30,7 +31,7 @@ class SensorRecord(Base):
     lat = Column(Float, nullable=True, comment="纬度")
     lng = Column(Float, nullable=True, comment="经度")
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
 
 
 class PredictionHistory(Base):
@@ -55,4 +56,4 @@ class PredictionHistory(Base):
     tags = Column(JSON, nullable=True, comment="触发的标签快照")
     solunar_info = Column(JSON, nullable=True, comment="月相快照")
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
