@@ -292,23 +292,40 @@ class LoginRequest(BaseModel):
     code: str = Field(..., description="微信登录code")
 
 
+WX_APPID = "wx8766f98bf34482de"
+WX_APP_SECRET = "f330ef82a7b7be368834392466d5b699"
+
 @app.post("/api/login", tags=["用户"])
 async def login(req: LoginRequest, db: Session = Depends(get_db)):
-    """小程序登录（换取 openid）并记录"""
-    from sqlalchemy.sql import func
-    mock_openid = f"wx_{req.code[:8]}_{uuid.uuid4().hex[:8]}" if req.code != "test" else "test_openid_user_001"
+    """小程序登录（请求微信官方接口换取真实 openid）并记录"""
+    from datetime import datetime
+    import httpx
     
-    user = db.query(User).filter(User.openid == mock_openid).first()
+    if req.code == "test":
+        real_openid = "test_openid_user_001"
+    else:
+        # 请求微信官方接口
+        url = f"https://api.weixin.qq.com/sns/jscode2session?appid={WX_APPID}&secret={WX_APP_SECRET}&js_code={req.code}&grant_type=authorization_code"
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url)
+            data = resp.json()
+            
+        if "openid" not in data:
+            raise HTTPException(status_code=400, detail=f"微信登录失败: {data.get('errmsg', '未知错误')}")
+            
+        real_openid = data["openid"]
+    
+    user = db.query(User).filter(User.openid == real_openid).first()
     if not user:
-        user = User(openid=mock_openid)
+        user = User(openid=real_openid)
         db.add(user)
     else:
-        user.last_login = func.now()
+        user.last_login = datetime.now()
     
     db.commit()
     return {
         "status": "ok",
-        "openid": mock_openid,
+        "openid": real_openid,
         "message": "登录成功",
     }
 
