@@ -213,21 +213,28 @@ async def predict(
     )
 
     # 如果有登录态，异步或同步保存预测日志
-    if x_openid:
-        history = PredictionHistory(
-            openid=x_openid,
-            lat=req.lat,
-            lng=req.lng,
-            location_name=location_name,
-            recommended_fish=best_match["name"],
-            bite_index=best_result.bite_index,
-            weather_snapshot=weather_info,
-            tactical_advice=best_result.tactical_advice,
-            tags=best_result.tactical_tags,
-            solunar_info=best_result.solunar_info
-        )
-        db.add(history)
-        db.commit()
+    if x_openid and x_openid.strip():
+        try:
+            history = PredictionHistory(
+                openid=x_openid,
+                lat=req.lat,
+                lng=req.lng,
+                location_name=location_name,
+                recommended_fish=best_match["name"],
+                bite_index=best_result.bite_index,
+                weather_snapshot=weather_info,
+                tactical_advice=best_result.tactical_advice,
+                tags=best_result.tactical_tags,
+                solunar_info=best_result.solunar_info
+            )
+            db.add(history)
+            db.commit()
+            print(f"[Debug] Saved prediction history for user: {x_openid}")
+        except Exception as e:
+            db.rollback()
+            print(f"[Error] Failed to save prediction history: {e}")
+    else:
+        print(f"[Warning] Prediction result not saved: X-OpenID header is missing or empty.")
 
     return response
 
@@ -239,7 +246,7 @@ async def upload_realtime(
     db: Session = Depends(get_db)
 ):
     """上报实时传感器数据（单条）"""
-    if x_openid:
+    if x_openid and x_openid.strip():
         record = SensorRecord(
             openid=x_openid,
             timestamp=req.sensor.timestamp,
@@ -252,6 +259,8 @@ async def upload_realtime(
         )
         db.add(record)
         db.commit()
+    else:
+        print(f"[Warning] Realtime data not saved: X-OpenID header is missing or empty.")
 
     return {
         "status": "ok",
@@ -267,7 +276,7 @@ async def upload_history(
     db: Session = Depends(get_db)
 ):
     """批量上报历史传感器数据"""
-    if x_openid:
+    if x_openid and x_openid.strip():
         records = [
             SensorRecord(
                 openid=x_openid,
@@ -280,6 +289,8 @@ async def upload_history(
         ]
         db.add_all(records)
         db.commit()
+    else:
+        print(f"[Warning] Batch history data not saved: X-OpenID header is missing or empty.")
 
     return {
         "status": "ok",
@@ -337,8 +348,8 @@ async def get_history_logs(
     db: Session = Depends(get_db)
 ):
     """获取用户的作钓预测历史记录"""
-    if not x_openid:
-        raise HTTPException(status_code=401, detail="未提供用户标识")
+    if not x_openid or not x_openid.strip():
+        raise HTTPException(status_code=401, detail="未提供用户标识 (X-OpenID Header is empty)")
         
     records = db.query(PredictionHistory).filter(
         PredictionHistory.openid == x_openid

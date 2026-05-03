@@ -1,32 +1,28 @@
 /**
- * 后端 API 通信模块
- * 负责将传感器数据上报到后端服务，获取预测结果
- */
-
-const app = getApp();
-
-/**
  * 获取后端 API 基础地址
  */
 function getBaseUrl() {
-  return app.globalData.apiBaseUrl;
+  const app = getApp();
+  return (app && app.globalData && app.globalData.apiBaseUrl) || 'https://ks.gzbaoge.com/api';
 }
 
-/**
- * 通用请求封装
- * @param {string} path - API 路径
- * @param {string} method - HTTP 方法
- * @param {object} data - 请求数据
- * @returns {Promise<object>}
- */
 function request(path, method = 'POST', data = {}) {
+  const app = getApp();
+  // 优先从全局变量获取，如果没有则尝试从缓存恢复（兜底）
+  let openid = '';
+  if (app && app.globalData && app.globalData.openid) {
+    openid = app.globalData.openid;
+  } else {
+    openid = wx.getStorageSync('openid') || '';
+  }
+
   return new Promise((resolve, reject) => {
     wx.request({
       url: `${getBaseUrl()}${path}`,
       method,
       header: {
         'Content-Type': 'application/json',
-        'X-OpenID': app.globalData.openid || '',
+        'X-OpenID': openid,
       },
       data,
       success: (res) => {

@@ -92,11 +92,11 @@ App({
                 wx.setStorageSync('openid', resp.data.openid);
                 console.log('[App] 获取 openid 成功:', resp.data.openid);
               } else {
-                console.error('[App] 后端登录返回异常:', resp.data);
+                console.error('[App] 后端登录返回异常 (可能未返回 openid):', resp.data);
               }
             },
             fail: (err) => {
-              console.error('[App] 获取 openid 失败:', err);
+              console.error('[App] 调用后端登录接口失败:', err);
             },
           });
           console.log('[App] 获取登录 code:', res.code);
