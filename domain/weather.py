@@ -13,9 +13,12 @@ _WEATHER_CACHE = {}
 CACHE_TTL_SECONDS = 300  # 5 分钟缓存
 
 class QWeatherService:
-    """和风天气服务（实时天气）"""
+    """和风天气服务（实时天气 + 逐小时预报）"""
     
-    BASE_URL = "https://kx4jac59km.re.qweatherapi.com/v7/weather/now"
+    BASE_DOMAIN = "https://kx4jac59km.re.qweatherapi.com"
+    NOW_URL = f"{BASE_DOMAIN}/v7/weather/now"
+    HOURLY_URL = f"{BASE_DOMAIN}/v7/weather/24h"
+    DAILY_URL = f"{BASE_DOMAIN}/v7/weather/3d"
     
     def __init__(self, api_key: Optional[str] = None):
         # 优先从传入参数获取，或者环境变量获取，最后直接使用您写入的 Key
@@ -83,7 +86,7 @@ class QWeatherService:
         location_str = f"{round(lng, 3)},{round(lat, 3)}" # 和风要求 lon,lat
         
         # 直接拼接 URL，防止 httpx 默认将逗号编码为 %2C 导致某些服务商 403
-        url = f"{self.BASE_URL}?location={location_str}&key={self.api_key}"
+        url = f"{self.NOW_URL}?location={location_str}&key={self.api_key}"
         
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
@@ -135,3 +138,168 @@ class QWeatherService:
             original_text="晴(兜底)",
             original_wind_dir="无持续风向"
         )
+
+    async def get_hourly_forecast(self, lat: float, lng: float) -> list:
+        """获取未来 24 小时逐小时天气预报。
+
+        Returns:
+            [
+                {
+                    "fxTime": "2026-05-05T10:00+08:00",
+                    "hour": 10,
+                    "temp": 28.0,          # 气温 ℃
+                    "humidity": 75.0,       # 湿度 %
+                    "wind_speed": 2.5,      # 风速 m/s
+                    "wind_direction": "SW", # 风向
+                    "weather_trend": "sunny",
+                    "weather_text": "晴",
+                    "pressure": 1012.0,     # 气压 hPa
+                },
+                ...
+            ]
+        """
+        if not self.api_key:
+            logger.warning("未配置 API Key，返回空预报")
+            return []
+
+        cache_key = self._get_cache_key(lat, lng) + ":forecast"
+        now = int(time.time())
+
+        # 查缓存（预报数据缓存 30 分钟）
+        if cache_key in _WEATHER_CACHE:
+            cached = _WEATHER_CACHE[cache_key]
+            if now < cached["expire_at"]:
+                logger.debug(f"命中预报缓存: {cache_key}")
+                return cached["data"]
+
+        location_str = f"{round(lng, 3)},{round(lat, 3)}"
+        url = f"{self.HOURLY_URL}?location={location_str}&key={self.api_key}"
+
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                res_data = response.json()
+
+                if res_data.get("code") == "200":
+                    hourly_raw = res_data.get("hourly", [])
+                    result = []
+                    for h in hourly_raw:
+                        fx_time = h.get("fxTime", "")
+                        # 提取小时数
+                        hour = 0
+                        if "T" in fx_time:
+                            try:
+                                hour = int(fx_time.split("T")[1][:2])
+                            except (ValueError, IndexError):
+                                pass
+
+                        ws_kmh = float(h.get("windSpeed", 0))
+                        wind_dir_text = h.get("windDir", "")
+
+                        result.append({
+                            "fxTime": fx_time,
+                            "hour": hour,
+                            "temp": float(h.get("temp", 20)),
+                            "humidity": float(h.get("humidity", 50)),
+                            "wind_speed": round(ws_kmh * 1000 / 3600, 1),
+                            "wind_direction": self._map_wind_dir_to_enum(wind_dir_text),
+                            "weather_trend": self._map_weather_text_to_trend(
+                                h.get("text", "晴")
+                            ),
+                            "weather_text": h.get("text", "晴"),
+                            "pressure": float(h.get("pressure", 1013)),
+                        })
+
+                    # 写入缓存（30 分钟）
+                    _WEATHER_CACHE[cache_key] = {
+                        "data": result,
+                        "expire_at": now + 1800,
+                    }
+                    logger.info(f"成功获取24h预报: {location_str}, {len(result)} 条")
+                    return result
+                else:
+                    logger.error(f"预报API错误码: {res_data.get('code')}")
+        except Exception as e:
+            logger.error(f"请求逐小时预报异常: {e}")
+
+        return []
+
+    async def get_3day_forecast(self, lat: float, lng: float) -> list:
+        """获取未来 3 天逐日天气预报。
+
+        Returns:
+            [
+                {
+                    "date": "2026-05-06",
+                    "temp_max": 32.0,
+                    "temp_min": 23.0,
+                    "text_day": "晴",
+                    "text_night": "多云",
+                    "weather_trend": "sunny",
+                    "humidity": 70.0,
+                    "pressure": 1010.0,
+                    "wind_speed": 2.5,
+                    "wind_direction": "SW",
+                },
+                ...
+            ]
+        """
+        if not self.api_key:
+            logger.warning("未配置 API Key，返回空3天预报")
+            return []
+
+        cache_key = self._get_cache_key(lat, lng) + ":3day"
+        now = int(time.time())
+
+        # 查缓存（3天预报缓存 1 小时）
+        if cache_key in _WEATHER_CACHE:
+            cached = _WEATHER_CACHE[cache_key]
+            if now < cached["expire_at"]:
+                logger.debug(f"命中3天预报缓存: {cache_key}")
+                return cached["data"]
+
+        location_str = f"{round(lng, 3)},{round(lat, 3)}"
+        url = f"{self.DAILY_URL}?location={location_str}&key={self.api_key}"
+
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                res_data = response.json()
+
+                if res_data.get("code") == "200":
+                    daily_raw = res_data.get("daily", [])
+                    result = []
+                    for d in daily_raw:
+                        ws_kmh = float(d.get("windSpeedDay", 0))
+                        wind_dir_text = d.get("windDirDay", "")
+
+                        result.append({
+                            "date": d.get("fxDate", ""),
+                            "temp_max": float(d.get("tempMax", 30)),
+                            "temp_min": float(d.get("tempMin", 20)),
+                            "text_day": d.get("textDay", "晴"),
+                            "text_night": d.get("textNight", "晴"),
+                            "weather_trend": self._map_weather_text_to_trend(
+                                d.get("textDay", "晴")
+                            ),
+                            "humidity": float(d.get("humidity", 50)),
+                            "pressure": float(d.get("pressure", 1013)),
+                            "wind_speed": round(ws_kmh * 1000 / 3600, 1),
+                            "wind_direction": self._map_wind_dir_to_enum(wind_dir_text),
+                        })
+
+                    # 写入缓存（1 小时）
+                    _WEATHER_CACHE[cache_key] = {
+                        "data": result,
+                        "expire_at": now + 3600,
+                    }
+                    logger.info(f"成功获取3天预报: {location_str}, {len(result)} 天")
+                    return result
+                else:
+                    logger.error(f"3天预报API错误码: {res_data.get('code')}")
+        except Exception as e:
+            logger.error(f"请求3天预报异常: {e}")
+
+        return []

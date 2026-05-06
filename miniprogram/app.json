@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/decision/decision",
     "pages/index/index",
     "pages/history/history",
     "pages/logs/logs",
@@ -18,6 +19,10 @@
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
+      {
+        "pagePath": "pages/decision/decision",
+        "text": "出钓决策"
+      },
       {
         "pagePath": "pages/index/index",
         "text": "实时监测"
@@ -43,3 +48,4 @@
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"
 }
+

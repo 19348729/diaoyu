@@ -122,3 +122,10 @@ class TacticalTag(str, Enum):
     STAGE_BRIEF = "STAGE_BRIEF"            # 简报阶段（5min+）
     STAGE_STANDARD = "STAGE_STANDARD"      # 标准报告（10min+）
     STAGE_FULL = "STAGE_FULL"              # 完整报告（30min+）
+    STAGE_WEATHER_ONLY = "STAGE_WEATHER_ONLY"  # 纯天气模式（无传感器）
+
+    # ── 风力等级标签（基于 WindSpeedConfig 分档） ──
+    WIND_SPEED_CALM = "WIND_SPEED_CALM"          # 无风（0~0.5 m/s）
+    WIND_SPEED_BREEZE = "WIND_SPEED_BREEZE"      # 微风（最适宜）
+    WIND_SPEED_MODERATE = "WIND_SPEED_MODERATE"  # 中风（看漂受影响）
+    WIND_SPEED_STRONG = "WIND_SPEED_STRONG"      # 强风/大风（建议取消）

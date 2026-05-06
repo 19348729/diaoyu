@@ -109,6 +109,16 @@
     <view wx:if="{{tacticalAdvice}}" style="background: #fff8e1; border: 1px solid #ffecb3; border-radius: 8rpx; padding: 20rpx; margin-bottom: 30rpx;">
       <text style="font-size: 28rpx; color: #f57f17; font-weight: bold; display: block; margin-bottom: 15rpx;">💡 智能作钓策略</text>
       
+      <!-- 利好信号（高亮展示） -->
+      <view wx:if="{{tacticalAdvice.highlight}}" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 1px solid #a5d6a7; border-radius: 8rpx; padding: 16rpx; margin-bottom: 16rpx;">
+        <text style="font-size: 26rpx; color: #2e7d32; font-weight: bold;">{{tacticalAdvice.highlight}}</text>
+      </view>
+
+      <!-- 鱼种活性描述 -->
+      <view wx:if="{{tacticalAdvice.fish_activity}}" style="background: #e3f2fd; border-radius: 6rpx; padding: 12rpx 16rpx; margin-bottom: 16rpx;">
+        <text style="font-size: 24rpx; color: #1565c0;">🐟 {{tacticalAdvice.fish_activity}}</text>
+      </view>
+
       <view style="display: flex; flex-direction: column; gap: 12rpx;">
         <view style="display: flex; align-items: flex-start;">
           <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">🌊 建议水层:</text>
@@ -119,10 +129,26 @@
           <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.bait}}</text>
         </view>
         <view style="display: flex; align-items: flex-start;">
-          <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">🎣 抛竿节奏:</text>
+          <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">🎣 作钓方式:</text>
+          <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.method || '台钓'}}</text>
+        </view>
+        <view style="display: flex; align-items: flex-start;">
+          <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">📏 建议钓深:</text>
+          <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.depth || '--'}}</text>
+        </view>
+        <view style="display: flex; align-items: flex-start;">
+          <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">🎯 抛竿节奏:</text>
           <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.rhythm}}</text>
         </view>
-        <view style="display: flex; align-items: flex-start; margin-top: 5rpx; padding-top: 10rpx; border-top: 1px dashed #ffecb3;" wx:if="{{tacticalAdvice.risk}}">
+        <view style="display: flex; align-items: flex-start;">
+          <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">📍 钓位选择:</text>
+          <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.spot || '选深浅交界处'}}</text>
+        </view>
+        <view wx:if="{{tacticalAdvice.estimated_water_temp}}" style="display: flex; align-items: flex-start;">
+          <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">🌡️ 推算水温:</text>
+          <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.estimated_water_temp}}</text>
+        </view>
+        <view style="display: flex; align-items: flex-start; margin-top: 5rpx; padding-top: 10rpx; border-top: 1px dashed #ffecb3;" wx:if="{{tacticalAdvice.risk && tacticalAdvice.risk !== '当前无明显风险'}}">
           <text style="font-size: 24rpx; color: #d32f2f; min-width: 120rpx; font-weight: bold;">⚠️ 风险提示:</text>
           <text style="font-size: 24rpx; color: #d32f2f; flex: 1;">{{tacticalAdvice.risk}}</text>
         </view>

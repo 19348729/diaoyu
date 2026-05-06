@@ -116,10 +116,50 @@ function getPredictionLogs(limit = 20) {
   return request(`/history/logs?limit=${limit}`, 'GET');
 }
 
+/**
+ * 纯天气预测（出发前决策，无需传感器）
+ * @param {number} lat - 纬度
+ * @param {number} lng - 经度
+ * @param {string} fishType - 目标鱼种（'auto' 全鱼种排行）
+ * @returns {Promise<object>} 预测结果
+ */
+function getWeatherPredict(lat, lng, fishType = 'auto') {
+  return request('/predict/weather', 'POST', {
+    lat,
+    lng,
+    fish_type: fishType,
+  });
+}
+
+/**
+ * 获取今日逐小时鱼情预报
+ * @param {number} lat - 纬度
+ * @param {number} lng - 经度
+ * @param {string} fishType - 目标鱼种
+ * @returns {Promise<object>} { daily_summary, best_windows, hourly_scores }
+ */
+function getForecastToday(lat, lng, fishType = '鲫鱼') {
+  return request(`/forecast/today?lat=${lat}&lng=${lng}&fish_type=${encodeURIComponent(fishType)}`, 'GET');
+}
+
+/**
+ * 获取未来 3 天鱼情日历
+ * @param {number} lat - 纬度
+ * @param {number} lng - 经度
+ * @param {string} fishType - 目标鱼种
+ * @returns {Promise<object>} { best_day, best_day_score, days, comparison }
+ */
+function getForecast3Day(lat, lng, fishType = '鲫鱼') {
+  return request(`/forecast/3day?lat=${lat}&lng=${lng}&fish_type=${encodeURIComponent(fishType)}`, 'GET');
+}
+
 module.exports = {
   reportRealtimeData,
   reportHistoryBatch,
   getPrediction,
   getPredictionReport,
   getPredictionLogs,
+  getWeatherPredict,
+  getForecastToday,
+  getForecast3Day,
 };

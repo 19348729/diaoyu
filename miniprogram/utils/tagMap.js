@@ -98,7 +98,25 @@ const TAG_MAP = {
   STAGE_INSTANT: "速报数据",
   STAGE_BRIEF: "简略分析",
   STAGE_STANDARD: "标准分析",
-  STAGE_FULL: "深度分析"
+  STAGE_FULL: "深度分析",
+  STAGE_WEATHER_ONLY: "📡 纯天气模式",
+
+  // ── 风速等级 (P0) ──
+  WIND_SPEED_CALM: "🍃 无风",
+  WIND_SPEED_BREEZE: "🍃 微风宜钓",
+  WIND_SPEED_MODERATE: "💨 中等风力",
+  WIND_SPEED_STRONG: "🌬️ 大风预警",
+
+  // ── 气压绝对值 (P1) ──
+  PRESSURE_ABS_EXTREME_LOW: "⛔ 气压极低 (<990hPa)",
+  PRESSURE_ABS_LOW: "⚠️ 气压偏低",
+  PRESSURE_ABS_OPTIMAL: "✅ 气压最适",
+  PRESSURE_ABS_HIGH: "气压偏高",
+
+  // ── 天气转变 (P2) ──
+  WEATHER_POST_RAIN_CLEAR: "🎉 雨后初晴",
+  WEATHER_LONG_RAIN_TO_CLEAR: "🔥 久雨放晴",
+  WEATHER_STORM_APPROACHING: "⚡ 雷暴逼近"
 };
 
 /**

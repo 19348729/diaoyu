@@ -54,6 +54,10 @@
 
         <!-- 战术建议 -->
         <view class="tactics-box" wx:if="{{item.tactical_advice}}">
+          <!-- 利好信号 -->
+          <view wx:if="{{item.tactical_advice.highlight}}" style="background: #e8f5e9; border-radius: 6rpx; padding: 10rpx 14rpx; margin-bottom: 10rpx;">
+            <text style="font-size: 24rpx; color: #2e7d32; font-weight: bold;">{{item.tactical_advice.highlight}}</text>
+          </view>
           <view class="tactic-item">
             <text class="t-label">🌊 水层:</text>
             <text class="t-val">{{item.tactical_advice.layer || '常规'}}</text>
@@ -63,8 +67,24 @@
             <text class="t-val">{{item.tactical_advice.bait || '常规'}}</text>
           </view>
           <view class="tactic-item">
-            <text class="t-label">🎣 节奏:</text>
+            <text class="t-label">🎣 方式:</text>
+            <text class="t-val">{{item.tactical_advice.method || '台钓'}}</text>
+          </view>
+          <view class="tactic-item">
+            <text class="t-label">📏 钓深:</text>
+            <text class="t-val">{{item.tactical_advice.depth || '--'}}</text>
+          </view>
+          <view class="tactic-item">
+            <text class="t-label">🎯 节奏:</text>
             <text class="t-val">{{item.tactical_advice.rhythm || '常规'}}</text>
+          </view>
+          <view class="tactic-item">
+            <text class="t-label">📍 钓位:</text>
+            <text class="t-val">{{item.tactical_advice.spot || '--'}}</text>
+          </view>
+          <view class="tactic-item" wx:if="{{item.tactical_advice.risk && item.tactical_advice.risk !== '当前无明显风险'}}">
+            <text class="t-label" style="color: #d32f2f;">⚠️ 风险:</text>
+            <text class="t-val" style="color: #d32f2f;">{{item.tactical_advice.risk}}</text>
           </view>
         </view>
         

@@ -21,6 +21,7 @@ from domain.services import FishingPredictionService
 from domain.constants import FISH_PROFILES
 from domain.weather import QWeatherService
 from domain.lbs import TencentLBSService
+from domain.forecast import FishingForecastService
 from infrastructure.database import engine, Base, get_db
 from infrastructure.models import User, SensorRecord, PredictionHistory
 
@@ -237,6 +238,150 @@ async def predict(
         print(f"[Warning] Prediction result not saved: X-OpenID header is missing or empty.")
 
     return response
+
+
+class WeatherPredictRequest(BaseModel):
+    """纯天气预测请求（无需传感器）"""
+    fish_type: str = Field("auto", description="目标鱼种名称，传 'auto' 则全鱼种测算并推荐")
+    lat: float = Field(..., description="纬度")
+    lng: float = Field(..., description="经度")
+
+
+@app.post("/api/predict/weather", tags=["预测"])
+async def predict_weather_only(req: WeatherPredictRequest):
+    """
+    🌤️ 纯天气模式预测（无需传感器数据）
+
+    钓鱼人出发前，仅凭 GPS 位置获取粗略鱼情评分和建议。
+    置信度约 30%（标注为气象推测级）。
+    """
+    # 获取实时天气
+    weather_service = QWeatherService()
+    api_data = await weather_service.get_realtime_weather(req.lat, req.lng)
+
+    # 获取气温（从实时天气中无法直接获取气温，调用预报取当前小时）
+    hourly = await weather_service.get_hourly_forecast(req.lat, req.lng)
+    air_temp = hourly[0]["temp"] if hourly else 22.0  # 兜底 22℃
+
+    # 决定鱼种列表
+    if req.fish_type == "auto":
+        target_fishes = list(FISH_PROFILES.keys())
+    else:
+        if req.fish_type not in FISH_PROFILES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支持的鱼种: {req.fish_type}",
+            )
+        target_fishes = [req.fish_type]
+
+    # 对目标鱼种循环跑分
+    fish_results = []
+    for f_name in target_fishes:
+        profile = FISH_PROFILES[f_name]
+        service = FishingPredictionService(fish_profile=profile)
+        res = service.predict_weather_only(
+            api=api_data, air_temp=air_temp, lat=req.lat, lng=req.lng,
+            hourly_forecast=hourly,
+        )
+        fish_results.append({
+            "name": f_name,
+            "result": res,
+            "bite_index": res.bite_index,
+        })
+
+    fish_results.sort(key=lambda x: x["bite_index"], reverse=True)
+    best = fish_results[0]
+    best_result = best["result"]
+
+    weather_info = {
+        "text": api_data.original_text,
+        "wind_dir": api_data.original_wind_dir,
+        "wind_speed": api_data.wind_speed,
+        "humidity": api_data.humidity,
+        "air_temp": air_temp,
+    }
+
+    return {
+        "mode": "weather_only",
+        "recommended_fish": best["name"],
+        "recommended_fishes": [{"name": r["name"], "score": r["bite_index"]} for r in fish_results],
+        "bite_index": best_result.bite_index,
+        "confidence": best_result.confidence,
+        "report_stage": "weather_only",
+        "tactical_tags": best_result.tactical_tags,
+        "tactical_advice": best_result.tactical_advice,
+        "time_period_advice": best_result.time_period_advice,
+        "season_note": best_result.season_note,
+        "solunar_info": best_result.solunar_info,
+        "weather_info": weather_info,
+    }
+
+
+@app.get("/api/forecast/today", tags=["预报"])
+async def forecast_today(
+    lat: float,
+    lng: float,
+    fish_type: str = "鲫鱼",
+):
+    """
+    📅 今日鱼情预报
+
+    返回未来 24 小时逐小时鱼情评分 + 最佳出钓窗口推荐。
+    帮助钓鱼人决定 "几点出门最好"。
+    """
+    if fish_type not in FISH_PROFILES:
+        raise HTTPException(status_code=400, detail=f"不支持的鱼种: {fish_type}")
+
+    profile = FISH_PROFILES[fish_type]
+    weather_service = QWeatherService()
+    hourly = await weather_service.get_hourly_forecast(lat, lng)
+
+    if not hourly:
+        raise HTTPException(status_code=502, detail="无法获取天气预报数据")
+
+    forecast_service = FishingForecastService(fish_profile=profile)
+
+    hourly_scores = forecast_service.calc_hourly_scores(hourly, profile)
+    best_windows = forecast_service.calc_best_windows(hourly, profile)
+    daily_summary = forecast_service.calc_daily_summary(hourly, profile)
+
+    return {
+        "fish_type": fish_type,
+        "daily_summary": daily_summary,
+        "best_windows": best_windows,
+        "hourly_scores": hourly_scores,
+    }
+
+
+@app.get("/api/forecast/3day", tags=["预报"])
+async def forecast_3day(
+    lat: float,
+    lng: float,
+    fish_type: str = "鲫鱼",
+):
+    """
+    📅 未来 3 天鱼情日历
+
+    帮助钓鱼人回答"这周六和周日哪天更好？"
+    返回未来 3 天逐日鱼情评分、最佳日推荐和对比说明。
+    """
+    if fish_type not in FISH_PROFILES:
+        raise HTTPException(status_code=400, detail=f"不支持的鱼种: {fish_type}")
+
+    profile = FISH_PROFILES[fish_type]
+    weather_service = QWeatherService()
+    daily = await weather_service.get_3day_forecast(lat, lng)
+
+    if not daily:
+        raise HTTPException(status_code=502, detail="无法获取3天天气预报数据")
+
+    forecast_service = FishingForecastService(fish_profile=profile)
+    calendar = forecast_service.calc_3day_calendar(daily, profile)
+
+    return {
+        "fish_type": fish_type,
+        **calendar,
+    }
 
 
 @app.post("/api/sensor/realtime", tags=["数据上报"])

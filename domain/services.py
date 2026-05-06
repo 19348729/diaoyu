@@ -4,6 +4,7 @@
 纯面向对象，不依赖任何数据库或外部框架，方便被 Django Service 层直接调用。
 """
 import math
+import time as _time
 from typing import List, Optional, Tuple
 
 from .value_objects import (
@@ -14,6 +15,7 @@ from .constants import (
     DissolvedOxygenConfig, FishSpeciesProfile, BiteIndexConfig,
     TimePeriodConfig, SeasonConfig, ProgressiveStageConfig, ThermoclineConfig,
     SolunarConfig, PressureAnalysisConfig, WindDirectionConfig, HumidityConfig,
+    WindSpeedConfig, AirToWaterConfig, PressureAbsoluteConfig,
     interpolate_do_saturation,
 )
 from .tags import TacticalTag
@@ -46,6 +48,9 @@ class FishingPredictionService:
         pressure_analysis_config: PressureAnalysisConfig = None,
         wind_direction_config: WindDirectionConfig = None,
         humidity_config: HumidityConfig = None,
+        wind_speed_config: WindSpeedConfig = None,
+        air_to_water_config: AirToWaterConfig = None,
+        pressure_abs_config: PressureAbsoluteConfig = None,
     ):
         """支持依赖注入配置，方便针对不同水域/鱼种动态实例化。"""
         self.do_config = do_config or DissolvedOxygenConfig()
@@ -59,6 +64,9 @@ class FishingPredictionService:
         self.pressure_config = pressure_analysis_config or PressureAnalysisConfig()
         self.wind_config = wind_direction_config or WindDirectionConfig()
         self.humidity_config = humidity_config or HumidityConfig()
+        self.wind_speed_config = wind_speed_config or WindSpeedConfig()
+        self.air_to_water_config = air_to_water_config or AirToWaterConfig()
+        self.pressure_abs_config = pressure_abs_config or PressureAbsoluteConfig()
         self._analyzer = TimeSeriesAnalyzer()
 
     def predict(self, hardware: HardwareData, api: ApiData) -> PredictionResult:
@@ -342,7 +350,15 @@ class FishingPredictionService:
                 readings, tags
             )
 
-        # ── 15. 汇总评分（加权混合体系） ──
+        # ── 15. 风力等级评分 ── [P0 新增]
+        wind_speed_modifier = self._calc_wind_speed_modifier(api, tags)
+
+        # ── 16. 气压绝对值评分 ── [P1 新增]
+        pressure_abs_modifier = self._calc_pressure_absolute_modifier(
+            latest.p_local if latest and latest.p_local else None, tags
+        )
+
+        # ── 17. 汇总评分（加权混合体系） ──
         # 基础分 + 传统修正（加法）
         additive_score = (
             base_score
@@ -358,6 +374,8 @@ class FishingPredictionService:
             + humidity_modifier
             + thermal_profile_modifier
             + temp_rate_modifier
+            + wind_speed_modifier
+            + pressure_abs_modifier
         )
         final_score = max(0, min(100, int(additive_score)))
 
@@ -366,15 +384,17 @@ class FishingPredictionService:
 
         # ── 17. 鱼情趋势判断（标准阶段以上） ──
         if "deep_analysis" in features:
-            self._add_trend_tags(readings, tags)
+            self._add_trend_tags(readings, tags, season=session.season)
 
-        # ── 18. 生成时段建议和季节备注 ──
-        period_advice = self._generate_period_advice(session.time_period, tags)
+        # ── 18. 生成时段建议和季节备注（动态文案） ──
+        period_advice = self._generate_period_advice(
+            session.time_period, tags, latest=latest, api=api
+        )
         season_note = self._generate_season_note(session.season, tags)
 
-        # ── 19. 生成结构化战术建议 ── [P1 新增]
+        # ── 19. 生成结构化战术建议 ──
         tactical_advice = self._generate_tactical_advice(
-            final_score, tags, session, latest
+            final_score, tags, session, latest, api=api
         )
 
         return PredictionResult(
@@ -470,10 +490,14 @@ class FishingPredictionService:
 
         return 0
 
-    def _add_trend_tags(self, readings: List[SensorReading], tags: List[str]) -> None:
-        """深度分析：鱼情总体趋势判断。
+    def _add_trend_tags(
+        self, readings: List[SensorReading], tags: List[str],
+        season: str = "spring",
+    ) -> None:
+        """深度分析：鱼情总体趋势判断（含季节×温度趋势交叉修正）。
 
         综合气压趋势和温度趋势，判断鱼情是在转好还是转差。
+        修正：夏季降温=好事，冬季升温=好事。
         """
         p_detail = self._analyzer.calc_pressure_trend_detail(readings)
         temp_trend = self._analyzer.calc_temp_trend(readings, field="t_bottom")
@@ -481,48 +505,84 @@ class FishingPredictionService:
         improving_signals = 0
         deteriorating_signals = 0
 
-        # 气压趋势
+        # 气压趋势（四季一致：升压好、降压差）
         if p_detail["trend"] == "rising":
             improving_signals += 1
         elif p_detail["trend"] in ("dropping", "crash"):
             deteriorating_signals += 1
 
-        # 温度趋势（夏季降温是好事，冬季升温是好事）
-        # 简化逻辑：趋于稳定是中性
-        if temp_trend == "rising":
-            improving_signals += 1
-        elif temp_trend == "dropping":
-            deteriorating_signals += 1
+        # 温度趋势（季节交叉修正）
+        if season == "summer":
+            # 夏季：降温缓解高温压力是好事
+            if temp_trend == "dropping":
+                improving_signals += 1
+            elif temp_trend == "rising":
+                deteriorating_signals += 1
+        elif season == "winter":
+            # 冬季：升温是唯一黄金窗口
+            if temp_trend == "rising":
+                improving_signals += 1
+            elif temp_trend == "dropping":
+                deteriorating_signals += 1
+        else:
+            # 春秋：升温通常促进鱼类活性
+            if temp_trend == "rising":
+                improving_signals += 1
+            elif temp_trend == "dropping":
+                deteriorating_signals += 1
 
         if improving_signals > deteriorating_signals:
             tags.append(TacticalTag.TREND_IMPROVING.value)
         elif deteriorating_signals > improving_signals:
             tags.append(TacticalTag.TREND_DETERIORATING.value)
 
-    def _generate_period_advice(self, time_period: str, tags: List[str]) -> str:
-        """生成时段铓鱼建议文案。"""
-        advice_map = {
+    def _generate_period_advice(
+        self, time_period: str, tags: List[str],
+        latest: SensorReading = None, api: ApiData = None,
+    ) -> str:
+        """生成动态时段建议文案（嵌入实际数据引用）。"""
+        fish_name = self.fish_profile.name
+
+        # 构建数据片段
+        temp_str = ""
+        pressure_str = ""
+        if latest and latest.t_bottom is not None:
+            t = latest.t_bottom
+            opt_lo, opt_hi = self.fish_profile.optimal_temp
+            if opt_lo <= t <= opt_hi:
+                activity = "活性高"
+            elif self.fish_profile.tolerable_temp[0] <= t <= self.fish_profile.tolerable_temp[1]:
+                activity = "活性一般"
+            else:
+                activity = "活性极低"
+            temp_str = f"水底实测 {t:.1f}℃，{fish_name}{activity}。"
+        if latest and latest.p_local is not None:
+            pressure_str = f"本地气压 {latest.p_local:.1f} hPa。"
+        elif api and api.wind_speed is not None:
+            pressure_str = ""  # 纯天气模式无本地气压
+
+        base_map = {
             "morning": (
-                "当前处于早口黄金期，水体溶氧充足，鱼类活跃度高。"
-                "建议把握早晨窗口期，稍铓浅一些。"
+                f"当前处于早口黄金期，水体溶氧充足。{temp_str}"
+                f"建议把握早晨窗口期，适当钓浅。{pressure_str}"
             ),
             "noon": (
-                "当前处于午休期，日照强烈，表层水温升高，鱼口可能偏轻。"
-                "建议铓深水或荐草区，耐心等待午后回口。"
+                f"当前处于午休期，日照强烈，表层水温升高。{temp_str}"
+                f"建议钓深水或水草区，耐心等待午后回口。{pressure_str}"
             ),
             "afternoon": (
-                "当前处于午后开口期，水温开始回落，鱼类重新活跃。"
-                "建议适当铓浅，注意观察浮漂信号。"
+                f"当前处于午后开口期，水温开始回落。{temp_str}"
+                f"鱼类重新活跃，建议适当钓浅，注意观察浮漂信号。{pressure_str}"
             ),
             "evening": (
-                "当前处于傍晚爆口期/夜铓时段，鱼类活动频繁。"
-                "建议拉满缺铓，抛竿频率可适当提高。"
+                f"当前处于傍晚爆口期/夜钓时段。{temp_str}"
+                f"鱼类活动频繁，可适当提高抛竿频率。{pressure_str}"
             ),
         }
-        return advice_map.get(time_period, "")
+        return base_map.get(time_period, temp_str + pressure_str)
 
     def _generate_season_note(self, season: str, tags: List[str]) -> str:
-        """生成季节铓鱼备注。"""
+        """生成季节钓鱼备注。"""
         mod = self.season_config.season_modifiers.get(season, {})
         return mod.get("advice", "")
 
@@ -671,29 +731,40 @@ class FishingPredictionService:
     def _generate_tactical_advice(
         self, result_score: int, tags: List[str],
         session: SessionContext, latest: SensorReading = None,
+        api: ApiData = None,
     ) -> dict:
-        """生成结构化战术建议。"""
+        """生成结构化战术建议（与鱼种绑定 + 动态数据引用）。"""
         advice = {}
+        profile = self.fish_profile
 
-        # 水层建议
+        # ── 水层建议：优先鱼种默认，异常标签覆盖 ──
         if TacticalTag.TACTIC_FISH_SUSPENDED.value in tags:
             advice["layer"] = "钓离底或半水（鱼因缺氧上浮）"
         elif TacticalTag.TACTIC_FISH_MID.value in tags:
             advice["layer"] = "钓中层，打行程搜索鱼层"
         elif TacticalTag.TACTIC_FISH_TOP.value in tags:
             advice["layer"] = "钓浮或打水皮"
+        elif profile.default_layer_advice:
+            advice["layer"] = profile.default_layer_advice
         else:
-            advice["layer"] = "钓底"
+            layer_text = {
+                "bottom": "钓底", "mid": "钓中下层", "top": "钓浮"
+            }
+            advice["layer"] = layer_text.get(profile.water_layer, "钓底")
 
-        # 用饵建议
+        # ── 用饵建议：鱼种×季节，极端温度覆盖 ──
         if TacticalTag.STATUS_TEMP_EXTREME_COLD.value in tags:
             advice["bait"] = "重腥味饵料或活饵（蚯蚓/红虫），促低温开口"
         elif TacticalTag.STATUS_TEMP_EXTREME_HOT.value in tags:
             advice["bait"] = "清淡型饵料，减少雾化"
         else:
-            advice["bait"] = "腥香均衡型商品饵"
+            season = session.season
+            advice["bait"] = profile.bait_by_season.get(season, "腥香均衡型商品饵")
 
-        # 节奏建议
+        # ── 作钓方式 ──
+        advice["method"] = profile.fishing_method
+
+        # ── 节奏建议 ──
         if result_score >= 80:
             advice["rhythm"] = "高频抛竿，积极逗钓"
         elif result_score >= 50:
@@ -701,7 +772,18 @@ class FishingPredictionService:
         else:
             advice["rhythm"] = "放慢节奏，守钓为主"
 
-        # 风险提示
+        # ── 钓深建议 ──
+        advice["depth"] = self._suggest_depth(session, tags)
+
+        # ── 钓位建议 [P1 新增] ──
+        advice["spot"] = self._suggest_spot(session, tags, api)
+
+        # ── 鱼种活性描述 [P1 新增] ──
+        advice["fish_activity"] = self._describe_fish_activity(
+            latest, session
+        )
+
+        # ── 风险提示 ──
         risks = []
         if TacticalTag.PRESSURE_SHORT_DROP.value in tags:
             risks.append("气压短期急降中，鱼口可能随时变差")
@@ -711,7 +793,329 @@ class FishingPredictionService:
             risks.append("高湿闷热，水体溶氧可能偏低")
         if TacticalTag.TEMP_RAPID_DROP.value in tags:
             risks.append("水温正在快速下降，鱼类可能应激停口")
+        if TacticalTag.WIND_SPEED_STRONG.value in tags:
+            risks.append("风力过大，手竿作钓困难，注意安全")
+        if "PRESSURE_ABS_EXTREME_LOW" in tags:
+            risks.append("气压极低（<990 hPa），闷热缺氧，建议改日出钓")
+        elif "PRESSURE_ABS_LOW" in tags:
+            risks.append("气压偏低（<1000 hPa），鱼口可能偏差")
+        if "WEATHER_STORM_APPROACHING" in tags:
+            risks.append("未来数小时有雷阵雨逼近，抓紧末日口但注意安全撤离")
         advice["risk"] = "；".join(risks) if risks else "当前无明显风险"
 
+        # ── 利好信号 [P2 新增] ──
+        highlights = []
+        if "WEATHER_POST_RAIN_CLEAR" in tags:
+            highlights.append("🎉 雨后初晴，气压回升+溶氧充足+食物丰富，绝佳鱼情！")
+        if "WEATHER_LONG_RAIN_TO_CLEAR" in tags:
+            highlights.append("🔥 连续阴雨后放晴，经典爆护天气！")
+        if "WEATHER_STORM_APPROACHING" in tags:
+            highlights.append("⚡ 雷阵雨前末日口，鱼口会异常凶猛，但务必注意安全")
+        if "PRESSURE_ABS_OPTIMAL" in tags:
+            highlights.append("✅ 气压处于最适范围（1005-1020 hPa），利好出钓")
+        advice["highlight"] = "；".join(highlights) if highlights else ""
+
         return advice
+
+    def _suggest_depth(
+        self, session: SessionContext, tags: List[str]
+    ) -> str:
+        """根据季节+时段+鱼种推荐钓深。"""
+        layer = self.fish_profile.water_layer
+        season = session.season
+        period = session.time_period
+
+        if layer == "top":
+            return "钓浮 1.5-3 米水深"
+
+        if season == "winter":
+            return "建议钓深 2.5-4 米，鱼扎堆在深水越冬"
+        elif season == "summer" and period == "noon":
+            return "建议钓深 2-3 米，避开表层高温区"
+        elif season == "spring":
+            return "建议钓浅 1-1.5 米，鱼上滩觅食繁殖"
+        else:
+            return "建议钓 1.5-2.5 米"
+
+    def _suggest_spot(
+        self, session: SessionContext, tags: List[str],
+        api: ApiData = None,
+    ) -> str:
+        """钓位选择建议（风向+季节+时段综合）。[P1 新增]"""
+        season = session.season
+        wind_dir = api.wind_direction if api else ""
+
+        # 风向驱动钓位
+        if wind_dir in ("N", "NW", "NE"):
+            spot = "选下风口（南岸），食物被风吹聚集"
+        elif wind_dir in ("S", "SW", "SE"):
+            spot = "选下风口（北岸），同时食物丰富"
+        elif wind_dir in ("E", "W"):
+            spot = "选侧风位，利于抛竿且食物堆积"
+        else:
+            spot = ""
+
+        # 季节补充
+        if season == "winter":
+            spot = (spot + "；" if spot else "") + "优先选向阳深水湾，避风背水"
+        elif season == "spring":
+            spot = (spot + "；" if spot else "") + "优先选浅滩、水草边、进水口"
+        elif season == "summer" and session.time_period == "noon":
+            spot = (spot + "；" if spot else "") + "选树荫下或深水区，避开烈日直射"
+
+        return spot or "选深浅交界处、进水口或水草边缘"
+
+    def _describe_fish_activity(
+        self, latest: SensorReading = None,
+        session: SessionContext = None,
+    ) -> str:
+        """鱼种活性描述（基于实测水温）。[P1 新增]"""
+        profile = self.fish_profile
+        if latest is None or latest.t_bottom is None:
+            return ""
+
+        t = latest.t_bottom
+        opt_lo, opt_hi = profile.optimal_temp
+        tol_lo, tol_hi = profile.tolerable_temp
+
+        if opt_lo <= t <= opt_hi:
+            return f"当前水温 {t:.1f}℃ 处于{profile.name}最适温度区间（{opt_lo:.0f}-{opt_hi:.0f}℃），活性高，动作清晰"
+        elif tol_lo <= t <= tol_hi:
+            if t < opt_lo:
+                return f"当前水温 {t:.1f}℃ 低于{profile.name}最适温度（{opt_lo:.0f}℃），活性偏低，口轻动作小"
+            else:
+                return f"当前水温 {t:.1f}℃ 高于{profile.name}最适温度（{opt_hi:.0f}℃），食欲下降，可能上浮"
+        else:
+            return f"当前水温 {t:.1f}℃ 超出{profile.name}可忍受范围（{tol_lo:.0f}-{tol_hi:.0f}℃），几乎不开口"
+
+    def _calc_pressure_absolute_modifier(
+        self, p_local: Optional[float], tags: List[str]
+    ) -> int:
+        """气压绝对值评分模块。[P1 新增]
+
+        补全系统此前仅关注气压变化率而忽略绝对值的缺陷。
+        低气压闷天扣分，高压晴好天加分。
+        """
+        if p_local is None:
+            return 0
+
+        cfg = self.pressure_abs_config
+
+        if p_local < cfg.extreme_low:
+            tags.append("PRESSURE_ABS_EXTREME_LOW")
+            return -cfg.extreme_penalty
+        elif p_local < cfg.low_threshold:
+            tags.append("PRESSURE_ABS_LOW")
+            return -cfg.low_penalty
+        elif cfg.optimal_range[0] <= p_local <= cfg.optimal_range[1]:
+            tags.append("PRESSURE_ABS_OPTIMAL")
+            return cfg.optimal_bonus
+        elif p_local > cfg.high_threshold:
+            tags.append("PRESSURE_ABS_HIGH")
+            return cfg.high_bonus
+        else:
+            return 0
+
+    def _calc_weather_transition_modifier(
+        self, hourly_forecast: Optional[List[dict]], tags: List[str]
+    ) -> int:
+        """天气转变检测模块（雨后效应）。[P2 新增]
+
+        分析逐小时天气预报，检测"雨→晴"等天气转变模式。
+        
+        经典钓鱼场景：
+          - 雨后初晴：气压回升+溶氧增加+食物被冲入水中 → 绝佳鱼情 (+10)
+          - 连续阴雨3天后放晴：爆护经典场景 → 强加分 (+12)
+          - 雷阵雨前1-2小时：气压急降鱼疯狂抢食 → 末日口 (+5 但高风险)
+
+        Args:
+            hourly_forecast: 逐小时天气预报列表（来自 get_hourly_forecast）
+            tags: 标签列表（会追加新标签）
+
+        Returns:
+            加减分值
+        """
+        if not hourly_forecast or len(hourly_forecast) < 3:
+            return 0
+
+        modifier = 0
+
+        # 将天气分为"湿"和"干"
+        wet_types = {"rainy", "stormy"}
+        dry_types = {"sunny", "cloudy", "overcast"}
+
+        trends = [h.get("weather_trend", "sunny") for h in hourly_forecast]
+
+        # ── 检测"雨后初晴"：前几小时是雨，当前/近期是晴 ──
+        # 取前6小时和后6小时对比
+        split = min(6, len(trends) // 2)
+        if split >= 2:
+            past_trends = trends[:split]
+            future_trends = trends[split:split + 6]
+
+            past_wet_ratio = sum(1 for t in past_trends if t in wet_types) / len(past_trends)
+            future_dry_ratio = sum(1 for t in future_trends if t in dry_types) / len(future_trends) if future_trends else 0
+
+            # 前半段>50%是雨，后半段>60%是晴/多云 → 雨后转晴
+            if past_wet_ratio >= 0.5 and future_dry_ratio >= 0.6:
+                tags.append("WEATHER_POST_RAIN_CLEAR")
+                modifier += 10
+
+                # 如果前段几乎全是雨（>80%），升级为"连续阴雨后放晴"
+                if past_wet_ratio >= 0.8:
+                    tags.append("WEATHER_LONG_RAIN_TO_CLEAR")
+                    modifier += 2  # 额外 +2（总共 +12）
+
+        # ── 检测"雷阵雨前末日口"：未来2-4小时有暴雨/雷暴 ──
+        near_future = trends[1:5] if len(trends) >= 5 else trends[1:]
+        has_storm_coming = any(t == "stormy" for t in near_future)
+        current_dry = trends[0] in dry_types
+
+        if current_dry and has_storm_coming:
+            tags.append("WEATHER_STORM_APPROACHING")
+            modifier += 5  # 末日口加分，但风险提示由 tactical_advice 处理
+
+        return modifier
+
+    # ================================================================
+    #  纯天气预测模式（P0 新增）
+    # ================================================================
+
+    def predict_weather_only(
+        self,
+        api: ApiData,
+        air_temp: float,
+        lat: float = 0.0,
+        lng: float = 0.0,
+        hourly_forecast: Optional[List[dict]] = None,
+    ) -> PredictionResult:
+        """纯天气模式预测（无需传感器数据）。
+
+        适用场景：钓鱼人出发前，仅凭天气+位置获取粗略建议。
+
+        Args:
+            api:              云端气象数据
+            air_temp:         气温（℃）
+            lat:              纬度
+            lng:              经度
+            hourly_forecast:  可选逐24h预报数据，用于雨后效应检测
+
+        Returns:
+            PredictionResult
+        """
+        tags: List[str] = []
+        tags.append(TacticalTag.STAGE_WEATHER_ONLY.value)
+
+        now_ts = int(_time.time())
+
+        # ── 推算水温 ──
+        season = get_season(now_ts, self.season_config)
+        t_water_est = self.air_to_water_config.estimate_water_temp(air_temp, season)
+        t_water_est = max(0.0, min(45.0, t_water_est))  # 安全钳位
+
+        # ── 1. 水温基准分 ──
+        base_score = self._calc_temp_base_score(t_water_est, tags)
+
+        # ── 2. 天气加权 ──
+        weather_modifier = self._calc_weather_modifier(api.weather_trend, tags)
+
+        # ── 3. 时段加权 ──
+        time_period = get_time_period(now_ts, self.period_config)
+        period_modifier = self._calc_time_period_modifier(time_period, tags)
+
+        # ── 4. 季节修正 ──
+        season_modifier = self._calc_season_modifier(season, tags)
+
+        # ── 5. 月相评分 ──
+        solunar_modifier = self._calc_solunar_modifier(now_ts, tags)
+        solunar_info = calc_solunar_rating(now_ts)
+
+        # ── 6. 风向评分 ──
+        wind_dir_modifier = self._calc_wind_direction_modifier(api, season, tags)
+
+        # ── 7. 湿度评分 ──
+        humidity_modifier = self._calc_humidity_modifier(api, tags)
+
+        # ── 8. 风力等级评分 ──
+        wind_speed_modifier = self._calc_wind_speed_modifier(api, tags)
+
+        # ── 9. 溶解氧估算（用推算水温 + 天气气压） ──
+        p_local_est = 1013.25  # 标准气压（天气API无此字段时兜底）
+        do_est = self._calculate_do_from_values(p_local_est, t_water_est, api, tags)
+        do_modifier = self._calc_do_modifier(do_est, tags)
+
+        # ── 10. 天气转变检测（雨后效应） ── [P2 新增]
+        weather_transition_modifier = self._calc_weather_transition_modifier(
+            hourly_forecast, tags
+        )
+
+        # ── 11. 汇总 ──
+        final_score = (
+            base_score + weather_modifier + period_modifier
+            + season_modifier + solunar_modifier + wind_dir_modifier
+            + humidity_modifier + wind_speed_modifier + do_modifier
+            + weather_transition_modifier
+        )
+        final_score = max(0, min(100, int(final_score)))
+        self._add_rating_tag(final_score, tags)
+
+        # ── 构建会话上下文 ──
+        session = SessionContext(
+            time_period=time_period,
+            season=season,
+            duration_seconds=0,
+            report_stage="weather_only",
+        )
+
+        # ── 时段建议与季节备注 ──
+        period_advice = self._generate_period_advice(
+            time_period, tags, api=api
+        )
+        season_note = self._generate_season_note(season, tags)
+
+        # ── 战术建议 ──
+        tactical_advice = self._generate_tactical_advice(
+            final_score, tags, session, api=api
+        )
+        tactical_advice["estimated_water_temp"] = f"{t_water_est:.1f}℃（根据气温{air_temp:.0f}℃推算）"
+
+        return PredictionResult(
+            do_trend=round(do_est, 2),
+            bite_index=final_score,
+            tactical_tags=tags,
+            report_stage="weather_only",
+            confidence=30,
+            time_period_advice=period_advice,
+            season_note=season_note,
+            solunar_info=solunar_info,
+            tactical_advice=tactical_advice,
+        )
+
+    def _calc_wind_speed_modifier(
+        self, api: ApiData, tags: List[str]
+    ) -> int:
+        """风力等级独立评分模块。
+
+        根据风速 m/s 分档加减分，强风时追加风险标签。
+        """
+        ws = api.wind_speed
+        cfg = self.wind_speed_config
+
+        modifier = 0
+        for upper, score, _ in cfg.thresholds:
+            if ws <= upper:
+                modifier = score
+                break
+
+        # 追加标签
+        if ws <= 0.5:
+            tags.append(TacticalTag.WIND_SPEED_CALM.value)
+        elif ws <= 3.5:
+            tags.append(TacticalTag.WIND_SPEED_BREEZE.value)
+        elif ws <= 8.0:
+            tags.append(TacticalTag.WIND_SPEED_MODERATE.value)
+        else:
+            tags.append(TacticalTag.WIND_SPEED_STRONG.value)
+
+        return modifier
 

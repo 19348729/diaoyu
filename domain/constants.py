@@ -28,7 +28,7 @@ class DissolvedOxygenConfig:
 
 @dataclass(frozen=True)
 class FishSpeciesProfile:
-    """目标鱼种的温度适宜区间配置。
+    """目标鱼种的温度适宜区间配置 + 专属战术建议。
 
     Attributes:
         name:              鱼种名称
@@ -38,6 +38,9 @@ class FishSpeciesProfile:
         base_score_optimal:    落在最适区间的基准分
         base_score_tolerable:  落在可忍受区间的基准分
         base_score_outside:    超出可忍受区间的基准分
+        bait_by_season:    季节 → 推荐饵料（鱼种专属）
+        default_layer_advice:  默认水层建议文案（空则按 water_layer 自动生成）
+        fishing_method:    作钓方式：台钓 / 路亚 / 筏钓
     """
 
     name: str = "鲫鱼"
@@ -47,70 +50,143 @@ class FishSpeciesProfile:
     base_score_optimal: int = 70
     base_score_tolerable: int = 40
     base_score_outside: int = 10
+    bait_by_season: Dict[str, str] = field(default_factory=lambda: {
+        "spring": "腥香饵，适当加拉丝粉",
+        "summer": "谷物本味清淡饵，减少雾化",
+        "autumn": "浓腥浓香饵，加大雾化",
+        "winter": "红虫/蚯蚓活饵，或极腥拉饵",
+    })
+    default_layer_advice: str = "钓底为主，口轻时上推浮漂钓灵"
+    fishing_method: str = "台钓"
 
 
-# ── 预设多鱼种配置库 (添加其他鱼种示例) ──
+# ── 预设多鱼种配置库 ──
 FISH_PROFILES = {
     "鲫鱼": FishSpeciesProfile(
-        water_layer="bottom"
+        water_layer="bottom",
+        bait_by_season={
+            "spring": "腥香饵，适当加拉丝粉",
+            "summer": "谷物本味清淡饵，减少雾化",
+            "autumn": "浓腥浓香饵，加大雾化",
+            "winter": "红虫/蚯蚓活饵，或极腥拉饵",
+        },
+        default_layer_advice="钓底为主，口轻时上推浮漂钓灵",
     ),
     "鲤鱼": FishSpeciesProfile(
         name="鲤鱼",
         water_layer="bottom",
-        optimal_temp=(20.0, 28.0),   # 鲤鱼比鲫鱼更喜温
-        tolerable_temp=(10.0, 35.0)
+        optimal_temp=(20.0, 28.0),
+        tolerable_temp=(10.0, 35.0),
+        bait_by_season={
+            "spring": "螺鲤+腥香基础饵",
+            "summer": "发酵玉米粒/谷物本味",
+            "autumn": "薯味+螺肉饵，加大窝量",
+            "winter": "红虫颗粒+腥味商品饵",
+        },
+        default_layer_advice="钓底守大物，子线放长",
     ),
     "罗非鱼": FishSpeciesProfile(
         name="罗非鱼",
-        water_layer="bottom",        # 罗非正常觅食在底层
-        optimal_temp=(25.0, 35.0),   # 典型的热带鱼类
+        water_layer="bottom",
+        optimal_temp=(25.0, 35.0),
         tolerable_temp=(15.0, 40.0),
-        base_score_optimal=75,       # 在合适的极端高温下活性可能更强
-        base_score_outside=5         # 低温极其非活跃
+        base_score_optimal=75,
+        base_score_outside=5,
+        bait_by_season={
+            "spring": "冻料+虾粉",
+            "summer": "冻料/肝味饵/挂虾肉",
+            "autumn": "冻料+赤尾青",
+            "winter": "虾肉/活虾挂钩，重腥",
+        },
+        default_layer_advice="钓底，挂虾肉效果极佳",
     ),
     "大口黑鲈": FishSpeciesProfile(
         name="大口黑鲈",
-        water_layer="mid",           # 路亚鱼种，通常在中下层或结构处
-        optimal_temp=(20.0, 29.0),   # 调整为更真实的夏秋狂口水温
-        tolerable_temp=(4.0, 32.0)
+        water_layer="mid",
+        optimal_temp=(20.0, 29.0),
+        tolerable_temp=(4.0, 32.0),
+        bait_by_season={
+            "spring": "软虫(T尾/卷尾) Texas钓组",
+            "summer": "Crankbait/Spinnerbait，搜索结构区",
+            "autumn": "米诺/VIB 快速搜索",
+            "winter": "铅头钩+软虫，慢拖底",
+        },
+        default_layer_advice="搜索中下层结构区（水草/石堆/倒树）",
+        fishing_method="路亚",
     ),
     # ── 广东及南方地区常见目标鱼 ──
     "土鲮": FishSpeciesProfile(
         name="土鲮",
-        water_layer="bottom",        # 典型下口鱼，贴底刮食
-        optimal_temp=(18.0, 30.0),   # 典型的亚热带鱼类，喜温怕寒
-        tolerable_temp=(14.0, 32.0), # 13度以下基本停口，7度以下有冻死风险
+        water_layer="bottom",
+        optimal_temp=(18.0, 30.0),
+        tolerable_temp=(14.0, 32.0),
         base_score_optimal=75,
-        base_score_outside=0         # 低温完全闭口
+        base_score_outside=0,
+        bait_by_season={
+            "spring": "花生枯+南北鲮，搓饵",
+            "summer": "花生枯+甜味添加剂",
+            "autumn": "花生枯+九一八",
+            "winter": "不建议作钓（14℃以下基本停口）",
+        },
+        default_layer_advice="必须钓底（下口鱼，贴底刮食）",
     ),
     "草鱼": FishSpeciesProfile(
         name="草鱼",
-        water_layer="mid",           # 中下层鱼，天热也会上浮
-        optimal_temp=(18.0, 28.0),   # 黄金摄食温度
-        tolerable_temp=(10.0, 35.0)  # 高于35度或低于10度食欲极差
+        water_layer="mid",
+        optimal_temp=(18.0, 28.0),
+        tolerable_temp=(10.0, 35.0),
+        bait_by_season={
+            "spring": "嫩玉米/嫩草尖",
+            "summer": "鲜嫩玉米粒/芦苇芯/南瓜藤",
+            "autumn": "老玉米粒/发酵玉米",
+            "winter": "不建议作钓（低温极不活跃）",
+        },
+        default_layer_advice="中下层为主，高温天钓半水或钓浮",
     ),
     "鲢鳙": FishSpeciesProfile(
         name="鲢鳙",
-        water_layer="top",           # 典型中上层滤食鱼
-        optimal_temp=(25.0, 32.0),   # 极其喜高温和高溶氧，盛夏最活跃
-        tolerable_temp=(15.0, 35.0), # 低于15度极难开口
-        base_score_optimal=80,       # 高温期疯狂进食
-        base_score_outside=5
+        water_layer="top",
+        optimal_temp=(25.0, 32.0),
+        tolerable_temp=(15.0, 35.0),
+        base_score_optimal=80,
+        base_score_outside=5,
+        bait_by_season={
+            "spring": "酸臭饵，增加雾化（水温>18℃方可）",
+            "summer": "酸臭发酵饵+蒜味，强雾化",
+            "autumn": "酸甜饵+草莓香精",
+            "winter": "不建议作钓（15℃以下极难开口）",
+        },
+        default_layer_advice="钓浮 1.5-3 米，搜索中上层",
     ),
     "塘鲺": FishSpeciesProfile(
         name="塘鲺",
-        water_layer="bottom",        # 极端的底层夜行鱼
-        optimal_temp=(20.0, 30.0),   # 喜温怕冷，夜间活跃
-        tolerable_temp=(12.0, 38.0), # 12度开始闭口，极度耐低氧
+        water_layer="bottom",
+        optimal_temp=(20.0, 30.0),
+        tolerable_temp=(12.0, 38.0),
         base_score_optimal=75,
-        base_score_outside=5
+        base_score_outside=5,
+        bait_by_season={
+            "spring": "鸡肝/蚯蚓",
+            "summer": "鸡肝/鸭肝/腥味重饵",
+            "autumn": "鸡肝/活虾",
+            "winter": "蚯蚓/鸡肝（仅限夜间有口）",
+        },
+        default_layer_advice="钓底，夜间出钓效果最佳",
     ),
     "翘嘴": FishSpeciesProfile(
         name="翘嘴",
-        water_layer="top",           # 典型的中上层掠食鱼
-        optimal_temp=(18.0, 30.0),   # 广温性中上层掠食鱼
-        tolerable_temp=(3.0, 36.0),  # 耐寒能力极强，3度依然可能摄食
-        base_score_tolerable=45      # 在非最佳水温下依然保留较强的掠食性
+        water_layer="top",
+        optimal_temp=(18.0, 30.0),
+        tolerable_temp=(3.0, 36.0),
+        base_score_tolerable=45,
+        bait_by_season={
+            "spring": "亮片/米诺，慢收",
+            "summer": "亮片/波趴/铅笔，清晨傍晚水面系",
+            "autumn": "米诺/VIB，中速搜索",
+            "winter": "VIB/金属饵，慢速跳底",
+        },
+        default_layer_advice="搜索中上层，fan cast 扇形覆盖",
+        fishing_method="路亚",
     ),
 }
 
@@ -441,4 +517,92 @@ class HumidityConfig:
     muggy_threshold: float = 85.0
     muggy_penalty: int = 5
     comfort_range: Tuple[float, float] = (40.0, 75.0)
+
+
+# ──────────────────────────────────────────────
+#  风速评分配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class WindSpeedConfig:
+    """风速（m/s）对作钓体验和鱼情的影响。
+
+    分档：
+      0 ~ 0.5 m/s   无风，水面缺氧，扣分
+      0.5 ~ 3.5      微风，最适宜，加分
+      3.5 ~ 5.5      轻风，稍有走水
+      5.5 ~ 8.0      中风，看漂受影响
+      8.0 ~ 10.5     强风，手竿困难
+      > 10.5         大风，建议取消出钓
+
+    Attributes:
+        thresholds: 每档 (上限 m/s, 加减分, 描述)
+    """
+
+    thresholds: Tuple[Tuple[float, int, str], ...] = (
+        (0.5,  -3, "无风，水面缺氧"),
+        (3.5,   5, "微风，最适宜"),
+        (5.5,   2, "轻风，稍有走水"),
+        (8.0,  -5, "中风，看漂受影响"),
+        (10.5, -12, "强风，手竿困难"),
+        (99.0, -25, "大风，建议取消出钓"),
+    )
+
+
+# ──────────────────────────────────────────────
+#  气压绝对值评分配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class PressureAbsoluteConfig:
+    """气压绝对值对鱼情的影响。
+
+    钓鱼人常说"闷天不上鱼"，气压绝对值偏低往往意味着闷热、
+    溶氧差，鱼口极差。本配置补全了系统此前仅关注气压变化率
+    而忽略绝对值的缺陷。
+
+    Attributes:
+        extreme_low:     极端低压阈值（hPa），如台风前兆
+        extreme_penalty: 极端低压扣分
+        low_threshold:   低压阈值
+        low_penalty:     低压扣分
+        optimal_range:   最适气压范围
+        high_threshold:  高压阈值（晴好天气利好）
+        high_bonus:      高压加分
+    """
+
+    extreme_low: float = 990.0
+    extreme_penalty: int = 15      # 极端低压，几乎不可能有口
+    low_threshold: float = 1000.0
+    low_penalty: int = 8           # 低气压闷天，鱼口差
+    optimal_range: Tuple[float, float] = (1005.0, 1020.0)
+    optimal_bonus: int = 3         # 最适气压范围加分
+    high_threshold: float = 1025.0
+    high_bonus: int = 2            # 高压晴好天，轻微利好
+
+
+# ──────────────────────────────────────────────
+#  气温推算水温配置
+# ──────────────────────────────────────────────
+@dataclass(frozen=True)
+class AirToWaterConfig:
+    """纯天气模式下，用气温估算水温的季节性偏移。
+
+    水温通常低于气温，偏差受季节和水体热容量影响。
+    春夏水温落后于气温（偏差大），秋冬水体保温（偏差小）。
+
+    Attributes:
+        season_offset: 季节 → (偏移下限, 偏移上限)，取均值使用
+    """
+
+    season_offset: Dict[str, Tuple[float, float]] = field(default_factory=lambda: {
+        "spring": (2.0, 4.0),   # 春季水温明显低于气温
+        "summer": (2.0, 3.0),   # 夏季日晒强但水体蓄热
+        "autumn": (1.0, 2.0),   # 秋季水体缓慢散热
+        "winter": (0.5, 1.5),   # 冬季水温反而高于气温（水体保温）
+    })
+
+    def estimate_water_temp(self, air_temp: float, season: str) -> float:
+        """用气温估算水温。"""
+        offsets = self.season_offset.get(season, (2.0, 3.0))
+        avg_offset = (offsets[0] + offsets[1]) / 2
+        return air_temp - avg_offset
 
