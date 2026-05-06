@@ -9,7 +9,7 @@
 """
 
 import time
-from machine import Pin
+from machine import Pin, disable_irq, enable_irq
 import onewire
 import ds18x20
 
@@ -155,12 +155,24 @@ class TemperatureSensor:
 
         for attempt in range(max_retries):
             try:
-                ds.convert_temp()
+                # 暂停系统中断，防止 BLE 射频高频打断 OneWire 微秒级通讯
+                irq_state = disable_irq()
+                try:
+                    ds.convert_temp()
+                finally:
+                    enable_irq(irq_state)
+                    
                 time.sleep_ms(DS18B20_CONVERSION_MS)
 
                 temps = {}
                 for rom in roms:
-                    temp = ds.read_temp(rom)
+                    # 读取数据同样需要中断保护
+                    irq_state = disable_irq()
+                    try:
+                        temp = ds.read_temp(rom)
+                    finally:
+                        enable_irq(irq_state)
+                        
                     # 过滤异常值（85.0 = 上电默认值，-127.0 = 通信失败）
                     if temp == 85.0 or temp == -127.0:
                         raise ValueError("异常温度值: {:.1f}".format(temp))

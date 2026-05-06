@@ -11,7 +11,7 @@
 
 # DS18B20 温度传感器 - 双总线布局
 PIN_TEMP_DEEP = 15      # GPIO15: 水底温度 + 水下1米温度（单总线共用，ROM 地址区分）
-PIN_TEMP_SURFACE = 5    # GPIO2:  水面温度（独立总线）
+PIN_TEMP_SURFACE = 2    # GPIO2:  水面温度（独立总线）
 
 # BMP280 气压传感器 - I2C 软总线
 PIN_I2C_SDA = 4         # GPIO4: I2C 数据线
@@ -32,7 +32,7 @@ ROM_ADDR_MID = None      # 水下1米探头 ROM 地址
 # ──────────────────────────────────────────────
 SAMPLE_INTERVAL_SEC = 5          # 数据采集间隔（秒）
 DS18B20_CONVERSION_MS = 750      # DS18B20 12位精度转换等待时间（毫秒）
-DS18B20_MAX_RETRIES = 3          # DS18B20 读取失败最大重试次数
+DS18B20_MAX_RETRIES = 5          # DS18B20 读取失败最大重试次数
 
 # ──────────────────────────────────────────────
 #  环形缓冲区
