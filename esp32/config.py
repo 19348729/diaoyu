@@ -49,8 +49,8 @@ BLE_SERVICE_UUID = "12345678-1234-5678-1234-56789abcdef0"
 BLE_TX_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef1"  # ESP32 -> 小程序（Notify）
 BLE_RX_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef2"  # 小程序 -> ESP32（Write）
 
-# BLE 历史数据批量发送时每批的最大条数（受 MTU 限制）
-BLE_BATCH_SIZE = 10
+# BLE 历史数据批量发送时每批的最大条数（受 MTU 限制，设为 8 以适配 iOS 185 字节 MTU）
+BLE_BATCH_SIZE = 8
 
 # ──────────────────────────────────────────────
 #  通信协议指令码

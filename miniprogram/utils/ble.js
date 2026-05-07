@@ -91,6 +91,26 @@ class BLEManager {
       this._connected = true;
       console.log('[BLE] 连接成功');
 
+      // 3.5 尝试协商 MTU (Android 推荐协商扩大至 256，iOS 自动协商可能提示不支持，直接忽略错误)
+      try {
+        await new Promise((resolve) => {
+          wx.setBLEMTU({
+            deviceId: this._deviceId,
+            mtu: 256,
+            success: (res) => {
+              console.log('[BLE] MTU 协商成功:', res);
+              resolve();
+            },
+            fail: (err) => {
+              console.log('[BLE] MTU 协商失败(可忽略):', err.errMsg);
+              resolve();
+            }
+          });
+        });
+      } catch (e) {
+        // ignore
+      }
+
       // 4. 获取服务和特征
       await this._discoverServices();
       console.log('[BLE] 服务发现完成');
