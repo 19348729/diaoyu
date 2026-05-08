@@ -169,6 +169,15 @@ function getForecast3Day(lat, lng, fishType = '鲫鱼') {
   return request(`/forecast/3day?lat=${lat}&lng=${lng}&fish_type=${encodeURIComponent(fishType)}`, 'GET');
 }
 
+/**
+ * 拉取最近的传感器历史记录（用于重启恢复趋势图）
+ * @param {number} limit - 返回条数，默认 1440
+ * @returns {Promise<object>}
+ */
+function getSensorRecords(limit = 1440) {
+  return request(`/sensor/records?limit=${limit}`, 'GET');
+}
+
 module.exports = {
   reportRealtimeData,
   reportHistoryBatch,
@@ -178,4 +187,5 @@ module.exports = {
   getWeatherPredict,
   getForecastToday,
   getForecast3Day,
+  getSensorRecords,
 };

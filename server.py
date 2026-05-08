@@ -448,6 +448,39 @@ async def upload_history(
     }
 
 
+@app.get("/api/sensor/records", tags=["数据拉取"])
+async def get_sensor_records(
+    limit: int = 1440,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """拉取最近的传感器历史记录（用于小程序重启后恢复趋势图）"""
+    if not x_openid or not x_openid.strip():
+        raise HTTPException(status_code=401, detail="未提供用户标识 (X-OpenID Header is empty)")
+        
+    records = db.query(SensorRecord).filter(
+        SensorRecord.openid == x_openid
+    ).order_by(SensorRecord.timestamp.desc()).limit(limit).all()
+    
+    # 倒序查询出最近数据，返回时正序排列供趋势图展示
+    records.reverse()
+    
+    return {
+        "status": "ok",
+        "data": [
+            {
+                "timestamp": r.timestamp,
+                "tBottom": r.t_bottom,
+                "tMid": r.t_mid,
+                "tSurface": r.t_surface,
+                "tDiff": round(r.t_surface - r.t_bottom, 2) if (r.t_surface is not None and r.t_bottom is not None) else None,
+                "pLocal": r.p_local
+            }
+            for r in records
+        ]
+    }
+
+
 class LoginRequest(BaseModel):
     code: str = Field(..., description="微信登录code")
 

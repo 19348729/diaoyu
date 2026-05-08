@@ -2,6 +2,8 @@
  * 钓鱼预测小程序 - 全局入口
  * 负责全局状态管理和应用生命周期
  */
+const api = require('./utils/api');
+
 App({
   globalData: {
     // 用户信息
@@ -37,6 +39,16 @@ App({
     const cachedOpenid = wx.getStorageSync('openid');
     if (cachedOpenid) {
       this.globalData.openid = cachedOpenid;
+    }
+
+    // 恢复本地存储的历史数据（离线兜底）
+    const cachedHistory = wx.getStorageSync('sensor_history');
+    if (cachedHistory && Array.isArray(cachedHistory)) {
+      this.globalData.historyData = cachedHistory;
+      if (cachedHistory.length > 0) {
+        this.globalData.latestData = cachedHistory[cachedHistory.length - 1];
+      }
+      console.log(`[App] 本地恢复历史数据: ${cachedHistory.length} 条`);
     }
 
     // 检查蓝牙权限
@@ -91,6 +103,9 @@ App({
                 this.globalData.openid = resp.data.openid;
                 wx.setStorageSync('openid', resp.data.openid);
                 console.log('[App] 获取 openid 成功:', resp.data.openid);
+                
+                // 获取到 openid 后，向后端拉取最新的历史数据恢复现场
+                this.fetchCloudHistory();
               } else {
                 console.error('[App] 后端登录返回异常 (可能未返回 openid):', resp.data);
               }
@@ -106,6 +121,23 @@ App({
   },
 
   /**
+   * 从云端拉取历史数据并合并
+   */
+  async fetchCloudHistory() {
+    try {
+      const res = await api.getSensorRecords(1440);
+      if (res && res.data && res.data.length > 0) {
+        this.globalData.historyData = res.data;
+        this.globalData.latestData = res.data[res.data.length - 1];
+        wx.setStorageSync('sensor_history', res.data);
+        console.log(`[App] 云端恢复历史数据: ${res.data.length} 条`);
+      }
+    } catch (e) {
+      console.error('[App] 云端恢复历史数据失败 (可忽略，使用本地兜底):', e);
+    }
+  },
+
+  /**
    * 添加历史数据记录（供 BLE 模块回调）
    */
   addHistoryRecord(record) {
@@ -115,6 +147,8 @@ App({
     if (history.length > 1440) {
       history.splice(0, history.length - 1440);
     }
+    // 异步存入本地缓存，离线兜底
+    wx.setStorage({ key: 'sensor_history', data: history });
   },
 
   /**
@@ -126,6 +160,8 @@ App({
     }
     // 按时间戳排序
     this.globalData.historyData.sort((a, b) => a.timestamp - b.timestamp);
+    // 异步存入本地缓存，离线兜底
+    wx.setStorage({ key: 'sensor_history', data: this.globalData.historyData });
   },
 
   /**
