@@ -100,18 +100,22 @@ def main():
                 # 清除重连标志（无论有没有历史数据）
                 ble_service.clear_reconnect_flag()
 
-            # 优先补传历史数据
-            if ble_service.has_pending_history():
+            # 区分历史积压与实时数据
+            # 如果未发送的数据大于 1 条（即除了刚才写入的那条，还有旧数据）
+            if ring_buffer.unsent_count > 1:
                 ble_service.send_history_batch()
             else:
-                # 历史数据已补完，发送实时数据
-                ble_service.send_realtime(
+                # 正常情况：只有刚刚写入的那 1 条，作为实时推送发出
+                success = ble_service.send_realtime(
                     timestamp,
                     temps["t_bottom"],
                     temps["t_mid"],
                     temps["t_surface"],
                     press["p_local"],
                 )
+                if success:
+                    # 实时发送成功，免 ACK 确权，直接标记这 1 条已处理
+                    ring_buffer.mark_sent(1)
 
         # ── 2.6 内存回收（每100次执行一次） ──
         if sample_count % 100 == 0:

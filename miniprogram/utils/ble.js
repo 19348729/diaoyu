@@ -386,6 +386,22 @@ class BLEManager {
         const app2 = getApp();
         app2.addHistoryBatch(data.records);
         
+        // 提取最后一条，更新为最新数据（解决从后台返回无数据的BUG）
+        if (data.records && data.records.length > 0) {
+          const lastRecord = data.records[data.records.length - 1];
+          // 只在最新数据比现有 globalData 新的时候才覆盖
+          if (!app2.globalData.latestData.timestamp || lastRecord.timestamp > app2.globalData.latestData.timestamp) {
+            app2.globalData.latestData = {
+              timestamp: lastRecord.timestamp,
+              tBottom: lastRecord.tBottom,
+              tMid: lastRecord.tMid,
+              tSurface: lastRecord.tSurface,
+              tDiff: lastRecord.tDiff,
+              pLocal: lastRecord.pLocal,
+            };
+          }
+        }
+        
         // 异步获取位置并批量上报后端长期保存
         app2.getLocationWithCache().then(loc => {
           api.reportHistoryBatch(data.records, loc).catch(err => console.error('[API] 历史数据批量上报失败:', err));

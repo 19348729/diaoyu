@@ -175,6 +175,9 @@ class BLEService:
             if self._ring_buffer.unsent_count == 0:
                 self._syncing_history = False
                 print("[BLE] 历史数据补传完成")
+            else:
+                # 还有积压，立刻触发连发下一批，加速重连补传
+                self.send_history_batch()
 
         elif cmd == CMD_STATUS_QUERY:
             # 状态查询 -> 回复缓冲区状态
