@@ -111,9 +111,9 @@ App({
   addHistoryRecord(record) {
     const history = this.globalData.historyData;
     history.push(record);
-    // 最多保留 720 条（1 小时 @5秒间隔）
-    if (history.length > 720) {
-      history.splice(0, history.length - 720);
+    // 最多保留 1440 条（24 小时 @60秒间隔）
+    if (history.length > 1440) {
+      history.splice(0, history.length - 1440);
     }
   },
 
@@ -127,4 +127,31 @@ App({
     // 按时间戳排序
     this.globalData.historyData.sort((a, b) => a.timestamp - b.timestamp);
   },
+
+  /**
+   * 获取当前位置（带 5 分钟缓存，防止频繁请求）
+   */
+  getLocationWithCache() {
+    return new Promise((resolve) => {
+      const now = Date.now();
+      if (this.globalData.cachedLocation && now - this.globalData.locationCacheTime < 5 * 60 * 1000) {
+        resolve(this.globalData.cachedLocation);
+        return;
+      }
+
+      wx.getLocation({
+        type: 'wgs84',
+        success: (res) => {
+          const loc = { lat: res.latitude, lng: res.longitude };
+          this.globalData.cachedLocation = loc;
+          this.globalData.locationCacheTime = now;
+          resolve(loc);
+        },
+        fail: (err) => {
+          console.warn('[App] getLocation 失败，使用缓存或默认值', err);
+          resolve(this.globalData.cachedLocation || { lat: 0, lng: 0 });
+        }
+      });
+    });
+  }
 });

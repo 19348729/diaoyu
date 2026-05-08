@@ -4,6 +4,7 @@
  */
 
 const protocol = require('./protocol');
+const api = require('./api');
 
 // ── 与 ESP32 config.py 保持一致的 BLE 参数 ──
 const BLE_DEVICE_NAME = 'FishProbe';
@@ -372,6 +373,11 @@ class BLEManager {
           pLocal: data.pLocal,
         };
         app.addHistoryRecord(data);
+
+        // 异步获取位置并上报后端长期保存
+        app.getLocationWithCache().then(loc => {
+          api.reportRealtimeData(data, loc).catch(err => console.error('[API] 实时数据上报失败:', err));
+        });
         break;
 
       case protocol.CMD.HISTORY_DATA:
@@ -379,6 +385,12 @@ class BLEManager {
         // 存储历史数据
         const app2 = getApp();
         app2.addHistoryBatch(data.records);
+        
+        // 异步获取位置并批量上报后端长期保存
+        app2.getLocationWithCache().then(loc => {
+          api.reportHistoryBatch(data.records, loc).catch(err => console.error('[API] 历史数据批量上报失败:', err));
+        });
+
         // 自动发送同步确认
         this.sendSyncAck(data.count).catch((e) => {
           console.error('[BLE] 同步确认发送失败:', e);

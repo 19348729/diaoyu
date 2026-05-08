@@ -52,8 +52,15 @@ function request(path, method = 'POST', data = {}) {
  */
 function reportRealtimeData(sensorData, location = null) {
   return request('/sensor/realtime', 'POST', {
-    ...sensorData,
-    location,
+    sensor: {
+      timestamp: sensorData.timestamp,
+      t_bottom: sensorData.tBottom !== undefined ? sensorData.tBottom : null,
+      t_mid: sensorData.tMid !== undefined ? sensorData.tMid : null,
+      t_surface: sensorData.tSurface !== undefined ? sensorData.tSurface : null,
+      p_local: sensorData.pLocal !== undefined ? sensorData.pLocal : null
+    },
+    lat: location ? location.lat : 0.0,
+    lng: location ? location.lng : 0.0
   });
 }
 
@@ -64,9 +71,18 @@ function reportRealtimeData(sensorData, location = null) {
  * @returns {Promise<object>}
  */
 function reportHistoryBatch(records, location = null) {
+  const formattedRecords = records.map(s => ({
+    timestamp: s.timestamp,
+    t_bottom: s.tBottom !== undefined ? s.tBottom : null,
+    t_mid: s.tMid !== undefined ? s.tMid : null,
+    t_surface: s.tSurface !== undefined ? s.tSurface : null,
+    p_local: s.pLocal !== undefined ? s.pLocal : null
+  }));
+
   return request('/sensor/history', 'POST', {
-    records,
-    location,
+    records: formattedRecords,
+    lat: location ? location.lat : 0.0,
+    lng: location ? location.lng : 0.0
   });
 }
 

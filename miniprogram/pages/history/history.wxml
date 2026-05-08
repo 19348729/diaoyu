@@ -30,37 +30,21 @@
     </view>
   </view>
 
-  <!-- 数据列表 -->
-  <view class="card list-card">
-    <text class="card-title">详细记录</text>
-
-    <!-- 表头 -->
-    <view class="list-header">
-      <text class="col-time">时间</text>
-      <text class="col-data">水底</text>
-      <text class="col-data">1米</text>
-      <text class="col-data">水面</text>
-      <text class="col-data">气压</text>
+  <!-- 图表展示 -->
+  <view class="card chart-card">
+    <view class="chart-header">
+      <text class="card-title">数据趋势图</text>
+      <view class="time-filters">
+        <text class="filter-item {{timeRange === 30 ? 'active' : ''}}" data-range="30" bindtap="onTimeRangeChange">30分</text>
+        <text class="filter-item {{timeRange === 60 ? 'active' : ''}}" data-range="60" bindtap="onTimeRangeChange">1小时</text>
+        <text class="filter-item {{timeRange === 180 ? 'active' : ''}}" data-range="180" bindtap="onTimeRangeChange">3小时</text>
+        <text class="filter-item {{timeRange === 360 ? 'active' : ''}}" data-range="360" bindtap="onTimeRangeChange">6小时</text>
+        <text class="filter-item {{timeRange === 0 ? 'active' : ''}}" data-range="0" bindtap="onTimeRangeChange">全部</text>
+      </view>
     </view>
-
-    <!-- 数据行 -->
-    <scroll-view scroll-y class="list-scroll" enhanced show-scrollbar="{{false}}">
-      <view class="list-empty" wx:if="{{records.length === 0}}">
-        <text>暂无数据，请连接设备后等待数据采集</text>
-      </view>
-
-      <view
-        class="list-row"
-        wx:for="{{records}}"
-        wx:key="timestamp"
-      >
-        <text class="col-time">{{item.timeStr}}</text>
-        <text class="col-data">{{item.tBottomStr}}</text>
-        <text class="col-data">{{item.tMidStr}}</text>
-        <text class="col-data">{{item.tSurfaceStr}}</text>
-        <text class="col-data">{{item.pLocalStr}}</text>
-      </view>
-    </scroll-view>
+    <view class="chart-container">
+      <ec-canvas id="mychart-dom-line" canvas-id="mychart-line" ec="{{ ec }}"></ec-canvas>
+    </view>
   </view>
 
 </view>

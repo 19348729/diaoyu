@@ -97,6 +97,8 @@ class RealtimeSensorRequest(BaseModel):
 class BatchSensorRequest(BaseModel):
     """批量历史数据上报"""
     records: List[SensorDataIn] = Field(..., min_length=1)
+    lat: float = 0.0
+    lng: float = 0.0
 
 
 # ══════════════════════════════════════════════
@@ -429,7 +431,9 @@ async def upload_history(
                 t_bottom=s.t_bottom,
                 t_mid=s.t_mid,
                 t_surface=s.t_surface,
-                p_local=s.p_local
+                p_local=s.p_local,
+                lat=req.lat,
+                lng=req.lng
             ) for s in req.records
         ]
         db.add_all(records)

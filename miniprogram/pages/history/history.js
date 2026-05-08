@@ -1,15 +1,14 @@
-/**
- * 趋势分析页面
- * 展示传感器历史数据的变化趋势（列表形式，适配小程序原生能力）
- */
+import * as echarts from '../../components/ec-canvas/echarts';
+
 const app = getApp();
 
 Page({
   data: {
-    // 数据列表（倒序，最新在前）
-    records: [],
+    ec: {
+      lazyLoad: true
+    },
     recordCount: 0,
-
+    timeRange: 60, // 默认近1小时（60分钟）
     // 统计摘要
     summary: {
       tBottomMin: '--',
@@ -20,71 +19,185 @@ Page({
       pLocalMax: '--',
       tDiffMax: '--',
       duration: '--',
-    },
+    }
+  },
 
-    // 筛选
-    filterType: 'all', // all | temp | pressure
+  onReady() {
+    this.ecComponent = this.selectComponent('#mychart-dom-line');
+    this.initChart();
+  },
+
+  onTimeRangeChange(e) {
+    const range = parseInt(e.currentTarget.dataset.range);
+    this.setData({ timeRange: range });
+    this._refreshData();
   },
 
   onShow() {
     this._refreshData();
   },
 
-  /**
-   * 下拉刷新
-   */
   onPullDownRefresh() {
     this._refreshData();
     wx.stopPullDownRefresh();
   },
 
-  /**
-   * 切换筛选类型
-   */
-  onFilterChange(e) {
-    this.setData({ filterType: e.currentTarget.dataset.type });
-  },
-
-  /**
-   * 刷新数据
-   */
-  _refreshData() {
-    const history = app.globalData.historyData || [];
-    const count = history.length;
-
-    if (count === 0) {
-      this.setData({ records: [], recordCount: 0 });
-      return;
-    }
-
-    // 倒序（最新在前），最多显示 200 条
-    const displayRecords = history
-      .slice(-200)
-      .reverse()
-      .map((r) => ({
-        ...r,
-        timeStr: this._formatTime(r.timestamp),
-        tBottomStr: r.tBottom !== null ? r.tBottom.toFixed(1) : '--',
-        tMidStr: r.tMid !== null ? r.tMid.toFixed(1) : '--',
-        tSurfaceStr: r.tSurface !== null ? r.tSurface.toFixed(1) : '--',
-        tDiffStr: r.tDiff !== null ? r.tDiff.toFixed(1) : '--',
-        pLocalStr: r.pLocal !== null ? r.pLocal.toFixed(1) : '--',
-        tDiffWarn: r.tDiff !== null && r.tDiff > 5,
-      }));
-
-    // 计算统计摘要
-    const summary = this._calcSummary(history);
-
-    this.setData({
-      records: displayRecords,
-      recordCount: count,
-      summary,
+  initChart() {
+    if (!this.ecComponent) return;
+    this.ecComponent.init((canvas, width, height, dpr) => {
+      const chart = echarts.init(canvas, null, {
+        width: width,
+        height: height,
+        devicePixelRatio: dpr
+      });
+      canvas.setChart(chart);
+      this.chart = chart;
+      this._updateChart();
+      return chart;
     });
   },
 
-  /**
-   * 计算统计摘要
-   */
+  _refreshData() {
+    const history = app.globalData.historyData || [];
+    const count = history.length;
+    
+    this.setData({ recordCount: count });
+
+    if (count > 0) {
+      const summary = this._calcSummary(history);
+      this.setData({ summary });
+    } else {
+      this.setData({
+        summary: {
+          tBottomMin: '--', tBottomMax: '--',
+          tSurfaceMin: '--', tSurfaceMax: '--',
+          pLocalMin: '--', pLocalMax: '--',
+          tDiffMax: '--', duration: '--',
+        }
+      });
+    }
+
+    if (this.chart) {
+      this._updateChart();
+    }
+  },
+
+  _updateChart() {
+    if (!this.chart) return;
+    const history = app.globalData.historyData || [];
+    
+    if (history.length === 0) {
+      this.chart.clear();
+      return;
+    }
+
+    // 根据 timeRange 过滤数据
+    let displayRecords = history;
+    if (this.data.timeRange > 0) {
+      // 找到最后一条数据的时间作为当前参考时间，因为设备可能离线，以最新数据时间往前推更合理
+      const latestTs = history[history.length - 1].timestamp;
+      const cutoff = latestTs - this.data.timeRange * 60;
+      displayRecords = history.filter(r => r.timestamp >= cutoff);
+    }
+    
+    const times = [];
+    const tBottoms = [];
+    const tMids = [];
+    const tSurfaces = [];
+    const pLocals = [];
+
+    displayRecords.forEach(r => {
+      times.push(this._formatTime(r.timestamp));
+      tBottoms.push(r.tBottom !== null ? parseFloat(r.tBottom.toFixed(1)) : null);
+      tMids.push(r.tMid !== null ? parseFloat(r.tMid.toFixed(1)) : null);
+      tSurfaces.push(r.tSurface !== null ? parseFloat(r.tSurface.toFixed(1)) : null);
+      pLocals.push(r.pLocal !== null ? parseFloat(r.pLocal.toFixed(1)) : null);
+    });
+
+    const option = {
+      color: ['#1890FF', '#2FC25B', '#FACC14', '#F04864'],
+      legend: {
+        data: ['水底', '1米', '水面', '气压'],
+        top: 0,
+        z: 100
+      },
+      grid: {
+        left: 15,
+        right: 15,
+        bottom: 10,
+        top: 40,
+        containLabel: true
+      },
+      tooltip: {
+        show: true,
+        trigger: 'axis'
+      },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: times
+      },
+      yAxis: [
+        {
+          type: 'value',
+          name: '温度(℃)',
+          position: 'left',
+          scale: true,
+          splitLine: { lineStyle: { type: 'dashed', color: '#eeeeee' } },
+          axisLabel: { formatter: '{value}' }
+        },
+        {
+          type: 'value',
+          name: '气压(hPa)',
+          position: 'right',
+          scale: true,
+          splitLine: { show: false },
+          axisLabel: { formatter: '{value}' }
+        }
+      ],
+      series: [
+        {
+          name: '水底',
+          type: 'line',
+          yAxisIndex: 0,
+          smooth: true,
+          sampling: 'lttb',
+          data: tBottoms,
+          symbol: 'none'
+        },
+        {
+          name: '1米',
+          type: 'line',
+          yAxisIndex: 0,
+          smooth: true,
+          sampling: 'lttb',
+          data: tMids,
+          symbol: 'none'
+        },
+        {
+          name: '水面',
+          type: 'line',
+          yAxisIndex: 0,
+          smooth: true,
+          sampling: 'lttb',
+          data: tSurfaces,
+          symbol: 'none'
+        },
+        {
+          name: '气压',
+          type: 'line',
+          yAxisIndex: 1,
+          smooth: true,
+          sampling: 'lttb',
+          data: pLocals,
+          symbol: 'none'
+        }
+      ]
+    };
+
+    this.chart.setOption(option);
+  },
+
   _calcSummary(records) {
     const validBottom = records.filter((r) => r.tBottom !== null).map((r) => r.tBottom);
     const validSurface = records.filter((r) => r.tSurface !== null).map((r) => r.tSurface);
@@ -103,12 +216,9 @@ Page({
     const surfaceMM = minMax(validSurface);
     const pressMM = minMax(validPress);
 
-    // 计算持续时间
     let duration = '--';
     if (records.length >= 2) {
-      // 过滤掉未校准的相对时间戳（小于 2000-01-01 的都视为无效）
       const validRecords = records.filter(r => r.timestamp > 946656000);
-      
       if (validRecords.length >= 2) {
         const firstTs = validRecords[0].timestamp;
         const lastTs = validRecords[validRecords.length - 1].timestamp;
@@ -119,7 +229,6 @@ Page({
           duration = `${diffMin}分钟`;
         }
       } else if (records.length > 0) {
-        // 如果只有相对时间，或者数据量太少，简单显示采集点数
         duration = `已采集${records.length}组数据`;
       }
     }
@@ -141,5 +250,5 @@ Page({
     const d = new Date(timestamp * 1000);
     const pad = (n) => (n < 10 ? '0' + n : '' + n);
     return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  },
+  }
 });
