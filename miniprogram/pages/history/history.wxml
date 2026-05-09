@@ -42,8 +42,11 @@
         <text class="filter-item {{timeRange === 0 ? 'active' : ''}}" data-range="0" bindtap="onTimeRangeChange">全部</text>
       </view>
     </view>
-    <view class="chart-container">
-      <ec-canvas id="mychart-dom-line" canvas-id="mychart-line" ec="{{ ec }}"></ec-canvas>
+    <view class="chart-container temp-chart-box">
+      <ec-canvas id="temp-chart-dom" canvas-id="temp-chart" ec="{{ ec }}"></ec-canvas>
+    </view>
+    <view class="chart-container press-chart-box">
+      <ec-canvas id="press-chart-dom" canvas-id="press-chart" ec="{{ ec }}"></ec-canvas>
     </view>
   </view>
 

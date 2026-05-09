@@ -23,7 +23,8 @@ Page({
   },
 
   onReady() {
-    this.ecComponent = this.selectComponent('#mychart-dom-line');
+    this.ecComponentTemp = this.selectComponent('#temp-chart-dom');
+    this.ecComponentPress = this.selectComponent('#press-chart-dom');
     this.initChart();
   },
 
@@ -43,18 +44,24 @@ Page({
   },
 
   initChart() {
-    if (!this.ecComponent) return;
-    this.ecComponent.init((canvas, width, height, dpr) => {
-      const chart = echarts.init(canvas, null, {
-        width: width,
-        height: height,
-        devicePixelRatio: dpr
+    if (this.ecComponentTemp) {
+      this.ecComponentTemp.init((canvas, width, height, dpr) => {
+        const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
+        canvas.setChart(chart);
+        this.tempChart = chart;
+        this._updateChart();
+        return chart;
       });
-      canvas.setChart(chart);
-      this.chart = chart;
-      this._updateChart();
-      return chart;
-    });
+    }
+    if (this.ecComponentPress) {
+      this.ecComponentPress.init((canvas, width, height, dpr) => {
+        const chart = echarts.init(canvas, null, { width, height, devicePixelRatio: dpr });
+        canvas.setChart(chart);
+        this.pressChart = chart;
+        this._updateChart();
+        return chart;
+      });
+    }
   },
 
   _refreshData() {
@@ -77,17 +84,18 @@ Page({
       });
     }
 
-    if (this.chart) {
+    if (this.tempChart && this.pressChart) {
       this._updateChart();
     }
   },
 
   _updateChart() {
-    if (!this.chart) return;
+    if (!this.tempChart || !this.pressChart) return;
     const history = app.globalData.historyData || [];
     
     if (history.length === 0) {
-      this.chart.clear();
+      this.tempChart.clear();
+      this.pressChart.clear();
       return;
     }
 
@@ -114,88 +122,56 @@ Page({
       pLocals.push(r.pLocal !== null ? parseFloat(r.pLocal.toFixed(1)) : null);
     });
 
-    const option = {
-      color: ['#1890FF', '#2FC25B', '#FACC14', '#F04864'],
+    const optionTemp = {
+      color: ['#1890FF', '#2FC25B', '#FACC14'],
       legend: {
-        data: ['水底', '1米', '水面', '气压'],
+        data: ['水底', '1米', '水面'],
         top: 0,
         z: 100
       },
-      grid: {
-        left: 15,
-        right: 15,
-        bottom: 10,
-        top: 40,
-        containLabel: true
+      grid: { left: 15, right: 15, bottom: 10, top: 30, containLabel: true },
+      tooltip: { show: true, trigger: 'axis' },
+      xAxis: { type: 'category', boundaryGap: false, data: times },
+      yAxis: {
+        type: 'value',
+        name: '温度(℃)',
+        position: 'left',
+        scale: true,
+        splitLine: { lineStyle: { type: 'dashed', color: '#eeeeee' } },
+        axisLabel: { formatter: '{value}' }
       },
-      tooltip: {
-        show: true,
-        trigger: 'axis'
-      },
-      xAxis: {
-        type: 'category',
-        boundaryGap: false,
-        data: times
-      },
-      yAxis: [
-        {
-          type: 'value',
-          name: '温度(℃)',
-          position: 'left',
-          scale: true,
-          splitLine: { lineStyle: { type: 'dashed', color: '#eeeeee' } },
-          axisLabel: { formatter: '{value}' }
-        },
-        {
-          type: 'value',
-          name: '气压(hPa)',
-          position: 'right',
-          scale: true,
-          splitLine: { show: false },
-          axisLabel: { formatter: '{value}' }
-        }
-      ],
       series: [
-        {
-          name: '水底',
-          type: 'line',
-          yAxisIndex: 0,
-          smooth: true,
-          sampling: 'lttb',
-          data: tBottoms,
-          symbol: 'none'
-        },
-        {
-          name: '1米',
-          type: 'line',
-          yAxisIndex: 0,
-          smooth: true,
-          sampling: 'lttb',
-          data: tMids,
-          symbol: 'none'
-        },
-        {
-          name: '水面',
-          type: 'line',
-          yAxisIndex: 0,
-          smooth: true,
-          sampling: 'lttb',
-          data: tSurfaces,
-          symbol: 'none'
-        },
-        {
-          name: '气压',
-          type: 'line',
-          yAxisIndex: 1,
-          smooth: true,
-          sampling: 'lttb',
-          data: pLocals,
-          symbol: 'none'
-        }
+        { name: '水底', type: 'line', smooth: true, sampling: 'lttb', data: tBottoms, symbol: 'none' },
+        { name: '1米', type: 'line', smooth: true, sampling: 'lttb', data: tMids, symbol: 'none' },
+        { name: '水面', type: 'line', smooth: true, sampling: 'lttb', data: tSurfaces, symbol: 'none' }
       ]
     };
 
-    this.chart.setOption(option);
+    const optionPress = {
+      color: ['#F04864'],
+      legend: {
+        data: ['气压'],
+        top: 0,
+        z: 100
+      },
+      grid: { left: 15, right: 15, bottom: 10, top: 30, containLabel: true },
+      tooltip: { show: true, trigger: 'axis' },
+      xAxis: { type: 'category', boundaryGap: false, data: times },
+      yAxis: {
+        type: 'value',
+        name: '气压(hPa)',
+        position: 'left',
+        scale: true,
+        splitLine: { lineStyle: { type: 'dashed', color: '#eeeeee' } },
+        axisLabel: { formatter: '{value}' }
+      },
+      series: [
+        { name: '气压', type: 'line', smooth: true, sampling: 'lttb', data: pLocals, symbol: 'none' }
+      ]
+    };
+
+    this.tempChart.setOption(optionTemp);
+    this.pressChart.setOption(optionPress);
   },
 
   _calcSummary(records) {
