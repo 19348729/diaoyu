@@ -110,6 +110,32 @@ Page({
   },
 
   /**
+   * 点击手动拉取一批历史数据
+   * 每点一次发一批（最多 BLE_BATCH_SIZE 条），收到后会自动 ACK 并刷新状态
+   */
+  async onTapPullHistory() {
+    if (!this._ble.isConnected) {
+      wx.showToast({ title: '未连接设备', icon: 'none' });
+      return;
+    }
+    if (!this._ble.isTimeSynced) {
+      wx.showToast({ title: '等待对表完成', icon: 'none' });
+      return;
+    }
+    if (this.data.bufferUnsent <= 0) {
+      wx.showToast({ title: '当前无待补数据', icon: 'none' });
+      return;
+    }
+    try {
+      await this._ble.sendPullHistory();
+      wx.showToast({ title: '已请求一批', icon: 'none' });
+    } catch (e) {
+      console.error('[Index] 手动拉取失败:', e);
+      wx.showToast({ title: '拉取失败', icon: 'none' });
+    }
+  },
+
+  /**
    * 更新连接状态显示
    */
   _updateConnectionStatus(connected) {

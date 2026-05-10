@@ -187,6 +187,15 @@ class BLEManager {
     console.log('[BLE] 发送状态查询');
   }
 
+  /**
+   * 发送手动拉取历史指令（每次回发一批）
+   */
+  async sendPullHistory() {
+    const buffer = protocol.encodePullHistory();
+    await this._writeToDevice(buffer);
+    console.log('[BLE] 发送手动拉取历史指令');
+  }
+
   // ============================================
   //  内部方法
   // ============================================
@@ -407,10 +416,12 @@ class BLEManager {
           api.reportHistoryBatch(data.records, loc).catch(err => console.error('[API] 历史数据批量上报失败:', err));
         });
 
-        // 自动发送同步确认
-        this.sendSyncAck(data.count).catch((e) => {
-          console.error('[BLE] 同步确认发送失败:', e);
-        });
+        // 自动发送同步确认，随后刷新一次设备状态
+        this.sendSyncAck(data.count)
+          .then(() => this.sendStatusQuery())
+          .catch((e) => {
+            console.error('[BLE] 同步确认/状态刷新失败:', e);
+          });
         break;
 
       case protocol.CMD.STATUS_REPLY:

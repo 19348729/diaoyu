@@ -61,3 +61,4 @@ CMD_HISTORY_DATA = 0x03     # 历史数据批量帧（ESP32 -> 小程序）
 CMD_SYNC_ACK = 0x04         # 同步确认（小程序 -> ESP32）
 CMD_STATUS_QUERY = 0x05     # 状态查询（小程序 -> ESP32）
 CMD_STATUS_REPLY = 0x06     # 状态回复（ESP32 -> 小程序）
+CMD_PULL_HISTORY = 0x07     # 手动拉取一批历史（小程序 -> ESP32，无载荷）

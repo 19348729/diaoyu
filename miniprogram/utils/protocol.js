@@ -13,6 +13,7 @@ const CMD = {
   SYNC_ACK: 0x04,       // 同步确认    (小程序 -> ESP32)
   STATUS_QUERY: 0x05,   // 状态查询    (小程序 -> ESP32)
   STATUS_REPLY: 0x06,   // 状态回复    (ESP32 -> 小程序)
+  PULL_HISTORY: 0x07,   // 手动拉取一批历史 (小程序 -> ESP32，无载荷)
 };
 
 // ── None 值占位符（与 ESP32 protocol.py 一致）──
@@ -74,6 +75,18 @@ function encodeStatusQuery() {
   const buffer = new ArrayBuffer(1);
   const view = new DataView(buffer);
   view.setUint8(0, CMD.STATUS_QUERY);
+  return buffer;
+}
+
+/**
+ * 编码手动拉取历史指令
+ * 帧结构: CMD(1)
+ * @returns {ArrayBuffer}
+ */
+function encodePullHistory() {
+  const buffer = new ArrayBuffer(1);
+  const view = new DataView(buffer);
+  view.setUint8(0, CMD.PULL_HISTORY);
   return buffer;
 }
 
@@ -219,5 +232,6 @@ module.exports = {
   encodeTimeSync,
   encodeSyncAck,
   encodeStatusQuery,
+  encodePullHistory,
   decodeIncoming,
 };

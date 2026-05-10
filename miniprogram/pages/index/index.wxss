@@ -43,6 +43,15 @@
   color: #1a73e8;
 }
 
+.info-value .link {
+  color: #1a73e8;
+  padding: 0 4rpx;
+}
+
+.info-value .link-disabled {
+  color: #bbbbbb;
+}
+
 /* 三层水温网格 */
 .temp-grid {
   display: flex;

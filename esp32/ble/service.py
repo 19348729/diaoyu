@@ -12,6 +12,7 @@ from micropython import const
 from config import (
     BLE_DEVICE_NAME, BLE_SERVICE_UUID, BLE_TX_CHAR_UUID, BLE_RX_CHAR_UUID,
     BLE_BATCH_SIZE, CMD_TIME_SYNC, CMD_SYNC_ACK, CMD_STATUS_QUERY,
+    CMD_PULL_HISTORY,
 )
 from ble.protocol import (
     decode_incoming, encode_realtime_data, encode_history_batch,
@@ -187,6 +188,18 @@ class BLEService:
                 status["unsent"], status["total_written"],
             )
             self._send(reply)
+
+        elif cmd == CMD_PULL_HISTORY:
+            # 手动拉取一批历史数据
+            if not self._time_synced:
+                print("[BLE] 收到拉取指令但未对表，忽略")
+                return
+            if self._ring_buffer.unsent_count == 0:
+                print("[BLE] 收到拉取指令但无待补数据")
+                return
+            sent = self.send_history_batch()
+            if sent:
+                print("[BLE] 手动拉取：已发送一批历史数据")
 
     def send_realtime(self, timestamp, t_bottom, t_mid, t_surface, p_local) -> bool:
         """发送实时数据帧。

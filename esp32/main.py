@@ -9,9 +9,11 @@ ESP32 钓鱼传感器主程序 (Main Entry)
   3. 生成时间戳
   4. 写入环形缓冲区
   5. 根据 BLE 连接状态决定发送策略：
-     - 已连接且已对表 → 先补传历史，再推实时数据
+     - 已连接且已对表 → 发送实时数据
      - 已连接但未对表 → 等待对表指令
      - 未连接 → 数据留在缓冲区
+  6. 历史数据采用手动拉取模式：由小程序下发 CMD_PULL_HISTORY
+     主动拉取，每次回发一批（最多 BLE_BATCH_SIZE 条）。
 """
 
 import time
@@ -91,31 +93,27 @@ def main():
             )
 
         # ── 2.5 BLE 数据发送策略 ──
+        # 注意：历史数据补传改为"手动拉取模式"，由小程序主动下发
+        # CMD_PULL_HISTORY 指令触发，主循环只负责发送实时数据。
         if ble_service.is_connected and ble_service.is_time_synced:
-            # 如果刚重连，先补传历史数据
+            # 清除重连标志（不再自动补传，仅保留状态）
             if ble_service.just_reconnected:
                 unsent = ring_buffer.unsent_count
                 if unsent > 0:
-                    print("[系统] 重连检测到 {} 条未同步数据，开始补传...".format(unsent))
-                # 清除重连标志（无论有没有历史数据）
+                    print("[系统] 重连后待补 {} 条，等待小程序手动拉取".format(unsent))
                 ble_service.clear_reconnect_flag()
 
-            # 区分历史积压与实时数据
-            # 如果未发送的数据大于 1 条（即除了刚才写入的那条，还有旧数据）
-            if ring_buffer.unsent_count > 1:
-                ble_service.send_history_batch()
-            else:
-                # 正常情况：只有刚刚写入的那 1 条，作为实时推送发出
-                success = ble_service.send_realtime(
-                    timestamp,
-                    temps["t_bottom"],
-                    temps["t_mid"],
-                    temps["t_surface"],
-                    press["p_local"],
-                )
-                if success:
-                    # 实时发送成功，免 ACK 确权，直接标记这 1 条已处理
-                    ring_buffer.mark_sent(1)
+            # 仅发送实时数据
+            success = ble_service.send_realtime(
+                timestamp,
+                temps["t_bottom"],
+                temps["t_mid"],
+                temps["t_surface"],
+                press["p_local"],
+            )
+            if success:
+                # 实时发送成功，免 ACK 确权，直接标记这 1 条已处理
+                ring_buffer.mark_sent(1)
 
         # ── 2.6 内存回收（每100次执行一次） ──
         if sample_count % 100 == 0:

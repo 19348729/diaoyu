@@ -20,7 +20,7 @@ import struct
 
 from config import (
     CMD_TIME_SYNC, CMD_REALTIME_DATA, CMD_HISTORY_DATA,
-    CMD_SYNC_ACK, CMD_STATUS_QUERY, CMD_STATUS_REPLY,
+    CMD_SYNC_ACK, CMD_STATUS_QUERY, CMD_STATUS_REPLY, CMD_PULL_HISTORY,
 )
 
 # ── 数据帧中 None 值的占位符 ──
@@ -154,6 +154,10 @@ def decode_incoming(data: bytes) -> dict:
 
         elif cmd == CMD_STATUS_QUERY:
             # 状态查询: 仅 CMD(1)，无载荷
+            return {"cmd": cmd}
+
+        elif cmd == CMD_PULL_HISTORY:
+            # 手动拉取一批历史: 仅 CMD(1)，无载荷
             return {"cmd": cmd}
 
         else:

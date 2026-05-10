@@ -25,9 +25,14 @@
         <text class="info-label">数据接收</text>
         <text class="info-value">实时 {{realtimeCount}} 条 / 历史补传 {{historyCount}} 条</text>
       </view>
-      <view class="info-row" bindtap="onTapQueryStatus">
+      <view class="info-row">
         <text class="info-label">设备缓存</text>
-        <text class="info-value link">{{bufferUnsent}}/{{bufferCount}} 条待同步 (点击刷新)</text>
+        <view class="info-value">
+          <text>{{bufferUnsent}}/{{bufferCount}} 条待同步 </text>
+          <text class="link" catchtap="onTapQueryStatus">刷新</text>
+          <text> | </text>
+          <text class="link {{bufferUnsent > 0 ? '' : 'link-disabled'}}" catchtap="onTapPullHistory">拉取一批</text>
+        </view>
       </view>
     </view>
   </view>
