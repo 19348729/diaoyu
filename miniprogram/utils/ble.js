@@ -375,10 +375,8 @@ class BLEManager {
         const app = getApp();
         app.globalData.latestData = {
           timestamp: data.timestamp,
-          tBottom: data.tBottom,
-          tMid: data.tMid,
-          tSurface: data.tSurface,
-          tDiff: data.tDiff,
+          tWater: data.tWater,
+          tAir: data.tAir,
           pLocal: data.pLocal,
         };
         app.addHistoryRecord(data);
@@ -402,10 +400,8 @@ class BLEManager {
           if (!app2.globalData.latestData.timestamp || lastRecord.timestamp > app2.globalData.latestData.timestamp) {
             app2.globalData.latestData = {
               timestamp: lastRecord.timestamp,
-              tBottom: lastRecord.tBottom,
-              tMid: lastRecord.tMid,
-              tSurface: lastRecord.tSurface,
-              tDiff: lastRecord.tDiff,
+              tWater: lastRecord.tWater,
+              tAir: lastRecord.tAir,
               pLocal: lastRecord.pLocal,
             };
           }

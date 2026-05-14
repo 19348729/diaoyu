@@ -37,38 +37,25 @@
     </view>
   </view>
 
-  <!-- 三层水温卡片 -->
+  <!-- 传感器数据卡片 -->
   <view class="card">
-    <text class="card-title">三层水温</text>
+    <text class="card-title">传感器数据</text>
     <view class="temp-grid">
       <view class="temp-item">
-        <text class="data-value">{{tSurface}}</text>
+        <text class="data-value">{{tWater}}</text>
         <text class="data-unit">℃</text>
-        <text class="data-label">水面温度</text>
+        <text class="data-label">水温</text>
       </view>
       <view class="temp-item">
-        <text class="data-value">{{tMid}}</text>
+        <text class="data-value">{{tAir}}</text>
         <text class="data-unit">℃</text>
-        <text class="data-label">水下1米</text>
+        <text class="data-label">气温</text>
       </view>
       <view class="temp-item">
-        <text class="data-value">{{tBottom}}</text>
-        <text class="data-unit">℃</text>
-        <text class="data-label">水底温度</text>
+        <text class="data-value large">{{pLocal}}</text>
+        <text class="data-unit">hPa</text>
+        <text class="data-label">本地气压</text>
       </view>
-    </view>
-    <view class="temp-diff">
-      <text class="diff-label">水面-水底温差</text>
-      <text class="diff-value {{tDiff !== '--' && tDiff > 5 ? 'warn' : ''}}">{{tDiff}} ℃</text>
-    </view>
-  </view>
-
-  <!-- 气压卡片 -->
-  <view class="card">
-    <text class="card-title">本地气压</text>
-    <view class="pressure-display">
-      <text class="data-value large">{{pLocal}}</text>
-      <text class="data-unit">hPa</text>
     </view>
   </view>
 

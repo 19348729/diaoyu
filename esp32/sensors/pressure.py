@@ -105,12 +105,12 @@ class PressureSensor:
         Returns:
             {
                 "p_local": float,   # 本地气压 (hPa)
-                "t_env":   float,   # 环境温度 (℃) —— BMP280 自带的温度，非水温
+                "t_air":   float,   # 气温 (℃) —— BMP280 内置温度
             }
             读取失败时值为 None
         """
         if not self._initialized:
-            return {"p_local": None, "t_env": None}
+            return {"p_local": None, "t_air": None}
 
         try:
             # 设置强制测量模式: 温度16x + 气压16x + forced mode
@@ -139,12 +139,12 @@ class PressureSensor:
 
             return {
                 "p_local": round(pressure, 2),
-                "t_env": round(temperature, 2),
+                "t_air": round(temperature, 2),
             }
 
         except Exception as e:
             print("[气压] 读取失败: {}".format(e))
-            return {"p_local": None, "t_env": None}
+            return {"p_local": None, "t_air": None}
 
     def _read_calibration(self):
         """读取 BMP280 NVM 中的补偿参数（出厂校准值）。"""

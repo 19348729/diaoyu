@@ -11,13 +11,12 @@ Page({
     timeRange: 60, // 默认近1小时（60分钟）
     // 统计摘要
     summary: {
-      tBottomMin: '--',
-      tBottomMax: '--',
-      tSurfaceMin: '--',
-      tSurfaceMax: '--',
+      tWaterMin: '--',
+      tWaterMax: '--',
+      tAirMin: '--',
+      tAirMax: '--',
       pLocalMin: '--',
       pLocalMax: '--',
-      tDiffMax: '--',
       duration: '--',
     }
   },
@@ -76,10 +75,10 @@ Page({
     } else {
       this.setData({
         summary: {
-          tBottomMin: '--', tBottomMax: '--',
-          tSurfaceMin: '--', tSurfaceMax: '--',
+          tWaterMin: '--', tWaterMax: '--',
+          tAirMin: '--', tAirMax: '--',
           pLocalMin: '--', pLocalMax: '--',
-          tDiffMax: '--', duration: '--',
+          duration: '--',
         }
       });
     }
@@ -109,23 +108,21 @@ Page({
     }
     
     const times = [];
-    const tBottoms = [];
-    const tMids = [];
-    const tSurfaces = [];
+    const tWaters = [];
+    const tAirs = [];
     const pLocals = [];
 
     displayRecords.forEach(r => {
       times.push(this._formatTime(r.timestamp));
-      tBottoms.push(r.tBottom !== null ? parseFloat(r.tBottom.toFixed(1)) : null);
-      tMids.push(r.tMid !== null ? parseFloat(r.tMid.toFixed(1)) : null);
-      tSurfaces.push(r.tSurface !== null ? parseFloat(r.tSurface.toFixed(1)) : null);
-      pLocals.push(r.pLocal !== null ? parseFloat(r.pLocal.toFixed(1)) : null);
+      tWaters.push(r.tWater !== null && r.tWater !== undefined ? parseFloat(r.tWater.toFixed(1)) : null);
+      tAirs.push(r.tAir !== null && r.tAir !== undefined ? parseFloat(r.tAir.toFixed(1)) : null);
+      pLocals.push(r.pLocal !== null && r.pLocal !== undefined ? parseFloat(r.pLocal.toFixed(1)) : null);
     });
 
     const optionTemp = {
-      color: ['#1890FF', '#2FC25B', '#FACC14'],
+      color: ['#1890FF', '#2FC25B'],
       legend: {
-        data: ['水底', '1米', '水面'],
+        data: ['水温', '气温'],
         top: 0,
         z: 100
       },
@@ -141,9 +138,8 @@ Page({
         axisLabel: { formatter: '{value}' }
       },
       series: [
-        { name: '水底', type: 'line', smooth: true, sampling: 'lttb', data: tBottoms, symbol: 'none' },
-        { name: '1米', type: 'line', smooth: true, sampling: 'lttb', data: tMids, symbol: 'none' },
-        { name: '水面', type: 'line', smooth: true, sampling: 'lttb', data: tSurfaces, symbol: 'none' }
+        { name: '水温', type: 'line', smooth: true, sampling: 'lttb', data: tWaters, symbol: 'none' },
+        { name: '气温', type: 'line', smooth: true, sampling: 'lttb', data: tAirs, symbol: 'none' }
       ]
     };
 
@@ -175,10 +171,9 @@ Page({
   },
 
   _calcSummary(records) {
-    const validBottom = records.filter((r) => r.tBottom !== null).map((r) => r.tBottom);
-    const validSurface = records.filter((r) => r.tSurface !== null).map((r) => r.tSurface);
-    const validPress = records.filter((r) => r.pLocal !== null).map((r) => r.pLocal);
-    const validDiff = records.filter((r) => r.tDiff !== null).map((r) => Math.abs(r.tDiff));
+    const validWater = records.filter((r) => r.tWater !== null && r.tWater !== undefined).map((r) => r.tWater);
+    const validAir = records.filter((r) => r.tAir !== null && r.tAir !== undefined).map((r) => r.tAir);
+    const validPress = records.filter((r) => r.pLocal !== null && r.pLocal !== undefined).map((r) => r.pLocal);
 
     const minMax = (arr) => {
       if (arr.length === 0) return { min: '--', max: '--' };
@@ -188,8 +183,8 @@ Page({
       };
     };
 
-    const bottomMM = minMax(validBottom);
-    const surfaceMM = minMax(validSurface);
+    const waterMM = minMax(validWater);
+    const airMM = minMax(validAir);
     const pressMM = minMax(validPress);
 
     let duration = '--';
@@ -210,13 +205,12 @@ Page({
     }
 
     return {
-      tBottomMin: bottomMM.min,
-      tBottomMax: bottomMM.max,
-      tSurfaceMin: surfaceMM.min,
-      tSurfaceMax: surfaceMM.max,
+      tWaterMin: waterMM.min,
+      tWaterMax: waterMM.max,
+      tAirMin: airMM.min,
+      tAirMax: airMM.max,
       pLocalMin: pressMM.min,
       pLocalMax: pressMM.max,
-      tDiffMax: validDiff.length > 0 ? Math.max(...validDiff).toFixed(1) : '--',
       duration,
     };
   },

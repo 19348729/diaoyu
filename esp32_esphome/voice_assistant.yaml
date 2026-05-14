@@ -1,0 +1,94 @@
+esphome:
+  name: "esp32-s3-qwen-bot"
+  friendly_name: "通义千问语音助手"
+  # 必须使用 esp-idf 框架以支持 8MB OPI PSRAM
+  platformio_options:
+    board_build.arduino.memory_type: qio_opi
+    board_build.f_flash: 80000000L
+    board_build.f_cpu: 240000000L
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    version: recommended
+    sdkconfig_options:
+      # 开启 PSRAM 关键配置
+      CONFIG_SPIRAM_MODE_OCT: y
+      CONFIG_SPIRAM_SPEED_80M: y
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+      CONFIG_ESP32S3_DATA_CACHE_64KB: y
+      CONFIG_ESP32_WIFI_STATIC_RX_BUFFER_NUM: "16"
+
+# 开启 PSRAM 供组件使用
+psram:
+
+# 基础传感器：监控内存防止 OOM
+sensor:
+  - platform: debug
+    free_heap:
+      name: "Free Heap"
+    free_psram:
+      name: "Free PSRAM"
+
+# Wi-Fi 稳定性优化
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: NONE # 语音助手必须设为 NONE 降低延迟
+
+api: # 必须开启 API 以对接 Home Assistant Assist
+
+logger:
+  level: DEBUG
+
+# I2S 总线配置 (共享时钟方案)
+i2s_audio:
+  - id: i2s_bus
+    i2s_lrclk_pin: GPIO41
+    i2s_bclk_pin: GPIO42
+
+# 麦克风配置 (INMP441)
+microphone:
+  - platform: i2s_audio
+    id: board_mic
+    i2s_din_pin: GPIO2
+    adc_type: external
+    pdm: false
+
+# 功放配置 (MAX98357A)
+speaker:
+  - platform: i2s_audio
+    id: board_speaker
+    i2s_dout_pin: GPIO1
+    dac_type: external
+
+# 语音助手核心逻辑
+voice_assistant:
+  id: va
+  microphone: board_mic
+  speaker: board_speaker
+  model_id: default
+  # 录音缓冲区优化：防止 HTTPS 握手时内存抖动
+  use_wake_word: true
+  on_listening:
+    - logger.log: "正在倾听..."
+  on_tts_start:
+    - logger.log: "正在合成语音..."
+  on_tts_end:
+    - logger.log: "回复播放中"
+  on_client_connected:
+    - logger.log: "与 HA 连接成功"
+  on_client_disconnected:
+    - logger.log: "网络异常，尝试重连..."
+  on_error:
+    - logger.log: "语音识别出错"
+
+# 离线唤醒词 (MicroWakeWord)
+micro_wake_word:
+  models:
+    - model: "https://github.com/esphome/micro-wake-word-models/raw/main/models/xiaoguanjia.tflite"
+      id: "xiaoguanjia"
+      wakeup_area: 0.5 # 灵敏度控制

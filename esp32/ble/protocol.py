@@ -8,9 +8,9 @@ BLE 通信协议模块 (Protocol)
     [1字节 CMD] + [N字节 PAYLOAD]
 
 指令码:
-    0x01 对表指令    (小程序 -> ESP32): 8字节 Unix 时间戳
-    0x02 实时数据帧  (ESP32 -> 小程序): 时间戳 + 三温度 + 气压
-    0x03 历史数据帧  (ESP32 -> 小程序): 条数 + N条数据
+    0x01 对表指令    (小程序 -> ESP32): 4字节 Unix 时间戳
+    0x02 实时数据帧  (ESP32 -> 小程序): 时间戳 + 水温 + 气温 + 气压 = 17 字节
+    0x03 历史数据帧  (ESP32 -> 小程序): 条数 + N条数据（每条 16 字节）
     0x04 同步确认    (小程序 -> ESP32): 已确认条数
     0x05 状态查询    (小程序 -> ESP32): 无载荷
     0x06 状态回复    (ESP32 -> 小程序): 缓冲区状态
@@ -43,27 +43,24 @@ def _placeholder_to_none(value, placeholder):
 #  编码（ESP32 -> 小程序）
 # ──────────────────────────────────────────────
 
-def encode_realtime_data(timestamp: int, t_bottom, t_mid, t_surface, p_local) -> bytes:
+def encode_realtime_data(timestamp: int, t_water, t_air, p_local) -> bytes:
     """编码实时数据帧。
 
-    帧结构 (22 字节):
-        CMD(1) + timestamp(4) + t_bottom(4) + t_mid(4) + t_surface(4) + p_local(4) = 21 字节
-        实际: 1 + 4 + 4*4 = 21 字节
+    帧结构 (17 字节):
+        CMD(1) + timestamp(4) + t_water(4) + t_air(4) + p_local(4) = 17 字节
 
     Args:
         timestamp: Unix 时间戳（秒）
-        t_bottom:  水底温度，可为 None
-        t_mid:     水下1米温度，可为 None
-        t_surface: 水面温度，可为 None
+        t_water:   水温，可为 None
+        t_air:     气温，可为 None
         p_local:   气压 (hPa)，可为 None
     """
     return struct.pack(
-        "<BIffff",
+        "<BIfff",
         CMD_REALTIME_DATA,
         timestamp,
-        _val_or_placeholder(t_bottom, _TEMP_NONE),
-        _val_or_placeholder(t_mid, _TEMP_NONE),
-        _val_or_placeholder(t_surface, _TEMP_NONE),
+        _val_or_placeholder(t_water, _TEMP_NONE),
+        _val_or_placeholder(t_air, _TEMP_NONE),
         _val_or_placeholder(p_local, _PRESS_NONE),
     )
 
@@ -72,11 +69,11 @@ def encode_history_batch(records: list) -> bytes:
     """编码历史数据批量帧。
 
     帧结构:
-        CMD(1) + count(2) + N * [timestamp(4) + t_bottom(4) + t_mid(4) + t_surface(4) + p_local(4)]
-        每条记录 20 字节
+        CMD(1) + count(2) + N * [timestamp(4) + t_water(4) + t_air(4) + p_local(4)]
+        每条记录 16 字节
 
     Args:
-        records: [(timestamp, t_bottom, t_mid, t_surface, p_local), ...]
+        records: [(timestamp, t_water, t_air, p_local), ...]
     """
     count = len(records)
     # 头部: CMD + count
@@ -84,13 +81,12 @@ def encode_history_batch(records: list) -> bytes:
 
     # 数据部分
     data_parts = []
-    for ts, tb, tm, tsf, pl in records:
+    for ts, tw, ta, pl in records:
         data_parts.append(struct.pack(
-            "<Iffff",
+            "<Ifff",
             ts,
-            _val_or_placeholder(tb, _TEMP_NONE),
-            _val_or_placeholder(tm, _TEMP_NONE),
-            _val_or_placeholder(tsf, _TEMP_NONE),
+            _val_or_placeholder(tw, _TEMP_NONE),
+            _val_or_placeholder(ta, _TEMP_NONE),
             _val_or_placeholder(pl, _PRESS_NONE),
         ))
 

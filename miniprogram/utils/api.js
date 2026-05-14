@@ -40,12 +40,11 @@ function request(path, method = 'POST', data = {}) {
 }
 
 /**
- * 上报实时传感器数据
+ * 上报实时传感器数据 (v2)
  * @param {object} sensorData - 传感器数据
  * @param {number} sensorData.timestamp - Unix 时间戳
- * @param {number|null} sensorData.tBottom - 水底温度
- * @param {number|null} sensorData.tMid - 水下1米温度
- * @param {number|null} sensorData.tSurface - 水面温度
+ * @param {number|null} sensorData.tWater - 水温
+ * @param {number|null} sensorData.tAir - 气温
  * @param {number|null} sensorData.pLocal - 气压
  * @param {object} [location] - 位置信息
  * @returns {Promise<object>}
@@ -54,9 +53,8 @@ function reportRealtimeData(sensorData, location = null) {
   return request('/sensor/realtime', 'POST', {
     sensor: {
       timestamp: sensorData.timestamp,
-      t_bottom: sensorData.tBottom !== undefined ? sensorData.tBottom : null,
-      t_mid: sensorData.tMid !== undefined ? sensorData.tMid : null,
-      t_surface: sensorData.tSurface !== undefined ? sensorData.tSurface : null,
+      t_water: sensorData.tWater !== undefined ? sensorData.tWater : null,
+      t_air: sensorData.tAir !== undefined ? sensorData.tAir : null,
       p_local: sensorData.pLocal !== undefined ? sensorData.pLocal : null
     },
     lat: location ? location.lat : 0.0,
@@ -65,7 +63,7 @@ function reportRealtimeData(sensorData, location = null) {
 }
 
 /**
- * 批量上报历史传感器数据
+ * 批量上报历史传感器数据 (v2)
  * @param {Array} records - 历史数据数组
  * @param {object} [location] - 位置信息
  * @returns {Promise<object>}
@@ -73,9 +71,8 @@ function reportRealtimeData(sensorData, location = null) {
 function reportHistoryBatch(records, location = null) {
   const formattedRecords = records.map(s => ({
     timestamp: s.timestamp,
-    t_bottom: s.tBottom !== undefined ? s.tBottom : null,
-    t_mid: s.tMid !== undefined ? s.tMid : null,
-    t_surface: s.tSurface !== undefined ? s.tSurface : null,
+    t_water: s.tWater !== undefined ? s.tWater : null,
+    t_air: s.tAir !== undefined ? s.tAir : null,
     p_local: s.pLocal !== undefined ? s.pLocal : null
   }));
 
@@ -87,7 +84,7 @@ function reportHistoryBatch(records, location = null) {
 }
 
 /**
- * 获取预测结果
+ * 获取预测结果 (v2)
  * @param {Array} sensors - 传感器历史数据数组
  * @param {number} lat - 纬度
  * @param {number} lng - 经度
@@ -97,9 +94,8 @@ function reportHistoryBatch(records, location = null) {
 function getPrediction(sensors, lat, lng, fishType = 'auto') {
   const formattedSensors = sensors.map(s => ({
     timestamp: s.timestamp,
-    t_bottom: s.tBottom !== undefined ? s.tBottom : null,
-    t_mid: s.tMid !== undefined ? s.tMid : null,
-    t_surface: s.tSurface !== undefined ? s.tSurface : null,
+    t_water: s.tWater !== undefined ? s.tWater : null,
+    t_air: s.tAir !== undefined ? s.tAir : null,
     p_local: s.pLocal !== undefined ? s.pLocal : null
   }));
 

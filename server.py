@@ -55,10 +55,14 @@ app.add_middleware(
 class SensorDataIn(BaseModel):
     """单条传感器数据（来自小程序上报）"""
     timestamp: int = Field(..., description="Unix 时间戳（秒）")
-    t_bottom: Optional[float] = Field(None, description="水底温度 ℃")
-    t_mid: Optional[float] = Field(None, description="水下1米温度 ℃")
-    t_surface: Optional[float] = Field(None, description="水面温度 ℃")
+    # v2 新字段
+    t_water: Optional[float] = Field(None, description="水温 ℃")
+    t_air: Optional[float] = Field(None, description="气温 ℃")
     p_local: Optional[float] = Field(None, description="本地气压 hPa")
+    # v1 兼容字段（保留，旧版小程序仍可用）
+    t_bottom: Optional[float] = Field(None, description="[兼容] 水底温度 ℃")
+    t_mid: Optional[float] = Field(None, description="[兼容] 水下1米温度 ℃")
+    t_surface: Optional[float] = Field(None, description="[兼容] 水面温度 ℃")
 
 
 class PredictRequest(BaseModel):
@@ -160,17 +164,21 @@ async def predict(
     api_data = await weather_service.get_realtime_weather(req.lat, req.lng, req.altitude)
     location_name = await TencentLBSService.reverse_geocode(req.lat, req.lng)
 
-    # 构建时序数据
-    readings = tuple(
-        SensorReading(
+    # 构建时序数据（包含 v2 降级映射）
+    def _to_reading(s: SensorDataIn) -> SensorReading:
+        if s.t_water is not None:
+            # v2 设备：单一水温投影到三个水层
+            t_b = t_m = t_s = s.t_water
+        else:
+            # v1 设备：保持原值
+            t_b, t_m, t_s = s.t_bottom, s.t_mid, s.t_surface
+        return SensorReading(
             timestamp=s.timestamp,
-            t_bottom=s.t_bottom,
-            t_mid=s.t_mid,
-            t_surface=s.t_surface,
+            t_bottom=t_b, t_mid=t_m, t_surface=t_s,
             p_local=s.p_local,
         )
-        for s in req.sensors
-    )
+
+    readings = tuple(_to_reading(s) for s in req.sensors)
     series = SensorTimeSeries(readings=readings)
 
     # 对目标鱼种循环跑分
@@ -397,10 +405,12 @@ async def upload_realtime(
         record = SensorRecord(
             openid=x_openid,
             timestamp=req.sensor.timestamp,
+            t_water=req.sensor.t_water,
+            t_air=req.sensor.t_air,
+            p_local=req.sensor.p_local,
             t_bottom=req.sensor.t_bottom,
             t_mid=req.sensor.t_mid,
             t_surface=req.sensor.t_surface,
-            p_local=req.sensor.p_local,
             lat=req.lat,
             lng=req.lng
         )
@@ -428,10 +438,12 @@ async def upload_history(
             SensorRecord(
                 openid=x_openid,
                 timestamp=s.timestamp,
+                t_water=s.t_water,
+                t_air=s.t_air,
+                p_local=s.p_local,
                 t_bottom=s.t_bottom,
                 t_mid=s.t_mid,
                 t_surface=s.t_surface,
-                p_local=s.p_local,
                 lat=req.lat,
                 lng=req.lng
             ) for s in req.records
@@ -470,11 +482,13 @@ async def get_sensor_records(
         "data": [
             {
                 "timestamp": r.timestamp,
+                "tWater": r.t_water,
+                "tAir": r.t_air,
+                "pLocal": r.p_local,
+                # v1 兼容字段
                 "tBottom": r.t_bottom,
                 "tMid": r.t_mid,
                 "tSurface": r.t_surface,
-                "tDiff": round(r.t_surface - r.t_bottom, 2) if (r.t_surface is not None and r.t_bottom is not None) else None,
-                "pLocal": r.p_local
             }
             for r in records
         ]

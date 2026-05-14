@@ -3,6 +3,9 @@
 ===============================
 用于在 BLE 断连期间缓存传感器采样数据。
 支持写入游标和同步游标的独立管理，实现重连后精准补传。
+
+数据记录格式（v2）：
+    (timestamp, t_water, t_air, p_local)
 """
 
 from config import RING_BUFFER_CAPACITY
@@ -12,7 +15,7 @@ class RingBuffer:
     """定长环形缓冲区，满时自动覆盖最旧数据。
 
     数据记录格式（元组）：
-        (timestamp, t_bottom, t_mid, t_surface, p_local)
+        (timestamp, t_water, t_air, p_local)
 
     游标设计：
         write_cursor:  下一个写入位置（持续递增取模）
@@ -52,18 +55,17 @@ class RingBuffer:
                 self._sync_cursor = oldest_valid
         return self._total_written - self._sync_cursor
 
-    def write(self, timestamp: int, t_bottom, t_mid, t_surface, p_local):
+    def write(self, timestamp: int, t_water, t_air, p_local):
         """写入一条传感器数据。
 
         Args:
             timestamp: 时间戳（Unix 秒）
-            t_bottom:  水底温度 (℃)，可为 None
-            t_mid:     水下1米温度 (℃)，可为 None
-            t_surface: 水面温度 (℃)，可为 None
+            t_water:   水温 (℃)，可为 None
+            t_air:     气温 (℃)，可为 None
             p_local:   本地气压 (hPa)，可为 None
         """
         pos = self._write_cursor % self._capacity
-        self._buffer[pos] = (timestamp, t_bottom, t_mid, t_surface, p_local)
+        self._buffer[pos] = (timestamp, t_water, t_air, p_local)
         self._write_cursor = (self._write_cursor + 1) % self._capacity
         self._total_written += 1
         if self._count < self._capacity:
@@ -76,7 +78,7 @@ class RingBuffer:
             max_count: 最多返回条数（用于分批发送），None 表示全部
 
         Returns:
-            [(timestamp, t_bottom, t_mid, t_surface, p_local), ...]
+            [(timestamp, t_water, t_air, p_local), ...]
         """
         n = self.unsent_count
         if n == 0:
@@ -115,7 +117,7 @@ class RingBuffer:
         """获取最新一条数据（用于实时推送）。
 
         Returns:
-            (timestamp, t_bottom, t_mid, t_surface, p_local) 或 None
+            (timestamp, t_water, t_air, p_local) 或 None
         """
         if self._total_written == 0:
             return None

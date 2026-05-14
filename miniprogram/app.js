@@ -18,10 +18,8 @@ App({
     // 最新传感器数据
     latestData: {
       timestamp: 0,
-      tBottom: null,   // 水底温度
-      tMid: null,      // 水下1米温度
-      tSurface: null,  // 水面温度
-      tDiff: null,     // 温差
+      tWater: null,    // 水温
+      tAir: null,      // 气温
       pLocal: null,    // 气压 hPa
     },
 

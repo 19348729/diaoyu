@@ -3,9 +3,11 @@ ESP32 钓鱼传感器主程序 (Main Entry)
 =====================================
 初始化所有模块，运行主采集-通信循环。
 
-主循环逻辑（每 5 秒一轮）：
-  1. 读取三层水温
-  2. 读取气压
+硬件版本: v2（单水温 DS18B20 + BMP280 气温/气压）
+
+主循环逻辑（每 60 秒一轮）：
+  1. 读取水温（DS18B20）
+  2. 读取气温和气压（BMP280）
   3. 生成时间戳
   4. 写入环形缓冲区
   5. 根据 BLE 连接状态决定发送策略：
@@ -29,7 +31,7 @@ from ble.service import BLEService
 
 def main():
     print("=" * 40)
-    print("FishProbe ESP32 传感器系统")
+    print("FishProbe ESP32 传感器系统 (v2)")
     print("=" * 40)
 
     # ── 1. 初始化各模块 ──
@@ -49,9 +51,9 @@ def main():
         return
 
     if not temp_ok:
-        print("[系统] 警告: 温度传感器初始化失败，将仅采集气压数据。")
+        print("[系统] 警告: 水温传感器初始化失败，将仅采集气温/气压数据。")
     if not press_ok:
-        print("[系统] 警告: 气压传感器初始化失败，将仅采集温度数据。")
+        print("[系统] 警告: 气压传感器初始化失败，将仅采集水温数据。")
 
     print("\n[系统] 初始化 BLE...")
     ble_service.init()
@@ -66,29 +68,25 @@ def main():
         loop_start = time.ticks_ms()
 
         # ── 2.1 采集传感器数据 ──
-        temps = temp_sensor.read_all() if temp_ok else {
-            "t_bottom": None, "t_mid": None, "t_surface": None, "t_diff": None
-        }
-        press = press_sensor.read() if press_ok else {"p_local": None, "t_env": None}
+        temps = temp_sensor.read() if temp_ok else {"t_water": None}
+        press = press_sensor.read() if press_ok else {"p_local": None, "t_air": None}
+
+        t_water = temps["t_water"]
+        t_air = press["t_air"]
+        p_local = press["p_local"]
 
         # ── 2.2 生成时间戳 ──
         timestamp = time_sync.now()
 
         # ── 2.3 写入环形缓冲区 ──
-        ring_buffer.write(
-            timestamp,
-            temps["t_bottom"],
-            temps["t_mid"],
-            temps["t_surface"],
-            press["p_local"],
-        )
+        ring_buffer.write(timestamp, t_water, t_air, p_local)
 
         sample_count += 1
 
         # ── 2.4 控制台调试输出（每10次输出一次状态） ──
         if sample_count % 10 == 1:
             _print_status(
-                sample_count, timestamp, temps, press,
+                sample_count, timestamp, t_water, t_air, p_local,
                 ble_service, ring_buffer, time_sync,
             )
 
@@ -105,11 +103,7 @@ def main():
 
             # 仅发送实时数据
             success = ble_service.send_realtime(
-                timestamp,
-                temps["t_bottom"],
-                temps["t_mid"],
-                temps["t_surface"],
-                press["p_local"],
+                timestamp, t_water, t_air, p_local,
             )
             if success:
                 # 实时发送成功，免 ACK 确权，直接标记这 1 条已处理
@@ -126,21 +120,19 @@ def main():
             time.sleep_ms(sleep_ms)
 
 
-def _print_status(count, timestamp, temps, press, ble, buf, ts):
+def _print_status(count, timestamp, t_water, t_air, p_local, ble, buf, ts):
     """打印调试状态信息。"""
     cal = "已校准" if ts.is_calibrated else "未校准"
     conn = "已连接" if ble.is_connected else "未连接"
     synced = "已对表" if ble.is_time_synced else "未对表"
 
-    tb = "{:.2f}".format(temps["t_bottom"]) if temps["t_bottom"] is not None else "--"
-    tm = "{:.2f}".format(temps["t_mid"]) if temps["t_mid"] is not None else "--"
-    ts_val = "{:.2f}".format(temps["t_surface"]) if temps["t_surface"] is not None else "--"
-    pl = "{:.2f}".format(press["p_local"]) if press["p_local"] is not None else "--"
-    td = "{:.2f}".format(temps["t_diff"]) if temps["t_diff"] is not None else "--"
+    tw = "{:.2f}".format(t_water) if t_water is not None else "--"
+    ta = "{:.2f}".format(t_air) if t_air is not None else "--"
+    pl = "{:.2f}".format(p_local) if p_local is not None else "--"
 
-    print("[#{:>5}] ts={} | 水底:{}℃ 1米:{}℃ 水面:{}℃ 温差:{}℃ | 气压:{}hPa | BLE:{}/{} 时钟:{} 缓存:{}/{}".format(
+    print("[#{:>5}] ts={} | 水温:{}℃ 气温:{}℃ | 气压:{}hPa | BLE:{}/{} 时钟:{} 缓存:{}/{}".format(
         count, timestamp,
-        tb, tm, ts_val, td, pl,
+        tw, ta, pl,
         conn, synced, cal,
         buf.unsent_count, buf.count,
     ))

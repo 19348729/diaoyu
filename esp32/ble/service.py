@@ -201,7 +201,7 @@ class BLEService:
             if sent:
                 print("[BLE] 手动拉取：已发送一批历史数据")
 
-    def send_realtime(self, timestamp, t_bottom, t_mid, t_surface, p_local) -> bool:
+    def send_realtime(self, timestamp, t_water, t_air, p_local) -> bool:
         """发送实时数据帧。
 
         Returns:
@@ -210,7 +210,7 @@ class BLEService:
         if not self._connected or not self._time_synced:
             return False
 
-        frame = encode_realtime_data(timestamp, t_bottom, t_mid, t_surface, p_local)
+        frame = encode_realtime_data(timestamp, t_water, t_air, p_local)
         return self._send(frame)
 
     def send_history_batch(self) -> bool:

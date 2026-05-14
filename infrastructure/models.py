@@ -22,10 +22,12 @@ class SensorRecord(Base):
     openid = Column(String(64), index=True, nullable=False, comment="所属用户")
     
     timestamp = Column(Integer, nullable=False, comment="Unix时间戳(秒)")
-    t_bottom = Column(Float, nullable=True, comment="水底温度")
-    t_mid = Column(Float, nullable=True, comment="中层温度")
-    t_surface = Column(Float, nullable=True, comment="水面温度")
-    p_local = Column(Float, nullable=True, comment="气压")
+    t_water = Column(Float, nullable=True, comment="水温（DS18B20）")
+    t_air = Column(Float, nullable=True, comment="气温（BMP280）")
+    t_bottom = Column(Float, nullable=True, comment="[兼容] 水底温度")
+    t_mid = Column(Float, nullable=True, comment="[兼容] 中层温度")
+    t_surface = Column(Float, nullable=True, comment="[兼容] 水面温度")
+    p_local = Column(Float, nullable=True, comment="本地气压 hPa")
     
     # 冗余的经纬度，便于后续做区域性热力图
     lat = Column(Float, nullable=True, comment="纬度")

@@ -3,6 +3,8 @@
  * 与 ESP32 esp32/ble/protocol.py 完全对齐
  *
  * 所有数值使用小端序（Little-Endian）
+ *
+ * 硬件版本: v2（水温 + 气温 + 气压，共 3 值）
  */
 
 // ── 指令码（与 ESP32 config.py 一致）──
@@ -127,40 +129,36 @@ function decodeIncoming(buffer) {
 }
 
 /**
- * 解码实时数据帧
- * 帧结构: CMD(1) + timestamp(4) + t_bottom(4) + t_mid(4) + t_surface(4) + p_local(4) = 21字节
+ * 解码实时数据帧 (v2)
+ * 帧结构: CMD(1) + timestamp(4) + t_water(4) + t_air(4) + p_local(4) = 17字节
  */
 function decodeRealtimeData(view) {
-  if (view.byteLength < 21) {
+  if (view.byteLength < 17) {
     return { cmd: CMD.REALTIME_DATA, error: '实时数据帧长度不足' };
   }
 
   const timestamp = view.getUint32(1, true);
-  const tBottom = view.getFloat32(5, true);
-  const tMid = view.getFloat32(9, true);
-  const tSurface = view.getFloat32(13, true);
-  const pLocal = view.getFloat32(17, true);
+  const tWater = view.getFloat32(5, true);
+  const tAir = view.getFloat32(9, true);
+  const pLocal = view.getFloat32(13, true);
 
-  const tb = fmtTemp(toNullable(tBottom, TEMP_NONE));
-  const tm = fmtTemp(toNullable(tMid, TEMP_NONE));
-  const ts = fmtTemp(toNullable(tSurface, TEMP_NONE));
+  const tw = fmtTemp(toNullable(tWater, TEMP_NONE));
+  const ta = fmtTemp(toNullable(tAir, TEMP_NONE));
   const pl = toNullable(pLocal, PRESS_NONE);
 
   return {
     cmd: CMD.REALTIME_DATA,
     timestamp,
-    tBottom: tb,
-    tMid: tm,
-    tSurface: ts,
+    tWater: tw,
+    tAir: ta,
     pLocal: pl !== null ? parseFloat(pl.toFixed(2)) : null,
-    tDiff: (ts !== null && tb !== null) ? parseFloat((ts - tb).toFixed(2)) : null,
   };
 }
 
 /**
- * 解码历史数据批量帧
- * 帧结构: CMD(1) + count(2) + N * [timestamp(4) + t_bottom(4) + t_mid(4) + t_surface(4) + p_local(4)]
- * 每条记录 20 字节
+ * 解码历史数据批量帧 (v2)
+ * 帧结构: CMD(1) + count(2) + N * [timestamp(4) + t_water(4) + t_air(4) + p_local(4)]
+ * 每条记录 16 字节
  */
 function decodeHistoryBatch(view) {
   if (view.byteLength < 3) {
@@ -168,7 +166,7 @@ function decodeHistoryBatch(view) {
   }
 
   const count = view.getUint16(1, true);
-  const recordSize = 20; // 4+4+4+4+4
+  const recordSize = 16; // 4+4+4+4
   const expectedLen = 3 + count * recordSize;
 
   if (view.byteLength < expectedLen) {
@@ -182,23 +180,19 @@ function decodeHistoryBatch(view) {
   for (let i = 0; i < count; i++) {
     const offset = 3 + i * recordSize;
     const timestamp = view.getUint32(offset, true);
-    const tBottom = view.getFloat32(offset + 4, true);
-    const tMid = view.getFloat32(offset + 8, true);
-    const tSurface = view.getFloat32(offset + 12, true);
-    const pLocal = view.getFloat32(offset + 16, true);
+    const tWater = view.getFloat32(offset + 4, true);
+    const tAir = view.getFloat32(offset + 8, true);
+    const pLocal = view.getFloat32(offset + 12, true);
 
-    const tb = fmtTemp(toNullable(tBottom, TEMP_NONE));
-    const tm = fmtTemp(toNullable(tMid, TEMP_NONE));
-    const ts = fmtTemp(toNullable(tSurface, TEMP_NONE));
+    const tw = fmtTemp(toNullable(tWater, TEMP_NONE));
+    const ta = fmtTemp(toNullable(tAir, TEMP_NONE));
     const pl = toNullable(pLocal, PRESS_NONE);
 
     records.push({
       timestamp,
-      tBottom: tb,
-      tMid: tm,
-      tSurface: ts,
+      tWater: tw,
+      tAir: ta,
       pLocal: pl !== null ? parseFloat(pl.toFixed(2)) : null,
-      tDiff: (ts !== null && tb !== null) ? parseFloat((ts - tb).toFixed(2)) : null,
     });
   }
 

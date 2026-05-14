@@ -1,6 +1,8 @@
 /**
  * 实时监测页面
  * 展示 BLE 连接状态、实时传感器数据、简要预测结果
+ *
+ * 硬件版本: v2（水温 + 气温 + 气压）
  */
 const { getBLEManager } = require('../../utils/ble');
 const protocol = require('../../utils/protocol');
@@ -17,10 +19,8 @@ Page({
     statusClass: 'disconnected',
 
     // 实时数据
-    tBottom: '--',
-    tMid: '--',
-    tSurface: '--',
-    tDiff: '--',
+    tWater: '--',
+    tAir: '--',
     pLocal: '--',
     updateTime: '--',
 
@@ -200,10 +200,8 @@ Page({
     }
 
     this.setData({
-      tBottom: formatVal(data.tBottom),
-      tMid: formatVal(data.tMid),
-      tSurface: formatVal(data.tSurface),
-      tDiff: formatVal(data.tDiff),
+      tWater: formatVal(data.tWater),
+      tAir: formatVal(data.tAir),
       pLocal: formatPress(data.pLocal),
       updateTime: timeStr,
     });
@@ -280,9 +278,9 @@ Page({
     const app = getApp();
     const now = Math.floor(Date.now() / 1000);
     const mockRecords = [
-      { timestamp: now - 10, tBottom: 20.1, tMid: 21.0, tSurface: 22.5, pLocal: 1012.3 },
-      { timestamp: now - 5, tBottom: 20.2, tMid: 21.1, tSurface: 22.4, pLocal: 1012.5 },
-      { timestamp: now, tBottom: 20.1, tMid: 21.2, tSurface: 22.6, pLocal: 1012.4 }
+      { timestamp: now - 10, tWater: 20.1, tAir: 24.5, pLocal: 1012.3 },
+      { timestamp: now - 5, tWater: 20.2, tAir: 24.3, pLocal: 1012.5 },
+      { timestamp: now, tWater: 20.1, tAir: 24.6, pLocal: 1012.4 }
     ];
     
     // 更新全局状态
@@ -292,10 +290,8 @@ Page({
     // 更新页面展示
     const latest = mockRecords[2];
     this.setData({
-      tBottom: latest.tBottom.toFixed(1),
-      tMid: latest.tMid.toFixed(1),
-      tSurface: latest.tSurface.toFixed(1),
-      tDiff: (latest.tSurface - latest.tBottom).toFixed(1),
+      tWater: latest.tWater.toFixed(1),
+      tAir: latest.tAir.toFixed(1),
       pLocal: latest.pLocal.toFixed(1),
       updateTime: new Date(latest.timestamp * 1000).toLocaleTimeString(),
       historyCount: this.data.historyCount + 3

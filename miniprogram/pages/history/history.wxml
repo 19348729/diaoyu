@@ -10,22 +10,16 @@
 
     <view class="summary-grid">
       <view class="summary-item">
-        <text class="summary-label">水底温度</text>
-        <text class="summary-value">{{summary.tBottomMin}} ~ {{summary.tBottomMax}} ℃</text>
+        <text class="summary-label">水温范围</text>
+        <text class="summary-value">{{summary.tWaterMin}} ~ {{summary.tWaterMax}} ℃</text>
       </view>
       <view class="summary-item">
-        <text class="summary-label">水面温度</text>
-        <text class="summary-value">{{summary.tSurfaceMin}} ~ {{summary.tSurfaceMax}} ℃</text>
+        <text class="summary-label">气温范围</text>
+        <text class="summary-value">{{summary.tAirMin}} ~ {{summary.tAirMax}} ℃</text>
       </view>
       <view class="summary-item">
         <text class="summary-label">气压范围</text>
         <text class="summary-value">{{summary.pLocalMin}} ~ {{summary.pLocalMax}} hPa</text>
-      </view>
-      <view class="summary-item">
-        <text class="summary-label">最大温差</text>
-        <text class="summary-value {{summary.tDiffMax !== '--' && summary.tDiffMax > 5 ? 'warn' : ''}}">
-          {{summary.tDiffMax}} ℃
-        </text>
       </view>
     </view>
   </view>
