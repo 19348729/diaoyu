@@ -1,103 +1,102 @@
+<!--
+  作钓日志页面
+  展示钓鱼会话摘要卡片（一次出钓 = 一张卡片）
+-->
 <view class="container">
-  
-  <!-- 加载中状态 -->
+
+  <!-- 加载中 -->
   <view class="loading-state" wx:if="{{loading}}">
-    <text>加载历史日志中...</text>
+    <text>加载日志中...</text>
   </view>
 
   <!-- 空状态 -->
-  <view class="empty-state" wx:elif="{{logs.length === 0}}">
+  <view class="empty-state" wx:elif="{{sessions.length === 0}}">
     <text class="empty-icon">🎣</text>
     <text class="empty-text">暂无作钓日志</text>
-    <text class="empty-subtext">前往“实时监测”发起预测，您的专属日志将自动记录在这里。</text>
+    <text class="empty-subtext">连接 FishProbe 作钓 30 分钟以上，断开时可保存日志。</text>
   </view>
 
   <!-- 日志列表 -->
   <scroll-view wx:else scroll-y class="logs-scroll">
-    <view class="log-card" wx:for="{{logs}}" wx:key="id">
-      
-      <!-- 卡片头部：时间与得分 -->
-      <view class="log-header">
+    <view class="session-card" wx:for="{{sessions}}" wx:key="id">
+
+      <!-- 头部：日期 + 开口指数 -->
+      <view class="session-header">
         <view class="header-left">
-          <text class="log-time">📅 {{item.created_at}}</text>
-          <text class="log-location" wx:if="{{item.location_name && item.location_name !== '未知位置'}}">📍 {{item.location_name}}</text>
+          <text class="session-date">📅 {{item.dateStr}}</text>
+          <text class="session-location">📍 {{item.locationName}}</text>
         </view>
-        <view class="log-score {{item.bite_index >= 80 ? 'high' : (item.bite_index >= 60 ? 'mid' : 'low')}}">
-          开口度: <text style="font-weight: bold; font-size: 32rpx;">{{item.bite_index}}</text>
+        <view class="bite-badge {{item.biteLevel}}">
+          <text class="bite-label">开口</text>
+          <text class="bite-value">{{item.biteIndexMax}}</text>
         </view>
       </view>
 
-      <!-- 卡片主体：天气与决策 -->
-      <view class="log-body">
-        
-        <!-- 天气概览 -->
-        <view class="weather-row" wx:if="{{item.weather_snapshot}}">
-          <view class="weather-item">
-            <text class="w-label">天气</text>
-            <text class="w-value">{{item.weather_snapshot.text || '--'}}</text>
-          </view>
-          <view class="weather-item">
-            <text class="w-label">风况</text>
-            <text class="w-value">{{item.weather_snapshot.wind_dir || '--'}} {{item.weather_snapshot.wind_speed}}m/s</text>
-          </view>
-          <view class="weather-item">
-            <text class="w-label">湿度</text>
-            <text class="w-value">{{item.weather_snapshot.humidity || '--'}}%</text>
-          </view>
-        </view>
-
-        <!-- 系统推荐 -->
-        <view class="recommend-box">
-          <text class="r-title">🐟 最佳鱼种推荐</text>
-          <text class="r-fish">{{item.recommended_fish}}</text>
-        </view>
-
-        <!-- 战术建议 -->
-        <view class="tactics-box" wx:if="{{item.tactical_advice}}">
-          <!-- 利好信号 -->
-          <view wx:if="{{item.tactical_advice.highlight}}" style="background: #e8f5e9; border-radius: 6rpx; padding: 10rpx 14rpx; margin-bottom: 10rpx;">
-            <text style="font-size: 24rpx; color: #2e7d32; font-weight: bold;">{{item.tactical_advice.highlight}}</text>
-          </view>
-          <view class="tactic-item">
-            <text class="t-label">🌊 水层:</text>
-            <text class="t-val">{{item.tactical_advice.layer || '常规'}}</text>
-          </view>
-          <view class="tactic-item">
-            <text class="t-label">🍤 用饵:</text>
-            <text class="t-val">{{item.tactical_advice.bait || '常规'}}</text>
-          </view>
-          <view class="tactic-item">
-            <text class="t-label">🎣 方式:</text>
-            <text class="t-val">{{item.tactical_advice.method || '台钓'}}</text>
-          </view>
-          <view class="tactic-item">
-            <text class="t-label">📏 钓深:</text>
-            <text class="t-val">{{item.tactical_advice.depth || '--'}}</text>
-          </view>
-          <view class="tactic-item">
-            <text class="t-label">🎯 节奏:</text>
-            <text class="t-val">{{item.tactical_advice.rhythm || '常规'}}</text>
-          </view>
-          <view class="tactic-item">
-            <text class="t-label">📍 钓位:</text>
-            <text class="t-val">{{item.tactical_advice.spot || '--'}}</text>
-          </view>
-          <view class="tactic-item" wx:if="{{item.tactical_advice.risk && item.tactical_advice.risk !== '当前无明显风险'}}">
-            <text class="t-label" style="color: #d32f2f;">⚠️ 风险:</text>
-            <text class="t-val" style="color: #d32f2f;">{{item.tactical_advice.risk}}</text>
-          </view>
-        </view>
-        
-        <!-- 战术标签 -->
-        <view class="tags-row" wx:if="{{item.tags && item.tags.length > 0}}">
-          <text class="tag" wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
-        </view>
-
+      <!-- 时间信息栏 -->
+      <view class="time-bar">
+        <text class="time-range">🕐 {{item.timeRange}}</text>
+        <text class="duration-tag">{{item.durationStr}}</text>
       </view>
+
+      <!-- 传感器变化区 -->
+      <view class="sensor-section">
+        <!-- 水温 -->
+        <view class="sensor-row" wx:if="{{item.waterChange}}">
+          <text class="sensor-icon">🌡️</text>
+          <text class="sensor-name">水温</text>
+          <view class="sensor-change">
+            <text>{{item.waterChange.start}}℃</text>
+            <text class="arrow" style="color: {{item.waterChange.color}}"> → </text>
+            <text>{{item.waterChange.end}}℃</text>
+            <text class="change-diff" style="color: {{item.waterChange.color}}">{{item.waterChange.arrow}} {{item.waterChange.diff}}℃</text>
+          </view>
+        </view>
+
+        <!-- 气温 -->
+        <view class="sensor-row" wx:if="{{item.airChange}}">
+          <text class="sensor-icon">🌡️</text>
+          <text class="sensor-name">气温</text>
+          <view class="sensor-change">
+            <text>{{item.airChange.start}}℃</text>
+            <text class="arrow" style="color: {{item.airChange.color}}"> → </text>
+            <text>{{item.airChange.end}}℃</text>
+            <text class="change-diff" style="color: {{item.airChange.color}}">{{item.airChange.arrow}} {{item.airChange.diff}}℃</text>
+          </view>
+        </view>
+
+        <!-- 气压 -->
+        <view class="sensor-row" wx:if="{{item.pressChange}}">
+          <text class="sensor-icon">📊</text>
+          <text class="sensor-name">气压</text>
+          <view class="sensor-change">
+            <text>{{item.pressChange.start}}</text>
+            <text class="arrow" style="color: {{item.pressChange.color}}"> → </text>
+            <text>{{item.pressChange.end}} hPa</text>
+            <text class="change-diff" style="color: {{item.pressChange.color}}">{{item.pressChange.arrow}} {{item.pressChange.diff}}</text>
+          </view>
+        </view>
+        <view class="press-trend" wx:if="{{item.pressChange.trend}}">
+          <text>趋势: {{item.pressChange.trend}}</text>
+        </view>
+      </view>
+
+      <!-- 底部：天气 + 推荐鱼种 -->
+      <view class="session-footer">
+        <view class="footer-item">
+          <text class="footer-label">⛅ 天气</text>
+          <text class="footer-value">{{item.weatherText}}</text>
+          <text class="footer-sub" wx:if="{{item.windDesc}}">{{item.windDesc}}</text>
+        </view>
+        <view class="footer-item">
+          <text class="footer-label">🐟 推荐鱼种</text>
+          <text class="footer-value fish-name">{{item.recommendedFish}}</text>
+        </view>
+      </view>
+
     </view>
-    
+
     <view class="bottom-tip">
-      <text>- 仅保留最近 20 条预测记录 -</text>
+      <text>- 最近 20 次作钓记录 -</text>
     </view>
   </scroll-view>
 

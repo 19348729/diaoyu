@@ -23,7 +23,7 @@ from domain.weather import QWeatherService
 from domain.lbs import TencentLBSService
 from domain.forecast import FishingForecastService
 from infrastructure.database import engine, Base, get_db
-from infrastructure.models import User, SensorRecord, PredictionHistory
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession
 
 # 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
 Base.metadata.create_all(bind=engine)
@@ -568,6 +568,149 @@ async def get_history_logs(
             }
             for r in records
         ]
+    }
+
+
+# ══════════════════════════════════════════════
+#  钓鱼会话日志
+# ══════════════════════════════════════════════
+
+class SessionSaveRequest(BaseModel):
+    """保存钓鱼会话摘要"""
+    start_time: int = Field(..., description="会话起始 Unix 时间戳")
+    end_time: int = Field(..., description="会话结束 Unix 时间戳")
+    duration_min: int = Field(..., description="作钓时长（分钟）")
+    data_points: int = Field(0, description="传感器数据点数")
+    lat: float = 0.0
+    lng: float = 0.0
+    location_name: Optional[str] = None
+    # 水温
+    t_water_start: Optional[float] = None
+    t_water_end: Optional[float] = None
+    t_water_min: Optional[float] = None
+    t_water_max: Optional[float] = None
+    # 气温
+    t_air_start: Optional[float] = None
+    t_air_end: Optional[float] = None
+    # 气压
+    p_start: Optional[float] = None
+    p_end: Optional[float] = None
+    p_trend: Optional[str] = None
+    # 天气
+    weather_text: Optional[str] = None
+    wind_desc: Optional[str] = None
+    # 预测汇总
+    bite_index_max: Optional[int] = None
+    bite_index_avg: Optional[int] = None
+    recommended_fish: Optional[str] = None
+
+
+@app.post("/api/session/save", tags=["会话日志"])
+async def save_session(
+    req: SessionSaveRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """
+    📝 保存钓鱼会话摘要
+
+    用户断开 ESP32 时由小程序聚合传感器数据后调用。
+    一次出钓 = 一条记录。
+    """
+    if not x_openid or not x_openid.strip():
+        raise HTTPException(status_code=401, detail="未提供用户标识")
+
+    # 如果前端没传 location_name，尝试反解
+    loc_name = req.location_name
+    if not loc_name and req.lat and req.lng:
+        try:
+            loc_name = await TencentLBSService.reverse_geocode(req.lat, req.lng)
+        except Exception:
+            loc_name = None
+
+    session = FishingSession(
+        openid=x_openid,
+        start_time=req.start_time,
+        end_time=req.end_time,
+        duration_min=req.duration_min,
+        data_points=req.data_points,
+        lat=req.lat,
+        lng=req.lng,
+        location_name=loc_name,
+        t_water_start=req.t_water_start,
+        t_water_end=req.t_water_end,
+        t_water_min=req.t_water_min,
+        t_water_max=req.t_water_max,
+        t_air_start=req.t_air_start,
+        t_air_end=req.t_air_end,
+        p_start=req.p_start,
+        p_end=req.p_end,
+        p_trend=req.p_trend,
+        weather_text=req.weather_text,
+        wind_desc=req.wind_desc,
+        bite_index_max=req.bite_index_max,
+        bite_index_avg=req.bite_index_avg,
+        recommended_fish=req.recommended_fish,
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    return {
+        "status": "ok",
+        "session_id": session.id,
+        "message": "作钓日志已保存",
+    }
+
+
+@app.get("/api/session/list", tags=["会话日志"])
+async def list_sessions(
+    limit: int = 20,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """
+    📋 获取用户的钓鱼会话日志列表
+
+    按时间倒序返回，每条记录是一次完整出钓的摘要。
+    """
+    if not x_openid or not x_openid.strip():
+        raise HTTPException(status_code=401, detail="未提供用户标识")
+
+    records = db.query(FishingSession).filter(
+        FishingSession.openid == x_openid
+    ).order_by(FishingSession.created_at.desc()).limit(limit).all()
+
+    def _fmt(r):
+        return {
+            "id": r.id,
+            "start_time": r.start_time,
+            "end_time": r.end_time,
+            "duration_min": r.duration_min,
+            "data_points": r.data_points,
+            "lat": r.lat,
+            "lng": r.lng,
+            "location_name": r.location_name,
+            "t_water_start": r.t_water_start,
+            "t_water_end": r.t_water_end,
+            "t_water_min": r.t_water_min,
+            "t_water_max": r.t_water_max,
+            "t_air_start": r.t_air_start,
+            "t_air_end": r.t_air_end,
+            "p_start": r.p_start,
+            "p_end": r.p_end,
+            "p_trend": r.p_trend,
+            "weather_text": r.weather_text,
+            "wind_desc": r.wind_desc,
+            "bite_index_max": r.bite_index_max,
+            "bite_index_avg": r.bite_index_avg,
+            "recommended_fish": r.recommended_fish,
+            "created_at": r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else None,
+        }
+
+    return {
+        "status": "ok",
+        "data": [_fmt(r) for r in records],
     }
 
 

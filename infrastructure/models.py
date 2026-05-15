@@ -61,3 +61,51 @@ class PredictionHistory(Base):
     solunar_info = Column(JSON, nullable=True, comment="月相快照")
 
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+
+
+class FishingSession(Base):
+    """
+    钓鱼会话摘要（一次出钓 = 一条记录）
+    由用户断开 ESP32 时确认保存，聚合整次作钓的传感器趋势和预测结果。
+    """
+    __tablename__ = "fishing_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    openid = Column(String(64), index=True, nullable=False, comment="所属用户")
+
+    # 时间
+    start_time = Column(Integer, nullable=False, comment="会话开始 Unix 时间戳")
+    end_time = Column(Integer, nullable=False, comment="会话结束 Unix 时间戳")
+    duration_min = Column(Integer, nullable=False, comment="作钓时长（分钟）")
+    data_points = Column(Integer, default=0, comment="传感器数据点数量")
+
+    # 位置
+    lat = Column(Float, nullable=True, comment="钓点纬度")
+    lng = Column(Float, nullable=True, comment="钓点经度")
+    location_name = Column(String(128), nullable=True, comment="钓点名称")
+
+    # 水温统计
+    t_water_start = Column(Float, nullable=True, comment="水温起始值")
+    t_water_end = Column(Float, nullable=True, comment="水温结束值")
+    t_water_min = Column(Float, nullable=True, comment="水温最低值")
+    t_water_max = Column(Float, nullable=True, comment="水温最高值")
+
+    # 气温统计
+    t_air_start = Column(Float, nullable=True, comment="气温起始值")
+    t_air_end = Column(Float, nullable=True, comment="气温结束值")
+
+    # 气压统计
+    p_start = Column(Float, nullable=True, comment="气压起始值")
+    p_end = Column(Float, nullable=True, comment="气压结束值")
+    p_trend = Column(String(32), nullable=True, comment="气压趋势：持续上升/持续下降/先升后降/平稳")
+
+    # 天气快照
+    weather_text = Column(String(32), nullable=True, comment="天气描述（如：多云）")
+    wind_desc = Column(String(64), nullable=True, comment="风况描述")
+
+    # 预测汇总
+    bite_index_max = Column(Integer, nullable=True, comment="开口指数最高值")
+    bite_index_avg = Column(Integer, nullable=True, comment="开口指数平均值")
+    recommended_fish = Column(String(32), nullable=True, comment="推荐鱼种（出现频率最高的）")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
