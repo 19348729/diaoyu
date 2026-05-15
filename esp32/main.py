@@ -29,10 +29,34 @@ from utils.time_sync import TimeSync
 from ble.service import BLEService
 
 
+def _disable_wifi():
+    """关闭 WiFi 射频以降低功耗。
+
+    MicroPython 启动时 WiFi STA 模式默认处于 active 状态，
+    即使未连接任何 AP 也会持续消耗 ~80mA。
+    本项目仅使用 BLE，主动关闭 WiFi 可节省约 30~50mA。
+    """
+    try:
+        import network
+        sta = network.WLAN(network.STA_IF)
+        ap = network.WLAN(network.AP_IF)
+        if sta.active():
+            sta.active(False)
+            print("[系统] WiFi STA 已关闭（省电）")
+        if ap.active():
+            ap.active(False)
+            print("[系统] WiFi AP 已关闭（省电）")
+    except Exception as e:
+        print("[系统] 关闭 WiFi 失败（可忽略）: {}".format(e))
+
+
 def main():
     print("=" * 40)
     print("FishProbe ESP32 传感器系统 (v2)")
     print("=" * 40)
+
+    # ── 0. 关闭 WiFi 省电（仅使用 BLE）──
+    _disable_wifi()
 
     # ── 1. 初始化各模块 ──
     time_sync = TimeSync()
