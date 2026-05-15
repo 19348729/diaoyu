@@ -362,41 +362,6 @@ Page({
     }, 30000);
   },
 
-  /**
-   * 调试：生成 3 条模拟数据
-   */
-  onTapMockData() {
-    const app = getApp();
-    const now = Math.floor(Date.now() / 1000);
-    const mockRecords = [
-      { timestamp: now - 10, tWater: 20.1, tAir: 24.5, pLocal: 1012.3 },
-      { timestamp: now - 5, tWater: 20.2, tAir: 24.3, pLocal: 1012.5 },
-      { timestamp: now, tWater: 20.1, tAir: 24.6, pLocal: 1012.4 }
-    ];
-    
-    // 更新全局状态
-    app.globalData.historyData = mockRecords;
-    app.globalData.latestData = mockRecords[2];
-
-    // 更新页面展示
-    const latest = mockRecords[2];
-    this.setData({
-      tWater: latest.tWater.toFixed(1),
-      tAir: latest.tAir.toFixed(1),
-      pLocal: latest.pLocal.toFixed(1),
-      updateTime: new Date(latest.timestamp * 1000).toLocaleTimeString(),
-      historyCount: this.data.historyCount + 3
-    });
-
-    wx.showToast({ title: '模拟数据已生成', icon: 'success' });
-  },
-
-  /**
-   * 调试：无视时间限制，强制触发一次后端预测
-   */
-  onTapManualPredict() {
-    this._tryTriggerPrediction(true);
-  },
 
   /**
    * 用户主动刷新预测（强制触发，跳过冷却）
