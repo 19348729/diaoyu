@@ -51,6 +51,7 @@ Page({
   onLoad() {
     this._ble = getBLEManager();
     this._predictAgeTimer = null;
+    this._sessionStartTs = 0;  // 本次 BLE 会话起始时间戳（秒）
 
     // 注册 BLE 回调
     this._ble.onConnect((connected) => {
@@ -62,6 +63,8 @@ Page({
     });
 
     this._ble.onTimeSync(() => {
+      // 记录本次会话起始时间，用于断开时精确计算本次作钓时长
+      this._sessionStartTs = Math.floor(Date.now() / 1000);
       this.setData({
         timeSynced: true,
         statusText: '已连接 - 数据传输中',
@@ -389,13 +392,18 @@ Page({
    */
   async _handleDisconnect() {
     const app = getApp();
-    const history = app.globalData.historyData || [];
+    const allHistory = app.globalData.historyData || [];
 
-    // 计算会话时长
+    // 只取本次会话期间（_sessionStartTs 之后）的数据
+    const sessionHistory = this._sessionStartTs
+      ? allHistory.filter(r => r.timestamp >= this._sessionStartTs)
+      : [];
+
+    // 计算本次会话时长
     let durationMin = 0;
-    if (history.length >= 2) {
-      const first = history[0];
-      const last = history[history.length - 1];
+    if (sessionHistory.length >= 2) {
+      const first = sessionHistory[0];
+      const last = sessionHistory[sessionHistory.length - 1];
       durationMin = Math.round((last.timestamp - first.timestamp) / 60);
     }
 
@@ -417,7 +425,7 @@ Page({
 
     wx.showModal({
       title: '保存作钓日志',
-      content: `本次作钓 ${durationText}，共采集 ${history.length} 条数据。是否保存日志？`,
+      content: `本次作钓 ${durationText}，共采集 ${sessionHistory.length} 条数据。是否保存日志？`,
       confirmText: '保存',
       cancelText: '暂不',
       success: (res) => {
@@ -434,7 +442,12 @@ Page({
    */
   _buildSessionSummary() {
     const app = getApp();
-    const history = app.globalData.historyData || [];
+    const allHistory = app.globalData.historyData || [];
+
+    // 只取本次会话期间的数据
+    const history = this._sessionStartTs
+      ? allHistory.filter(r => r.timestamp >= this._sessionStartTs)
+      : allHistory;
     if (history.length < 2) return null;
 
     const first = history[0];
