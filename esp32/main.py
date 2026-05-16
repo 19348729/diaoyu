@@ -16,6 +16,10 @@ ESP32 钓鱼传感器主程序 (Main Entry)
      - 未连接 → 数据留在缓冲区
   6. 历史数据采用手动拉取模式：由小程序下发 CMD_PULL_HISTORY
      主动拉取，每次回发一批（最多 BLE_BATCH_SIZE 条）。
+
+充电宝保活：
+  采用 keepalive_sleep 替代 time.sleep_ms，在长睡眠期间
+  周期性产生 CPU 脉冲和 WiFi 射频脉冲，维持充电宝供电。
 """
 
 import time
@@ -26,15 +30,16 @@ from sensors.temperature import TemperatureSensor
 from sensors.pressure import PressureSensor
 from storage.ring_buffer import RingBuffer
 from utils.time_sync import TimeSync
+from utils.keepalive import keepalive_sleep
 from ble.service import BLEService
 
 
 def _disable_wifi():
-    """关闭 WiFi 射频以降低功耗。
+    """初始关闭 WiFi 射频。
 
-    MicroPython 启动时 WiFi STA 模式默认处于 active 状态，
-    即使未连接任何 AP 也会持续消耗 ~80mA。
-    本项目仅使用 BLE，主动关闭 WiFi 可节省约 30~50mA。
+    MicroPython 启动时 WiFi STA 模式默认处于 active 状态。
+    先关闭 WiFi 建立基准，保活模块会在需要时短暂开启 WiFi
+    产生电流脉冲以维持充电宝供电。
     """
     try:
         import network
@@ -42,10 +47,10 @@ def _disable_wifi():
         ap = network.WLAN(network.AP_IF)
         if sta.active():
             sta.active(False)
-            print("[系统] WiFi STA 已关闭（省电）")
+            print("[系统] WiFi STA 已关闭（初始状态）")
         if ap.active():
             ap.active(False)
-            print("[系统] WiFi AP 已关闭（省电）")
+            print("[系统] WiFi AP 已关闭（初始状态）")
     except Exception as e:
         print("[系统] 关闭 WiFi 失败（可忽略）: {}".format(e))
 
@@ -83,6 +88,7 @@ def main():
     ble_service.init()
 
     print("\n[系统] 启动完成！开始采集循环 (间隔: {}秒)".format(SAMPLE_INTERVAL_SEC))
+    print("[系统] 充电宝保活模式已启用（脉冲间隔 2 秒）")
     print("[系统] 等待小程序连接并对表...\n")
 
     # ── 2. 主循环 ──
@@ -137,11 +143,13 @@ def main():
         if sample_count % 100 == 0:
             gc.collect()
 
-        # ── 2.7 精确等待（扣除采集耗时） ──
+        # ── 2.7 精确等待（扣除采集耗时）──
+        # 使用 keepalive_sleep 替代 time.sleep_ms，
+        # 在睡眠期间周期性产生电流脉冲，防止充电宝小电流保护断电
         elapsed = time.ticks_diff(time.ticks_ms(), loop_start)
         sleep_ms = max(0, SAMPLE_INTERVAL_SEC * 1000 - elapsed)
         if sleep_ms > 0:
-            time.sleep_ms(sleep_ms)
+            keepalive_sleep(sleep_ms)
 
 
 def _print_status(count, timestamp, t_water, t_air, p_local, ble, buf, ts):
