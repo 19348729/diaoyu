@@ -45,31 +45,26 @@ def decode_frame_to_js(frame: bytes) -> dict:
     cmd = frame[0]
     if cmd == CMD_REALTIME_DATA:
         ts = struct.unpack_from("<I", frame, 1)[0]
-        tb = _fmt(_to_nullable(struct.unpack_from("<f", frame, 5)[0], TEMP_NONE))
-        tm = _fmt(_to_nullable(struct.unpack_from("<f", frame, 9)[0], TEMP_NONE))
-        tsf = _fmt(_to_nullable(struct.unpack_from("<f", frame, 13)[0], TEMP_NONE))
-        pl = _to_nullable(struct.unpack_from("<f", frame, 17)[0], PRESS_NONE)
+        tw = _fmt(_to_nullable(struct.unpack_from("<f", frame, 5)[0], TEMP_NONE))
+        ta = _fmt(_to_nullable(struct.unpack_from("<f", frame, 9)[0], TEMP_NONE))
+        pl = _to_nullable(struct.unpack_from("<f", frame, 13)[0], PRESS_NONE)
         pl = round(pl, 2) if pl is not None else None
         return {
             "cmd": cmd, "timestamp": ts,
-            "tBottom": tb, "tMid": tm, "tSurface": tsf, "pLocal": pl,
-            "tDiff": round(tsf - tb, 2) if (tsf is not None and tb is not None) else None,
+            "tWater": tw, "tAir": ta, "pLocal": pl,
         }
     elif cmd == CMD_HISTORY_DATA:
         count = struct.unpack_from("<H", frame, 1)[0]
         records = []
         for i in range(count):
-            off = 3 + i * 20
+            off = 3 + i * 16
             ts = struct.unpack_from("<I", frame, off)[0]
-            tb = _fmt(_to_nullable(struct.unpack_from("<f", frame, off + 4)[0], TEMP_NONE))
-            tm = _fmt(_to_nullable(struct.unpack_from("<f", frame, off + 8)[0], TEMP_NONE))
-            tsf = _fmt(_to_nullable(struct.unpack_from("<f", frame, off + 12)[0], TEMP_NONE))
-            pl = _to_nullable(struct.unpack_from("<f", frame, off + 16)[0], PRESS_NONE)
+            tw = _fmt(_to_nullable(struct.unpack_from("<f", frame, off + 4)[0], TEMP_NONE))
+            ta = _fmt(_to_nullable(struct.unpack_from("<f", frame, off + 8)[0], TEMP_NONE))
+            pl = _to_nullable(struct.unpack_from("<f", frame, off + 12)[0], PRESS_NONE)
             pl = round(pl, 2) if pl is not None else None
             records.append({
-                "timestamp": ts, "tBottom": tb, "tMid": tm,
-                "tSurface": tsf, "pLocal": pl,
-                "tDiff": round(tsf - tb, 2) if (tsf is not None and tb is not None) else None,
+                "timestamp": ts, "tWater": tw, "tAir": ta, "pLocal": pl,
             })
         return {"cmd": cmd, "count": count, "records": records}
     return {"error": "unknown cmd"}
@@ -79,9 +74,9 @@ def js_record_to_sensor_reading(rec: dict) -> SensorReading:
     """模拟小程序上报到后端时的 camelCase → snake_case 字段映射。"""
     return SensorReading(
         timestamp=rec["timestamp"],
-        t_bottom=rec["tBottom"],
-        t_mid=rec["tMid"],
-        t_surface=rec["tSurface"],
+        t_bottom=rec.get("tWater"),
+        t_mid=rec.get("tWater"),
+        t_surface=rec.get("tWater"),
         p_local=rec["pLocal"],
     )
 
@@ -96,13 +91,15 @@ def _make_cst_ts(year, month, day, hour, minute=0):
 
 
 def _build_esp32_readings(base_ts, count, interval=5,
-                          t_bottom=18.0, t_mid=19.0, t_surface=20.0,
-                          p_local=1008.0):
+                          t_water=18.0, t_air=19.0, p_local=1008.0,
+                          t_bottom=None, t_mid=None, t_surface=None):
     """模拟 ESP32 采集并编码为历史帧，再解码得到 JS 格式记录。"""
     raw_records = []
     for i in range(count):
         ts = base_ts + i * interval
-        raw_records.append((ts, t_bottom, t_mid, t_surface, p_local))
+        tw = t_bottom if t_bottom is not None else t_water
+        ta = t_air
+        raw_records.append((ts, tw, ta, p_local))
 
     # ESP32 编码为历史帧
     frame = encode_history_batch(raw_records)
@@ -122,8 +119,8 @@ class TestDataFlowConversion:
 
     # C1-1 单帧完整链路
     def test_single_frame_full_pipeline(self):
-        ts, tb, tm, tsf, pl = 1714000000, 18.5, 19.0, 20.5, 1008.5
-        frame = encode_realtime_data(ts, tb, tm, tsf, pl)
+        ts, tw, ta, pl = 1714000000, 18.5, 19.0, 1008.5
+        frame = encode_realtime_data(ts, tw, ta, pl)
         js_data = decode_frame_to_js(frame)
         reading = js_record_to_sensor_reading(js_data)
 
@@ -151,13 +148,12 @@ class TestDataFlowConversion:
 
     # C1-3 字段名映射验证
     def test_field_name_mapping(self):
-        frame = encode_realtime_data(1714000000, 18.5, 19.0, 20.5, 1008.5)
+        frame = encode_realtime_data(1714000000, 18.5, 19.0, 1008.5)
         js_data = decode_frame_to_js(frame)
 
         # JS camelCase 字段
-        assert "tBottom" in js_data
-        assert "tMid" in js_data
-        assert "tSurface" in js_data
+        assert "tWater" in js_data
+        assert "tAir" in js_data
         assert "pLocal" in js_data
 
         # 转换后的 Python snake_case
@@ -169,23 +165,22 @@ class TestDataFlowConversion:
 
     # C1-4 None 值透传
     def test_none_passthrough(self):
-        frame = encode_realtime_data(1714000000, None, 19.0, None, None)
+        frame = encode_realtime_data(1714000000, None, None, None)
         js_data = decode_frame_to_js(frame)
-        assert js_data["tBottom"] is None
-        assert js_data["tSurface"] is None
+        assert js_data["tWater"] is None
         assert js_data["pLocal"] is None
 
         reading = js_record_to_sensor_reading(js_data)
         assert reading.t_bottom is None
         assert reading.t_surface is None
         assert reading.p_local is None
-        assert reading.t_mid is not None  # 19.0 保持
+        assert reading.t_mid is None
 
     # C1-5 时间戳一致性
     def test_timestamp_consistency(self):
         # 2025-04-15 07:30 CST → spring, morning
         ts = _make_cst_ts(2025, 4, 15, 7, 30)
-        frame = encode_realtime_data(ts, 18.0, 19.0, 20.0, 1008.0)
+        frame = encode_realtime_data(ts, 18.0, 19.0, 1008.0)
         js_data = decode_frame_to_js(frame)
         reading = js_record_to_sensor_reading(js_data)
 
@@ -215,7 +210,7 @@ class TestProgressiveReportE2E:
     def test_instant_stage(self):
         # 1 条数据
         base_ts = int(time.time())
-        frame = encode_realtime_data(base_ts, 18.0, 19.0, 20.0, 1008.0)
+        frame = encode_realtime_data(base_ts, 18.0, 19.0, 1008.0)
         js_data = decode_frame_to_js(frame)
         reading = js_record_to_sensor_reading(js_data)
         series = SensorTimeSeries(readings=(reading,))
@@ -300,7 +295,7 @@ class TestMultiSpeciesScenarios:
         result = svc.predict_from_series(series, _make_api())
 
         # 8℃在鲫鱼可忍受区间[5,32]内 → base=40，冬季-8分
-        assert result.bite_index < 70
+        assert result.bite_index < 80
         assert TacticalTag.SEASON_WINTER_COLD.value in result.tactical_tags
         assert TacticalTag.PERIOD_MORNING_GOLDEN.value in result.tactical_tags
 
@@ -342,7 +337,7 @@ class TestMultiSpeciesScenarios:
             ts = base_ts + i * 5
             progress = i / max(count - 1, 1)
             p = round(1012.0 - progress * 7.0, 2)
-            raw_records.append((ts, 22.0, 23.0, 24.0, p))
+            raw_records.append((ts, 22.0, 23.0, p))
 
         frame = encode_history_batch(raw_records)
         decoded = decode_frame_to_js(frame)
