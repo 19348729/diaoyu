@@ -121,28 +121,67 @@ Page({
   },
 
   saveRod() {
+    let payload = {};
+
     if (this.data.isCustom) {
       if (!this.data.customBrand || !this.data.customSeries || !this.data.customLength) {
         wx.showToast({ title: '请填写完整信息', icon: 'none' });
         return;
       }
-      wx.showLoading({ title: 'AI云端审核中...' });
-      setTimeout(() => {
+      payload = {
+        brand: this.data.customBrand,
+        series: this.data.customSeries,
+        length: parseFloat(this.data.customLength),
+        action: "未知调性",
+        is_custom: true
+      };
+    } else {
+      if (this.data.selectedBrandIndex < 0 || this.data.selectedSeriesIndex < 0 || this.data.selectedLengthIndex < 0) {
+        wx.showToast({ title: '请完整选择鱼竿信息', icon: 'none' });
+        return;
+      }
+      const brand = this.data.brandNames[this.data.selectedBrandIndex];
+      const seriesObj = this.data.seriesList[this.data.selectedSeriesIndex];
+      const length = parseFloat(this.data.lengths[this.data.selectedLengthIndex].replace('米', ''));
+      
+      payload = {
+        brand: brand,
+        series: seriesObj.series,
+        length: length,
+        action: seriesObj.action,
+        is_custom: false
+      };
+    }
+
+    wx.showLoading({ title: '保存中...' });
+    wx.request({
+      url: 'http://127.0.0.1:8000/api/inventory/rod', // 替换为正式域名
+      method: 'POST',
+      data: payload,
+      header: {
+        'X-OpenID': app.globalData.openid || 'test_openid_user_001'
+      },
+      success: (res) => {
         wx.hideLoading();
-        wx.showToast({ title: '已提交众包审核库', icon: 'success' });
-        setTimeout(() => wx.navigateBack(), 1500);
-      }, 1500);
-      return;
-    }
-
-    if (this.data.selectedBrandIndex < 0 || this.data.selectedSeriesIndex < 0 || this.data.selectedLengthIndex < 0) {
-      wx.showToast({ title: '请完整选择鱼竿信息', icon: 'none' });
-      return;
-    }
-
-    wx.showToast({ title: '保存成功', icon: 'success' });
-    setTimeout(() => {
-      wx.navigateBack();
-    }, 1500);
+        if (res.data.status === 'ok') {
+          wx.showToast({ title: '保存成功', icon: 'success' });
+          // Notify previous page to refresh
+          const pages = getCurrentPages();
+          const prevPage = pages[pages.length - 2];
+          if (prevPage && prevPage.loadUserInventory) {
+            prevPage.loadUserInventory();
+          }
+          setTimeout(() => {
+            wx.navigateBack();
+          }, 1500);
+        } else {
+          wx.showToast({ title: '保存失败', icon: 'none' });
+        }
+      },
+      fail: () => {
+        wx.hideLoading();
+        wx.showToast({ title: '网络错误', icon: 'none' });
+      }
+    });
   }
 });

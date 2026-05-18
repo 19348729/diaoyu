@@ -34,7 +34,30 @@ Page({
   },
 
   onLoad() {
-    // In a real app, this would load from wx.getStorageSync or API
+    this.loadUserInventory();
+  },
+  
+  onShow() {
+    // Optionally refresh when coming back from add-rod
+    this.loadUserInventory();
+  },
+
+  loadUserInventory() {
+    const app = getApp();
+    wx.request({
+      url: 'http://127.0.0.1:8000/api/inventory/rods/user', // 替换为正式域名
+      method: 'GET',
+      header: {
+        'X-OpenID': app.globalData?.openid || 'test_openid_user_001'
+      },
+      success: (res) => {
+        if (res.data.status === 'ok') {
+          this.setData({
+            'inventory.rods': res.data.data
+          });
+        }
+      }
+    });
   },
 
   switchTab(e) {

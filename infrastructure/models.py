@@ -109,3 +109,20 @@ class FishingSession(Base):
     recommended_fish = Column(String(32), nullable=True, comment="推荐鱼种（出现频率最高的）")
 
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+
+class UserRod(Base):
+    """
+    用户保存在数字钓箱里的鱼竿
+    """
+    __tablename__ = "user_rods"
+
+    id = Column(Integer, primary_key=True, index=True)
+    openid = Column(String(64), index=True, nullable=False, comment="所属用户")
+    
+    brand = Column(String(32), nullable=False, comment="品牌，如 化氏")
+    series = Column(String(64), nullable=False, comment="系列/型号，如 一味EX")
+    length = Column(Float, nullable=False, comment="长度(米)")
+    action = Column(String(32), nullable=True, comment="调性，如 28调")
+    is_custom = Column(Integer, default=0, comment="是否是用户手填的")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())

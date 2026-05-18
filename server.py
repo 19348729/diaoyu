@@ -167,6 +167,58 @@ async def list_rod_database():
         
     return {"status": "ok", "data": result}
 
+from infrastructure.models import UserRod
+
+class AddRodRequest(BaseModel):
+    brand: str
+    series: str
+    length: float
+    action: Optional[str] = None
+    is_custom: bool = False
+
+@app.post("/api/inventory/rod", tags=["配置"])
+async def add_user_rod(
+    req: AddRodRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """用户录入新的鱼竿到私有钓箱"""
+    # For testing, we can use a mock openid if missing
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+        
+    user_rod = UserRod(
+        openid=openid,
+        brand=req.brand,
+        series=req.series,
+        length=req.length,
+        action=req.action,
+        is_custom=1 if req.is_custom else 0
+    )
+    db.add(user_rod)
+    db.commit()
+    return {"status": "ok", "message": "鱼竿录入成功", "id": user_rod.id}
+
+@app.get("/api/inventory/rods/user", tags=["配置"])
+async def list_user_rods(
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取用户钓箱里现有的所有鱼竿"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+        
+    rods = db.query(UserRod).filter(UserRod.openid == openid).all()
+    result = []
+    for r in rods:
+        result.append({
+            "id": f"r{r.id}",
+            "brand": r.brand,
+            "name": r.series,
+            "length": r.length,
+            "action": r.action or "未知",
+            "type": "台钓竿" # 默认均为台钓竿
+        })
+    return {"status": "ok", "data": result}
+
 
 @app.post("/api/predict", response_model=PredictResponse, tags=["预测"])
 async def predict(
