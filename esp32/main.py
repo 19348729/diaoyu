@@ -65,7 +65,7 @@ def main():
 
     # ── 1. 初始化各模块 ──
     time_sync = TimeSync()
-    ring_buffer = RingBuffer()
+    ring_buffer = RingBuffer(persistent=True)
     ble_service = BLEService(time_sync, ring_buffer)
     temp_sensor = TemperatureSensor()
     press_sensor = PressureSensor()
@@ -121,23 +121,21 @@ def main():
             )
 
         # ── 2.5 BLE 数据发送策略 ──
-        # 注意：历史数据补传改为"手动拉取模式"，由小程序主动下发
-        # CMD_PULL_HISTORY 指令触发，主循环只负责发送实时数据。
         if ble_service.is_connected and ble_service.is_time_synced:
-            # 清除重连标志（不再自动补传，仅保留状态）
+            # 清除重连标志
             if ble_service.just_reconnected:
                 unsent = ring_buffer.unsent_count
                 if unsent > 0:
-                    print("[系统] 重连后待补 {} 条，等待小程序手动拉取".format(unsent))
+                    print("[系统] 重连后待补 {} 条，等待小程序发起快闪拉取".format(unsent))
                 ble_service.clear_reconnect_flag()
 
-            # 仅发送实时数据
-            success = ble_service.send_realtime(
-                timestamp, t_water, t_air, p_local,
-            )
-            if success:
-                # 实时发送成功，免 ACK 确权，直接标记这 1 条已处理
-                ring_buffer.mark_sent(1)
+            if ble_service.is_realtime_mode():
+                # 仅在开启实时模式后才主动 Notify
+                success = ble_service.send_realtime(
+                    timestamp, t_water, t_air, p_local,
+                )
+                if success:
+                    ring_buffer.mark_sent(1)
 
         # ── 2.6 内存回收（每100次执行一次） ──
         if sample_count % 100 == 0:
@@ -146,10 +144,11 @@ def main():
         # ── 2.7 精确等待（扣除采集耗时）──
         # 使用 keepalive_sleep 替代 time.sleep_ms，
         # 在睡眠期间周期性产生电流脉冲，防止充电宝小电流保护断电
+        # 传入 tick_callback 用于后台处理 BLE 快闪 Dump
         elapsed = time.ticks_diff(time.ticks_ms(), loop_start)
         sleep_ms = max(0, SAMPLE_INTERVAL_SEC * 1000 - elapsed)
         if sleep_ms > 0:
-            keepalive_sleep(sleep_ms)
+            keepalive_sleep(sleep_ms, tick_callback=ble_service.process_fast_dump)
 
 
 def _print_status(count, timestamp, t_water, t_air, p_local, ble, buf, ts):

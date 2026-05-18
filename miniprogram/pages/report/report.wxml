@@ -1,0 +1,35 @@
+<view class="container">
+  <view class="header">第三次握手：生成战报</view>
+
+  <view class="section">
+    <view class="title">本次渔获等级</view>
+    <view class="grid">
+      <view class="level-card {{catchLevel === '空军' ? 'active' : ''}}" bindtap="selectLevel" data-val="空军">
+        <text class="emoji">🛩️</text>
+        <text class="text">坚强空军</text>
+      </view>
+      <view class="level-card {{catchLevel === '惨淡' ? 'active' : ''}}" bindtap="selectLevel" data-val="惨淡">
+        <text class="emoji">😢</text>
+        <text class="text">惨淡几条</text>
+      </view>
+      <view class="level-card {{catchLevel === '稳赚' ? 'active' : ''}}" bindtap="selectLevel" data-val="稳赚">
+        <text class="emoji">😊</text>
+        <text class="text">稳稳拿捏</text>
+      </view>
+      <view class="level-card {{catchLevel === '爆护' ? 'active' : ''}}" bindtap="selectLevel" data-val="爆护">
+        <text class="emoji">🔥</text>
+        <text class="text">无敌连竿爆护</text>
+      </view>
+    </view>
+  </view>
+
+  <button class="btn-primary" bindtap="finishSession" loading="{{isGenerating}}">结束作钓 & 生成战报海报</button>
+
+  <view class="poster-container" wx:if="{{posterData}}">
+    <view class="poster" style="background-color: {{posterData.bg_color === 'red' ? '#ffebee' : posterData.bg_color === 'orange' ? '#fff3e0' : posterData.bg_color === 'gray' ? '#f5f5f5' : '#eceff1'}}">
+      <view class="p-title">{{posterData.title}}</view>
+      <view class="p-line" wx:for="{{posterData.text_lines}}" wx:key="*this">{{item}}</view>
+    </view>
+    <button class="btn-outline mt" bindtap="sharePoster">分享给钓友</button>
+  </view>
+</view>

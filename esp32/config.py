@@ -54,3 +54,6 @@ CMD_SYNC_ACK = 0x04         # 同步确认（小程序 -> ESP32）
 CMD_STATUS_QUERY = 0x05     # 状态查询（小程序 -> ESP32）
 CMD_STATUS_REPLY = 0x06     # 状态回复（ESP32 -> 小程序）
 CMD_PULL_HISTORY = 0x07     # 手动拉取一批历史（小程序 -> ESP32，无载荷）
+CMD_BULK_DUMP = 0x08        # 全量快闪拉取（小程序 -> ESP32）
+CMD_DUMP_COMPLETE = 0x09    # 全量快闪结束标记（ESP32 -> 小程序）
+CMD_ENTER_REALTIME = 0x0A   # 切换实时 Notify 模式（小程序 -> ESP32）

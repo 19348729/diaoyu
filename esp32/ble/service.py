@@ -12,11 +12,11 @@ from micropython import const
 from config import (
     BLE_DEVICE_NAME, BLE_SERVICE_UUID, BLE_TX_CHAR_UUID, BLE_RX_CHAR_UUID,
     BLE_BATCH_SIZE, CMD_TIME_SYNC, CMD_SYNC_ACK, CMD_STATUS_QUERY,
-    CMD_PULL_HISTORY,
+    CMD_PULL_HISTORY, CMD_BULK_DUMP, CMD_DUMP_COMPLETE, CMD_ENTER_REALTIME,
 )
 from ble.protocol import (
     decode_incoming, encode_realtime_data, encode_history_batch,
-    encode_status_reply,
+    encode_status_reply, encode_dump_complete,
 )
 
 # ── BLE 事件常量 ──
@@ -55,6 +55,8 @@ class BLEService:
         self._time_synced = False       # 是否已完成对表
         self._just_reconnected = False  # 刚重连标志（用于触发历史数据补传）
         self._syncing_history = False   # 正在补传历史数据
+        self._dump_offset = 0           # 快闪数据偏移量
+        self._realtime_mode = False     # 实时数据推送开关
 
     @property
     def is_connected(self) -> bool:
@@ -126,6 +128,8 @@ class BLEService:
             self._time_synced = False
             self._just_reconnected = True
             self._syncing_history = False
+            self._dump_offset = 0
+            self._realtime_mode = False
             print("[BLE] 设备已连接 (handle={})".format(conn_handle))
             # 连接后停止广播（单连接模式）
             self._ble.gap_advertise(None)
@@ -137,6 +141,8 @@ class BLEService:
             self._time_synced = False
             self._just_reconnected = False
             self._syncing_history = False
+            self._dump_offset = 0
+            self._realtime_mode = False
             print("[BLE] 设备已断开 (handle={})".format(conn_handle))
             # 断开后重新开始广播
             self._start_advertising()
@@ -171,14 +177,12 @@ class BLEService:
             # 同步确认
             count = msg.get("count", 0)
             self._ring_buffer.mark_sent(count)
+            self._dump_offset = 0  # 确认后重置偏移
             print("[BLE] 同步确认: {}条".format(count))
             # 检查是否还有未发送的历史数据
             if self._ring_buffer.unsent_count == 0:
                 self._syncing_history = False
                 print("[BLE] 历史数据补传完成")
-            else:
-                # 还有积压，立刻触发连发下一批，加速重连补传
-                self.send_history_batch()
 
         elif cmd == CMD_STATUS_QUERY:
             # 状态查询 -> 回复缓冲区状态
@@ -201,6 +205,20 @@ class BLEService:
             if sent:
                 print("[BLE] 手动拉取：已发送一批历史数据")
 
+        elif cmd == CMD_BULK_DUMP:
+            if not self._time_synced:
+                return
+            if self._ring_buffer.unsent_count == 0:
+                self._send(encode_dump_complete())
+                return
+            print("[BLE] 收到快闪拉取指令，开始全量 Dump")
+            self._syncing_history = True
+            self._dump_offset = 0
+
+        elif cmd == CMD_ENTER_REALTIME:
+            print("[BLE] 切换至实时推送模式")
+            self._realtime_mode = True
+
     def send_realtime(self, timestamp, t_water, t_air, p_local) -> bool:
         """发送实时数据帧。
 
@@ -214,22 +232,38 @@ class BLEService:
         return self._send(frame)
 
     def send_history_batch(self) -> bool:
-        """发送一批历史缓存数据。
-
-        Returns:
-            True 表示发送了数据，False 表示没有数据可发或发送失败
-        """
+        """发送一批历史缓存数据（手动拉取模式）。"""
         if not self._connected or not self._time_synced:
             return False
 
         unsent = self._ring_buffer.get_unsent(max_count=BLE_BATCH_SIZE)
         if not unsent:
-            self._syncing_history = False
             return False
 
-        self._syncing_history = True
         frame = encode_history_batch(unsent)
         return self._send(frame)
+
+    def process_fast_dump(self):
+        """处理快闪历史数据（供主循环不断调用）。"""
+        if not self._syncing_history or not self._connected:
+            return
+
+        unsent = self._ring_buffer.get_unsent(max_count=BLE_BATCH_SIZE, offset=self._dump_offset)
+        if not unsent:
+            self._syncing_history = False
+            self._send(encode_dump_complete())
+            print("[BLE] 快闪 Dump 结束，等待统一 ACK")
+            return
+
+        frame = encode_history_batch(unsent)
+        if self._send(frame):
+            self._dump_offset += len(unsent)
+        else:
+            # 发送失败（可能 notify 队列满），等待下次 tick 重试
+            pass
+
+    def is_realtime_mode(self) -> bool:
+        return self._realtime_mode
 
     def has_pending_history(self) -> bool:
         """是否还有未同步的历史数据需要补传。"""

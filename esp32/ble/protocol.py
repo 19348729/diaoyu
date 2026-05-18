@@ -21,6 +21,7 @@ import struct
 from config import (
     CMD_TIME_SYNC, CMD_REALTIME_DATA, CMD_HISTORY_DATA,
     CMD_SYNC_ACK, CMD_STATUS_QUERY, CMD_STATUS_REPLY, CMD_PULL_HISTORY,
+    CMD_BULK_DUMP, CMD_DUMP_COMPLETE, CMD_ENTER_REALTIME,
 )
 
 # ── 数据帧中 None 值的占位符 ──
@@ -109,6 +110,15 @@ def encode_status_reply(capacity: int, count: int, unsent: int, total_written: i
     )
 
 
+def encode_dump_complete() -> bytes:
+    """编码全量快闪结束标记。
+
+    帧结构 (1 字节):
+        CMD(1)
+    """
+    return struct.pack("<B", CMD_DUMP_COMPLETE)
+
+
 # ──────────────────────────────────────────────
 #  解码（小程序 -> ESP32）
 # ──────────────────────────────────────────────
@@ -148,12 +158,8 @@ def decode_incoming(data: bytes) -> dict:
             count = struct.unpack_from("<H", data, 1)[0]
             return {"cmd": cmd, "count": count}
 
-        elif cmd == CMD_STATUS_QUERY:
-            # 状态查询: 仅 CMD(1)，无载荷
-            return {"cmd": cmd}
-
-        elif cmd == CMD_PULL_HISTORY:
-            # 手动拉取一批历史: 仅 CMD(1)，无载荷
+        elif cmd in (CMD_STATUS_QUERY, CMD_PULL_HISTORY, CMD_BULK_DUMP, CMD_ENTER_REALTIME):
+            # 无载荷
             return {"cmd": cmd}
 
         else:

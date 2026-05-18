@@ -1,0 +1,31 @@
+<view class="container">
+  <view class="header">第二次握手：AI救场</view>
+
+  <view class="section" wx:if="{{!prescription}}">
+    <view class="title">当前水面症状 (可多选)</view>
+    <view class="list">
+      <view class="check-item" wx:for="{{symptoms}}" wx:key="val" bindtap="toggleSymptom" data-idx="{{index}}">
+        <icon type="{{item.checked ? 'success' : 'circle'}}" size="20" color="{{item.checked ? '#1a73e8' : '#ccc'}}"/>
+        <text class="check-text">{{item.label}}</text>
+      </view>
+    </view>
+    <button class="btn-primary mt" bindtap="requestRescue" loading="{{isRescuing}}">请求 AI 开方</button>
+  </view>
+
+  <view class="card" wx:if="{{prescription}}">
+    <view class="card-title">🏥 AI 战术处方</view>
+    <view class="diag-section">
+      <view class="diag-label">诊断分析：</view>
+      <view class="diag-text">{{prescription.diagnosis}}</view>
+    </view>
+    <view class="presc-list">
+      <view class="presc-item" wx:for="{{prescription.prescriptions}}" wx:key="action">
+        <view class="presc-action">🎯 {{item.action}}</view>
+        <view class="presc-reason">原理：{{item.reason}}</view>
+      </view>
+    </view>
+    <view class="note" wx:if="{{prescription.confidence_note}}">💡 {{prescription.confidence_note}}</view>
+    
+    <button class="btn-outline mt" bindtap="resetRescue">重新问诊</button>
+  </view>
+</view>

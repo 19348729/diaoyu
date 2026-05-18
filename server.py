@@ -22,6 +22,9 @@ from domain.constants import FISH_PROFILES
 from domain.weather import QWeatherService
 from domain.lbs import TencentLBSService
 from domain.forecast import FishingForecastService
+from domain.engine import FishingEngine
+from domain.prescription import PrescriptionService
+from domain.poster import PosterGenerator
 from infrastructure.database import engine, Base, get_db
 from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession
 
@@ -104,6 +107,14 @@ class BatchSensorRequest(BaseModel):
     lat: float = 0.0
     lng: float = 0.0
 
+
+class RescueRequest(BaseModel):
+    """V2 AI 鱼情救场请求"""
+    sensors: List[SensorDataIn] = Field(..., description="传感器时序数据（按时间升序）")
+    symptom_tags: List[str] = Field(default_factory=list, description="用户勾选的主观症状标签")
+    fish_context: Dict = Field(default_factory=dict, description="目标鱼种、钓法、饵料等上下文")
+    lat: float = 0.0
+    lng: float = 0.0
 
 # ══════════════════════════════════════════════
 #  API 路由
@@ -713,6 +724,91 @@ async def list_sessions(
         "data": [_fmt(r) for r in records],
     }
 
+
+# ══════════════════════════════════════════════
+#  V2 AI 救场与战报
+# ══════════════════════════════════════════════
+
+@app.post("/api/v2/rescue", tags=["V2 智能救场"])
+async def ai_rescue(req: RescueRequest):
+    """
+    🚑 AI 鱼情救场（第二次握手）
+    接收传感器批量 Dump 数据和用户主观症状，
+    经过物理引擎处理后交由大模型生成处方。
+    """
+    readings = tuple(
+        SensorReading(
+            timestamp=s.timestamp,
+            t_bottom=s.t_water if s.t_water is not None else s.t_bottom, 
+            t_mid=s.t_water if s.t_water is not None else s.t_mid, 
+            t_surface=s.t_water if s.t_water is not None else s.t_surface,
+            p_local=s.p_local
+        ) for s in req.sensors
+    )
+    series = SensorTimeSeries(readings=readings)
+    
+    # 1. 物理引擎分析
+    engine = FishingEngine()
+    engine_result = engine.evaluate(series)
+    
+    # 2. 调用 LLM 生成处方
+    prescription_svc = PrescriptionService()
+    prescription = prescription_svc.generate_prescription(
+        physical_tags=engine_result["tags"],
+        symptom_tags=req.symptom_tags,
+        metrics=engine_result["metrics"],
+        fish_context=req.fish_context
+    )
+    
+    return {
+        "status": "ok",
+        "engine_metrics": engine_result["metrics"],
+        "engine_tags": engine_result["tags"],
+        "prescription": prescription
+    }
+
+
+@app.get("/api/v2/poster/{session_id}", tags=["V2 智能救场"])
+async def get_poster(
+    session_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """
+    🏆 获取战报海报（第三次握手）
+    """
+    if not x_openid or not x_openid.strip():
+        raise HTTPException(status_code=401, detail="未提供用户标识")
+        
+    session = db.query(FishingSession).filter(
+        FishingSession.id == session_id,
+        FishingSession.openid == x_openid
+    ).first()
+    
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
+        
+    session_data = {
+        "duration_min": session.duration_min,
+        "delta_p": 0.0
+    }
+    
+    if session.p_end is not None and session.p_start is not None:
+        session_data["delta_p"] = round(session.p_end - session.p_start, 2)
+        
+    catch_level = "稳赚"
+    if session.bite_index_avg:
+        if session.bite_index_avg > 80: catch_level = "爆护"
+        elif session.bite_index_avg > 60: catch_level = "稳赚"
+        elif session.bite_index_avg > 40: catch_level = "惨淡"
+        else: catch_level = "空军"
+    session_data["catch_level"] = catch_level
+        
+    poster_gen = PosterGenerator()
+    return {
+        "status": "ok",
+        "poster": poster_gen.generate_poster_data(session_data)
+    }
 
 # ── 开发模式入口 ──────────────────────────────
 if __name__ == "__main__":

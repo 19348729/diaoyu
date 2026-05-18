@@ -91,7 +91,7 @@ def _wifi_kick():
         print("[保活] WiFi 踢脚失败: {}".format(e))
 
 
-def keepalive_sleep(total_ms):
+def keepalive_sleep(total_ms, tick_callback=None):
     """替代 time.sleep_ms() 的保活版本。
 
     将长睡眠拆分为短片段，每个片段之间插入电流脉冲，
@@ -99,6 +99,7 @@ def keepalive_sleep(total_ms):
 
     Args:
         total_ms: 总休眠时间（毫秒），与 time.sleep_ms() 语义相同
+        tick_callback: 短片段间隙调用的回调函数（常用于驱动后台任务）
     """
     if total_ms <= 0:
         return
@@ -109,7 +110,18 @@ def keepalive_sleep(total_ms):
     while remaining > 0:
         # 睡眠一个片段
         sleep_chunk = min(remaining, _PULSE_INTERVAL_MS)
-        time.sleep_ms(sleep_chunk)
+        
+        if tick_callback:
+            # 细分睡眠以快速响应回调（如 BLE 快闪）
+            chunk_remaining = sleep_chunk
+            while chunk_remaining > 0:
+                step = min(chunk_remaining, 50)
+                time.sleep_ms(step)
+                tick_callback()
+                chunk_remaining -= step
+        else:
+            time.sleep_ms(sleep_chunk)
+            
         remaining -= sleep_chunk
 
         # 如果还有剩余时间，执行保活脉冲

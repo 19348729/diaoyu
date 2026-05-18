@@ -192,6 +192,40 @@ function getSessionList(limit = 20) {
   return request(`/session/list?limit=${limit}`, 'GET');
 }
 
+/**
+ * AI 鱼情救场 (V2)
+ * @param {Array} sensors 
+ * @param {Array} symptomTags 
+ * @param {object} fishContext 
+ * @param {number} lat 
+ * @param {number} lng 
+ * @returns {Promise<object>}
+ */
+function getAiRescue(sensors, symptomTags, fishContext, lat, lng) {
+  const formattedSensors = sensors.map(s => ({
+    timestamp: s.timestamp,
+    t_water: s.tWater !== undefined ? s.tWater : null,
+    t_air: s.tAir !== undefined ? s.tAir : null,
+    p_local: s.pLocal !== undefined ? s.pLocal : null
+  }));
+  return request('/v2/rescue', 'POST', {
+    sensors: formattedSensors,
+    symptom_tags: symptomTags,
+    fish_context: fishContext,
+    lat,
+    lng
+  });
+}
+
+/**
+ * 获取战报海报数据 (V2)
+ * @param {number} sessionId 
+ * @returns {Promise<object>}
+ */
+function getPoster(sessionId) {
+  return request(`/v2/poster/${sessionId}`, 'GET');
+}
+
 module.exports = {
   reportRealtimeData,
   reportHistoryBatch,
@@ -204,4 +238,6 @@ module.exports = {
   getSensorRecords,
   saveSession,
   getSessionList,
+  getAiRescue,
+  getPoster,
 };

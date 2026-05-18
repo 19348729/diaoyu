@@ -1,0 +1,4 @@
+.container { padding: 30rpx; background: #f5f5f5; min-height: 100vh; }
+.list { background: #fff; border-radius: 16rpx; overflow: hidden; }
+.item { padding: 30rpx; font-size: 32rpx; border-bottom: 2rpx solid #eee; color: #333; }
+.item:last-child { border-bottom: none; }

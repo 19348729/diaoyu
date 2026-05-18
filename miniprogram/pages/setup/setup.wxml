@@ -1,0 +1,29 @@
+<view class="container">
+  <view class="header">第一次握手：出钓配置</view>
+
+  <view class="section">
+    <view class="title">目标鱼种</view>
+    <view class="grid">
+      <view class="tag {{targetFish === item ? 'active' : ''}}" wx:for="{{fishOptions}}" wx:key="*this" bindtap="selectFish" data-val="{{item}}">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="title">钓法</view>
+    <view class="grid">
+      <view class="tag {{method === item ? 'active' : ''}}" wx:for="{{methodOptions}}" wx:key="*this" bindtap="selectMethod" data-val="{{item}}">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="title">饵料</view>
+    <view class="grid">
+      <view class="tag {{bait === item ? 'active' : ''}}" wx:for="{{baitOptions}}" wx:key="*this" bindtap="selectBait" data-val="{{item}}">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="footer">
+    <button class="btn-primary" bindtap="startSession" loading="{{isConnecting}}">开始作钓 (连接设备)</button>
+    <view class="hint" wx:if="{{isConnected}}">设备已就绪，手机可以放回口袋了</view>
+  </view>
+</view>

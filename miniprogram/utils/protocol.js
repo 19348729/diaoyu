@@ -16,6 +16,9 @@ const CMD = {
   STATUS_QUERY: 0x05,   // 状态查询    (小程序 -> ESP32)
   STATUS_REPLY: 0x06,   // 状态回复    (ESP32 -> 小程序)
   PULL_HISTORY: 0x07,   // 手动拉取一批历史 (小程序 -> ESP32，无载荷)
+  BULK_DUMP: 0x08,      // 全量快闪拉取 (小程序 -> ESP32)
+  DUMP_COMPLETE: 0x09,  // 全量快闪结束标记 (ESP32 -> 小程序)
+  ENTER_REALTIME: 0x0A, // 切换实时 Notify 模式 (小程序 -> ESP32)
 };
 
 // ── None 值占位符（与 ESP32 protocol.py 一致）──
@@ -92,6 +95,30 @@ function encodePullHistory() {
   return buffer;
 }
 
+/**
+ * 编码全量快闪拉取指令
+ * 帧结构: CMD(1)
+ * @returns {ArrayBuffer}
+ */
+function encodeBulkDump() {
+  const buffer = new ArrayBuffer(1);
+  const view = new DataView(buffer);
+  view.setUint8(0, CMD.BULK_DUMP);
+  return buffer;
+}
+
+/**
+ * 编码切换实时模式指令
+ * 帧结构: CMD(1)
+ * @returns {ArrayBuffer}
+ */
+function encodeEnterRealtime() {
+  const buffer = new ArrayBuffer(1);
+  const view = new DataView(buffer);
+  view.setUint8(0, CMD.ENTER_REALTIME);
+  return buffer;
+}
+
 // ============================================
 //  解码（ESP32 -> 小程序）
 // ============================================
@@ -119,6 +146,9 @@ function decodeIncoming(buffer) {
 
       case CMD.STATUS_REPLY:
         return decodeStatusReply(view);
+        
+      case CMD.DUMP_COMPLETE:
+        return { cmd: CMD.DUMP_COMPLETE };
 
       default:
         return { cmd, error: `未知指令码: 0x${cmd.toString(16)}` };
@@ -227,5 +257,7 @@ module.exports = {
   encodeSyncAck,
   encodeStatusQuery,
   encodePullHistory,
+  encodeBulkDump,
+  encodeEnterRealtime,
   decodeIncoming,
 };

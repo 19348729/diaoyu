@@ -1,5 +1,9 @@
 {
   "pages": [
+    "pages/setup/setup",
+    "pages/rescue/rescue",
+    "pages/report/report",
+    "pages/settings/settings",
     "pages/decision/decision",
     "pages/index/index",
     "pages/history/history",
@@ -20,20 +24,16 @@
     "borderStyle": "black",
     "list": [
       {
-        "pagePath": "pages/decision/decision",
-        "text": "出钓决策"
+        "pagePath": "pages/setup/setup",
+        "text": "开始作钓"
       },
       {
-        "pagePath": "pages/index/index",
-        "text": "实时监测"
+        "pagePath": "pages/rescue/rescue",
+        "text": "AI救场"
       },
       {
-        "pagePath": "pages/history/history",
-        "text": "趋势分析"
-      },
-      {
-        "pagePath": "pages/logs/logs",
-        "text": "作钓日志"
+        "pagePath": "pages/report/report",
+        "text": "战报"
       }
     ]
   },

@@ -24,11 +24,15 @@ class BLEManager {
     this._connected = false;
     this._timeSynced = false;
     this._scanning = false;
+    
+    this._isDumping = false;
+    this._dumpCount = 0;
 
     // 回调函数
     this._onDataCallback = null;       // 收到数据回调
     this._onConnectCallback = null;    // 连接状态变化回调
     this._onTimeSyncCallback = null;   // 对表完成回调
+    this._onDumpCompleteCallback = null; // 快闪完成回调
 
     // 监听蓝牙断开事件
     wx.onBLEConnectionStateChange((res) => {
@@ -63,6 +67,7 @@ class BLEManager {
   onData(callback) { this._onDataCallback = callback; }
   onConnect(callback) { this._onConnectCallback = callback; }
   onTimeSync(callback) { this._onTimeSyncCallback = callback; }
+  onDumpComplete(callback) { this._onDumpCompleteCallback = callback; }
 
   /**
    * 扫描并连接 FishProbe 设备
@@ -194,6 +199,26 @@ class BLEManager {
     const buffer = protocol.encodePullHistory();
     await this._writeToDevice(buffer);
     console.log('[BLE] 发送手动拉取历史指令');
+  }
+
+  /**
+   * 发送全量快闪拉取指令
+   */
+  async sendBulkDump() {
+    this._isDumping = true;
+    this._dumpCount = 0;
+    const buffer = protocol.encodeBulkDump();
+    await this._writeToDevice(buffer);
+    console.log('[BLE] 发送全量快闪拉取指令');
+  }
+
+  /**
+   * 发送切换实时模式指令
+   */
+  async sendEnterRealtime() {
+    const buffer = protocol.encodeEnterRealtime();
+    await this._writeToDevice(buffer);
+    console.log('[BLE] 发送切换实时模式指令');
   }
 
   // ============================================
@@ -412,12 +437,33 @@ class BLEManager {
           api.reportHistoryBatch(data.records, loc).catch(err => console.error('[API] 历史数据批量上报失败:', err));
         });
 
-        // 自动发送同步确认，随后刷新一次设备状态
-        this.sendSyncAck(data.count)
-          .then(() => this.sendStatusQuery())
-          .catch((e) => {
-            console.error('[BLE] 同步确认/状态刷新失败:', e);
-          });
+        if (this._isDumping) {
+          this._dumpCount += data.count;
+        } else {
+          // 自动发送同步确认，随后刷新一次设备状态
+          this.sendSyncAck(data.count)
+            .then(() => this.sendStatusQuery())
+            .catch((e) => {
+              console.error('[BLE] 同步确认/状态刷新失败:', e);
+            });
+        }
+        break;
+
+      case protocol.CMD.DUMP_COMPLETE:
+        console.log('[BLE] 快闪同步完成，共接收:', this._dumpCount);
+        const ackCount = this._dumpCount;
+        this._isDumping = false;
+        
+        const finishDump = async () => {
+            if (ackCount > 0) {
+                await this.sendSyncAck(ackCount);
+            }
+            await this.sendEnterRealtime();
+            if (this._onDumpCompleteCallback) {
+                this._onDumpCompleteCallback();
+            }
+        };
+        finishDump().catch(e => console.error(e));
         break;
 
       case protocol.CMD.STATUS_REPLY:

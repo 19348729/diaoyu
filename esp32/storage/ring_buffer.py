@@ -9,6 +9,8 @@
 """
 
 from config import RING_BUFFER_CAPACITY
+import os
+import struct
 
 
 class RingBuffer:
@@ -23,13 +25,72 @@ class RingBuffer:
         total_written: 累计写入总条数（用于判断是否发生过覆盖）
     """
 
-    def __init__(self, capacity=None):
+    def __init__(self, capacity=None, persistent=False, filepath="/ring.bin"):
         self._capacity = capacity or RING_BUFFER_CAPACITY
         self._buffer = [None] * self._capacity
         self._write_cursor = 0      # 下一个写入位置
         self._sync_cursor = 0       # 已同步位置
         self._total_written = 0     # 累计写入总数
         self._count = 0             # 当前有效数据条数
+        
+        self._persistent = persistent
+        self._filepath = filepath
+        if self._persistent:
+            self._load_from_flash()
+
+    def _load_from_flash(self):
+        try:
+            try:
+                os.stat(self._filepath)
+            except OSError:
+                self._save_header()
+                return
+
+            with open(self._filepath, 'rb') as f:
+                header = f.read(12)
+                if len(header) == 12:
+                    self._write_cursor, self._sync_cursor, self._total_written = struct.unpack('<III', header)
+                    self._count = min(self._total_written, self._capacity)
+                    
+                    for i in range(self._capacity):
+                        f.seek(12 + i * 16)
+                        data = f.read(16)
+                        if len(data) == 16:
+                            ts, tw, ta, pl = struct.unpack('<Ifff', data)
+                            tw = None if tw == -999.0 else tw
+                            ta = None if ta == -999.0 else ta
+                            pl = None if pl == 0.0 else pl
+                            self._buffer[i] = (ts, tw, ta, pl)
+        except Exception as e:
+            print("[RingBuffer] 恢复数据失败:", e)
+
+    def _save_header(self):
+        if not self._persistent:
+            return
+        try:
+            mode = 'r+b'
+            try:
+                os.stat(self._filepath)
+            except OSError:
+                mode = 'w+b'
+            with open(self._filepath, mode) as f:
+                f.seek(0)
+                f.write(struct.pack('<III', self._write_cursor, self._sync_cursor, self._total_written))
+        except Exception as e:
+            print("[RingBuffer] 保存Header失败:", e)
+
+    def _save_record(self, pos, timestamp, t_water, t_air, p_local):
+        if not self._persistent:
+            return
+        try:
+            tw = t_water if t_water is not None else -999.0
+            ta = t_air if t_air is not None else -999.0
+            pl = p_local if p_local is not None else 0.0
+            with open(self._filepath, 'r+b') as f:
+                f.seek(12 + pos * 16)
+                f.write(struct.pack('<Ifff', timestamp, tw, ta, pl))
+        except Exception as e:
+            print("[RingBuffer] 保存记录失败:", e)
 
     @property
     def capacity(self) -> int:
@@ -70,18 +131,23 @@ class RingBuffer:
         self._total_written += 1
         if self._count < self._capacity:
             self._count += 1
+            
+        if self._persistent:
+            self._save_record(pos, timestamp, t_water, t_air, p_local)
+            self._save_header()
 
-    def get_unsent(self, max_count=None) -> list:
+    def get_unsent(self, max_count=None, offset=0) -> list:
         """获取未同步的数据列表。
 
         Args:
             max_count: 最多返回条数（用于分批发送），None 表示全部
+            offset: 偏移量，用于跳过已发送但尚未确认的数据
 
         Returns:
             [(timestamp, t_water, t_air, p_local), ...]
         """
-        n = self.unsent_count
-        if n == 0:
+        n = self.unsent_count - offset
+        if n <= 0:
             return []
 
         if max_count is not None:
@@ -90,7 +156,7 @@ class RingBuffer:
         result = []
         for i in range(n):
             # 计算实际缓冲区索引
-            logical_pos = self._sync_cursor + i
+            logical_pos = self._sync_cursor + offset + i
             actual_pos = logical_pos % self._capacity
             data = self._buffer[actual_pos]
             if data is not None:
@@ -108,10 +174,12 @@ class RingBuffer:
             self._sync_cursor + count,
             self._total_written,
         )
+        self._save_header()
 
     def mark_all_sent(self):
         """将所有已写入的数据标记为已同步（用于首次连接跳过历史）。"""
         self._sync_cursor = self._total_written
+        self._save_header()
 
     def get_latest(self) -> tuple:
         """获取最新一条数据（用于实时推送）。
