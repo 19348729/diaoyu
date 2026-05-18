@@ -1,0 +1,90 @@
+<view class="container">
+  
+  <view class="header">
+    <text class="title">我的数字钓箱</text>
+    <text class="subtitle">让AI更懂你的装备库</text>
+  </view>
+
+  <view class="tab-bar">
+    <view class="tab {{currentTab === index ? 'active' : ''}}" 
+          wx:for="{{tabs}}" 
+          wx:key="*this" 
+          bindtap="switchTab" 
+          data-index="{{index}}">
+      {{item}}
+    </view>
+  </view>
+
+  <scroll-view class="content-scroll" scroll-y>
+    
+    <!-- 鱼竿列表 -->
+    <view class="list" wx:if="{{currentTab === 0}}">
+      <view class="card" wx:for="{{inventory.rods}}" wx:key="id">
+        <view class="card-left">
+          <text class="icon">🎣</text>
+        </view>
+        <view class="card-body">
+          <text class="item-title">{{item.length}}米 {{item.name}}</text>
+          <text class="item-desc">{{item.action}} | {{item.type}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 主线列表 -->
+    <view class="list" wx:if="{{currentTab === 1}}">
+      <view class="card" wx:for="{{inventory.mainLines}}" wx:key="id">
+        <view class="card-left">
+          <text class="icon">🧵</text>
+        </view>
+        <view class="card-body">
+          <text class="item-title">{{item.size}} 号主线</text>
+          <text class="item-desc">适配长 {{item.length}}米 鱼竿</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 子线双钩列表 -->
+    <view class="list" wx:if="{{currentTab === 2}}">
+      <view class="card" wx:for="{{inventory.subLineHooks}}" wx:key="id">
+        <view class="card-left">
+          <text class="icon">🪝</text>
+        </view>
+        <view class="card-body">
+          <text class="item-title">{{item.hookSize}}号 {{item.hookType}} ({{item.barb}})</text>
+          <text class="item-desc">绑 {{item.lineSize}} 号子线</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 浮漂列表 -->
+    <view class="list" wx:if="{{currentTab === 3}}">
+      <view class="card" wx:for="{{inventory.floats}}" wx:key="id">
+        <view class="card-left">
+          <text class="icon">🌶️</text>
+        </view>
+        <view class="card-body">
+          <text class="item-title">{{item.name}} (吃铅{{item.lead}}g)</text>
+          <text class="item-desc">{{item.material}} | {{item.shape}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 饵料列表 -->
+    <view class="list" wx:if="{{currentTab === 4}}">
+      <view class="card" wx:for="{{inventory.baits}}" wx:key="id">
+        <view class="card-left">
+          <text class="icon">🍚</text>
+        </view>
+        <view class="card-body">
+          <text class="item-title">[{{item.brand}}] {{item.name}}</text>
+          <text class="item-desc">味型: {{item.flavor}}</text>
+        </view>
+      </view>
+    </view>
+    
+    <view class="empty-state">
+      <button class="add-btn" bindtap="addGear">+ 录入新装备</button>
+    </view>
+  </scroll-view>
+
+</view>

@@ -173,4 +173,9 @@
     <text>最后更新: {{updateTime}}</text>
   </view>
 
+  <!-- 查看趋势图按钮 -->
+  <view style="margin: 30rpx; padding-bottom: 50rpx;">
+    <button class="btn-primary" bindtap="goToHistory" style="background: #1976d2; color: #fff; width: 100%; border-radius: 8rpx;">📊 查看实时趋势图 (折线图)</button>
+  </view>
+
 </view>

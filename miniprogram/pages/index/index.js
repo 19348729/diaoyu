@@ -382,6 +382,15 @@ Page({
     this._tryTriggerPrediction(true);
   },
 
+  /**
+   * 跳转到历史趋势折线图页面
+   */
+  goToHistory() {
+    wx.navigateTo({
+      url: '/pages/history/history'
+    });
+  },
+
   // ============================================
   //  钓鱼会话日志
   // ============================================

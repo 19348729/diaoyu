@@ -14,9 +14,9 @@ class PrescriptionService:
         self.model_name = model_name
 
     def generate_prescription(
-        self, physical_tags: list, symptom_tags: list, metrics: dict, fish_context: dict
+        self, physical_tags: list, symptom_tags: list, metrics: dict, fish_context: dict, user_inventory: dict = None
     ) -> dict:
-        user_prompt = build_user_prompt(physical_tags, symptom_tags, metrics, fish_context)
+        user_prompt = build_user_prompt(physical_tags, symptom_tags, metrics, fish_context, user_inventory)
         
         messages = [
             {'role': 'system', 'content': SYSTEM_PROMPT_FISHING_EXPERT},

@@ -1,0 +1,63 @@
+<view class="container">
+  
+  <view class="header">
+    <text class="title">录入新鱼竿</text>
+    <text class="subtitle">从云端品牌库极速匹配</text>
+  </view>
+
+  <view class="form-group">
+    <view class="form-item">
+      <text class="label">选择品牌</text>
+      <picker bindchange="onBrandChange" value="{{selectedBrandIndex}}" range="{{brandNames}}">
+        <view class="picker-view {{selectedBrandIndex < 0 ? 'placeholder' : ''}}">
+          {{selectedBrandIndex < 0 ? '点击选择品牌' : brandNames[selectedBrandIndex]}}
+        </view>
+      </picker>
+    </view>
+
+    <!-- 正常选库流程 -->
+    <block wx:if="{{!isCustom && selectedBrandIndex >= 0}}">
+      <view class="form-item">
+        <text class="label">选择系列/型号</text>
+        <picker bindchange="onSeriesChange" value="{{selectedSeriesIndex}}" range="{{seriesNames}}">
+          <view class="picker-view {{selectedSeriesIndex < 0 ? 'placeholder' : ''}}">
+            {{selectedSeriesIndex < 0 ? '点击选择系列 (将自动带出调性)' : seriesNames[selectedSeriesIndex]}}
+          </view>
+        </picker>
+      </view>
+
+      <view class="form-item" wx:if="{{selectedSeriesIndex >= 0}}">
+        <text class="label">选择长度</text>
+        <picker bindchange="onLengthChange" value="{{selectedLengthIndex}}" range="{{lengths}}">
+          <view class="picker-view {{selectedLengthIndex < 0 ? 'placeholder' : ''}}">
+            {{selectedLengthIndex < 0 ? '该系列官方可选长度' : lengths[selectedLengthIndex]}}
+          </view>
+        </picker>
+      </view>
+    </block>
+
+    <!-- 手动输入UGC流程 -->
+    <block wx:if="{{isCustom}}">
+      <view class="notice">
+        系统将在后台呼叫大模型验证您提交的品牌与型号。若真实有效，将被纳入全球公共库。
+      </view>
+      <view class="form-item">
+        <text class="label">自定义品牌名称</text>
+        <input class="input-view" placeholder="如：杂牌/汉鼎" bindinput="onCustomBrandInput" />
+      </view>
+      <view class="form-item">
+        <text class="label">具体型号或系列</text>
+        <input class="input-view" placeholder="如：黑坑杀手" bindinput="onCustomSeriesInput" />
+      </view>
+      <view class="form-item">
+        <text class="label">长度(米)</text>
+        <input class="input-view" type="digit" placeholder="如：4.5" bindinput="onCustomLengthInput" />
+      </view>
+    </block>
+  </view>
+
+  <view class="btn-group">
+    <button class="save-btn" bindtap="saveRod">保存到我的钓箱</button>
+  </view>
+
+</view>

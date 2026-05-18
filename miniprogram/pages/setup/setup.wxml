@@ -23,7 +23,8 @@
   </view>
 
   <view class="footer">
-    <button class="btn-primary" bindtap="startSession" loading="{{isConnecting}}">开始作钓 (连接设备)</button>
-    <view class="hint" wx:if="{{isConnected}}">设备已就绪，手机可以放回口袋了</view>
+    <button class="btn-primary" bindtap="startSession" loading="{{isConnecting}}" wx:if="{{!isConnected}}">开始作钓 (连接设备)</button>
+    <button class="btn-primary" bindtap="goToDashboard" wx:if="{{isConnected}}">进入实时监测大屏</button>
+    <view class="hint" wx:if="{{isConnected}}">设备已就绪，您可以查看实时数据或将手机放回口袋</view>
   </view>
 </view>

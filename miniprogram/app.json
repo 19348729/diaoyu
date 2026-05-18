@@ -8,7 +8,9 @@
     "pages/index/index",
     "pages/history/history",
     "pages/logs/logs",
-    "pages/privacy/privacy"
+    "pages/privacy/privacy",
+    "pages/inventory/inventory",
+    "pages/add-rod/add-rod"
   ],
   "window": {
     "navigationBarBackgroundColor": "#1a73e8",
@@ -34,6 +36,10 @@
       {
         "pagePath": "pages/report/report",
         "text": "战报"
+      },
+      {
+        "pagePath": "pages/inventory/inventory",
+        "text": "装备库"
       }
     ]
   },

@@ -24,7 +24,7 @@ SYSTEM_PROMPT_FISHING_EXPERT = """
 }
 """
 
-def build_user_prompt(physical_tags: list, symptom_tags: list, metrics: dict, fish_context: dict) -> str:
+def build_user_prompt(physical_tags: list, symptom_tags: list, metrics: dict, fish_context: dict, user_inventory: dict = None) -> str:
     """构建发给 LLM 的具体鱼情输入。"""
     prompt = f"【目标鱼种】: {fish_context.get('target', '未知')}\n"
     prompt += f"【当前钓法】: {fish_context.get('method', '未知')}\n"
@@ -32,5 +32,22 @@ def build_user_prompt(physical_tags: list, symptom_tags: list, metrics: dict, fi
     prompt += f"【物理环境指标】: {metrics}\n"
     prompt += f"【系统评估物理标签】: {', '.join(physical_tags)}\n"
     prompt += f"【钓友反馈水面症状】: {', '.join(symptom_tags)}\n\n"
+    
+    if user_inventory:
+        prompt += "【用户真实装备库(数字钓箱)】:\n"
+        if user_inventory.get('rods'):
+            rods_str = ", ".join([f"{r.get('length')}米{r.get('action', '')}" for r in user_inventory['rods']])
+            prompt += f"  - 鱼竿: {rods_str}\n"
+        if user_inventory.get('mainLines'):
+            ml_str = ", ".join([f"{m.get('size')}号" for m in user_inventory['mainLines']])
+            prompt += f"  - 主线: {ml_str}\n"
+        if user_inventory.get('subLineHooks'):
+            sl_str = ", ".join([f"{s.get('hookSize')}号{s.get('hookType')}绑{s.get('lineSize')}子线" for s in user_inventory['subLineHooks']])
+            prompt += f"  - 子线双钩: {sl_str}\n"
+        if user_inventory.get('floats'):
+            fl_str = ", ".join([f"{f.get('name')}(吃铅{f.get('lead')}g)" for f in user_inventory['floats']])
+            prompt += f"  - 浮漂: {fl_str}\n"
+        prompt += "请注意：在给出战术建议时，必须优先考虑用户现有的上述装备。如果现有装备严重不匹配目标鱼种，请明确指出装备缺陷（断线风险等）并给出补救建议。\n\n"
+        
     prompt += "请根据以上信息，给出战术处方 JSON。"
     return prompt

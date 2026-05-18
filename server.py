@@ -75,6 +75,7 @@ class PredictRequest(BaseModel):
     lat: float = Field(0.0, description="纬度")
     lng: float = Field(0.0, description="经度")
     altitude: float = Field(0.0, ge=0, description="海拔 米")
+    user_inventory: Optional[Dict] = Field(None, description="用户装备库数据")
 
 
 class PredictResponse(BaseModel):
@@ -113,6 +114,7 @@ class RescueRequest(BaseModel):
     sensors: List[SensorDataIn] = Field(..., description="传感器时序数据（按时间升序）")
     symptom_tags: List[str] = Field(default_factory=list, description="用户勾选的主观症状标签")
     fish_context: Dict = Field(default_factory=dict, description="目标鱼种、钓法、饵料等上下文")
+    user_inventory: Optional[Dict] = Field(None, description="用户装备库数据")
     lat: float = 0.0
     lng: float = 0.0
 
@@ -139,6 +141,31 @@ async def list_fish_types():
             for name, profile in FISH_PROFILES.items()
         ]
     }
+
+from domain.rods import ROD_DATABASE
+@app.get("/api/inventory/rods", tags=["配置"])
+async def list_rod_database():
+    """获取官方支持的鱼竿品牌与系列库"""
+    brands_map = {}
+    for key, profile in ROD_DATABASE.items():
+        if profile.brand not in brands_map:
+            brands_map[profile.brand] = []
+        brands_map[profile.brand].append({
+            "id": key,
+            "series": profile.series_name,
+            "action": profile.action,
+            "lengths": profile.available_lengths
+        })
+        
+    # 转换为前端友好的数组格式
+    result = []
+    for brand, series_list in brands_map.items():
+        result.append({
+            "brand": brand,
+            "seriesList": series_list
+        })
+        
+    return {"status": "ok", "data": result}
 
 
 @app.post("/api/predict", response_model=PredictResponse, tags=["预测"])
@@ -757,7 +784,8 @@ async def ai_rescue(req: RescueRequest):
         physical_tags=engine_result["tags"],
         symptom_tags=req.symptom_tags,
         metrics=engine_result["metrics"],
-        fish_context=req.fish_context
+        fish_context=req.fish_context,
+        user_inventory=req.user_inventory
     )
     
     return {
