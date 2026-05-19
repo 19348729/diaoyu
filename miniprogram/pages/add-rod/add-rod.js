@@ -22,18 +22,47 @@ Page({
   },
 
   onLoad(options) {
-    this.fetchRodDatabase();
     if (options && options.id) {
       this.setData({
         editId: options.id
       });
-      this.loadRodDetail(options.id);
     }
+    this.fetchRodDatabase();
   },
 
   fetchRodDatabase() {
-    // In real app, call wx.request to /api/inventory/rods
-    // For demo, we use hardcoded from domain/rods.py to avoid networking issues during preview
+    api.getRodDatabase()
+      .then((res) => {
+        if (res.status === 'ok' && res.data) {
+          let list = res.data;
+          // 确保 "其它品牌 (手动验证)..." 始终在末尾，提供手动录入入口
+          if (!list.some(item => item.brand.includes('其它'))) {
+            list.push({
+              brand: "其它品牌 (手动验证)...",
+              seriesList: []
+            });
+          }
+          const brandNames = list.map(item => item.brand);
+          this.setData({ 
+            brands: list,
+            brandNames: brandNames
+          }, () => {
+            // 在官方库数据加载并渲染完成后，再触发详情拉取回显，避免 Picker 选项因异步导致索引计算错乱
+            if (this.data.editId) {
+              this.loadRodDetail(this.data.editId);
+            }
+          });
+        } else {
+          this.useFallbackDatabase();
+        }
+      })
+      .catch((err) => {
+        console.error('[AddRod] 异步获取官方品牌库失败，启用离线缓存兜底:', err);
+        this.useFallbackDatabase();
+      });
+  },
+
+  useFallbackDatabase() {
     const mockData = [
       {
         brand: "化氏",
@@ -57,6 +86,12 @@ Page({
         ]
       },
       {
+        brand: "光威",
+        seriesList: [
+          { id: "gw_zhushan", series: "竹山", action: "37调", lengths: [2.7, 3.6, 4.5, 5.4, 6.3] }
+        ]
+      },
+      {
         brand: "其它品牌 (手动验证)...",
         seriesList: []
       }
@@ -66,6 +101,10 @@ Page({
     this.setData({ 
       brands: mockData,
       brandNames: brandNames
+    }, () => {
+      if (this.data.editId) {
+        this.loadRodDetail(this.data.editId);
+      }
     });
   },
 
