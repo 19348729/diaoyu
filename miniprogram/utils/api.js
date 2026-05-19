@@ -282,6 +282,54 @@ function deleteUserRod(rodId) {
   return request(`/inventory/rod/${cleanId}`, 'DELETE');
 }
 
+/**
+ * 获取用户钓箱里现有的所有主线
+ * @returns {Promise<object>}
+ */
+function getUserMainLines() {
+  return request('/inventory/mainlines/user', 'GET');
+}
+
+/**
+ * 用户录入新的主线到私有钓箱
+ * @param {object} mainlineData 
+ * @returns {Promise<object>}
+ */
+function addUserMainLine(mainlineData) {
+  return request('/inventory/mainline', 'POST', mainlineData);
+}
+
+/**
+ * 获取单条主线详情
+ * @param {number|string} mainlineId 
+ * @returns {Promise<object>}
+ */
+function getUserMainLine(mainlineId) {
+  const cleanId = typeof mainlineId === 'string' && mainlineId.startsWith('m') ? mainlineId.substring(1) : mainlineId;
+  return request(`/inventory/mainline/${cleanId}`, 'GET');
+}
+
+/**
+ * 修改用户私有钓箱中的主线
+ * @param {number|string} mainlineId 
+ * @param {object} mainlineData 
+ * @returns {Promise<object>}
+ */
+function updateUserMainLine(mainlineId, mainlineData) {
+  const cleanId = typeof mainlineId === 'string' && mainlineId.startsWith('m') ? mainlineId.substring(1) : mainlineId;
+  return request(`/inventory/mainline/${cleanId}`, 'PUT', mainlineData);
+}
+
+/**
+ * 从用户私有钓箱中删除主线
+ * @param {number|string} mainlineId 
+ * @returns {Promise<object>}
+ */
+function deleteUserMainLine(mainlineId) {
+  const cleanId = typeof mainlineId === 'string' && mainlineId.startsWith('m') ? mainlineId.substring(1) : mainlineId;
+  return request(`/inventory/mainline/${cleanId}`, 'DELETE');
+}
+
 module.exports = {
   reportRealtimeData,
   reportHistoryBatch,
@@ -302,5 +350,10 @@ module.exports = {
   getUserRod,
   updateUserRod,
   deleteUserRod,
+  getUserMainLines,
+  addUserMainLine,
+  getUserMainLine,
+  updateUserMainLine,
+  deleteUserMainLine,
 };
 

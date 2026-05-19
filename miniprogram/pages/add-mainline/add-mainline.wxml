@@ -1,0 +1,24 @@
+<view class="container">
+  
+  <view class="header">
+    <text class="title">{{editId ? '修改主线信息' : '录入新主线'}}</text>
+    <text class="subtitle">输入主线规格以匹配更合理的线组预测</text>
+  </view>
+
+  <view class="form-group">
+    <view class="form-item">
+      <text class="label">主线线号 (号)</text>
+      <input class="input-view" type="digit" placeholder="请输入线号，例如：2.0 或 1.5" value="{{size}}" bindinput="onSizeInput" />
+    </view>
+
+    <view class="form-item">
+      <text class="label">主线长度/米数 (米)</text>
+      <input class="input-view" type="digit" placeholder="请输入长度，例如：4.5 或 5.4" value="{{length}}" bindinput="onLengthInput" />
+    </view>
+  </view>
+
+  <view class="btn-group">
+    <button class="save-btn" bindtap="saveMainLine">{{editId ? '保存修改' : '保存到我的钓箱'}}</button>
+  </view>
+
+</view>

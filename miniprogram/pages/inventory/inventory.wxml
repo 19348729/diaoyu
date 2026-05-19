@@ -44,6 +44,10 @@
           <text class="item-title">{{item.size}} 号主线</text>
           <text class="item-desc">适配长 {{item.length}}米 鱼竿</text>
         </view>
+        <view class="card-actions">
+          <text class="action-btn edit" catchtap="editMainLine" data-id="{{item.id}}">修改</text>
+          <text class="action-btn delete" catchtap="deleteMainLine" data-id="{{item.id}}">删除</text>
+        </view>
       </view>
     </view>
 

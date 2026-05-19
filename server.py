@@ -27,7 +27,7 @@ from domain.prescription import PrescriptionService
 from domain.poster import PosterGenerator
 from domain.verification import RodVerificationService
 from infrastructure.database import engine, Base, get_db
-from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine
 
 # 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
 Base.metadata.create_all(bind=engine)
@@ -362,6 +362,108 @@ async def list_user_rods(
             "length": r.length,
             "action": r.action or "未知",
             "type": "台钓竿" # 默认均为台钓竿
+        })
+    return {"status": "ok", "data": result}
+
+
+# ──────────────────────────────────────────────
+#  主线 CRUD 接口列表
+# ──────────────────────────────────────────────
+class MainLineRequest(BaseModel):
+    size: float
+    length: float
+
+@app.post("/api/inventory/mainline", tags=["主线"])
+async def add_user_mainline(
+    req: MainLineRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """用户录入新的主线到私有钓箱"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_line = UserMainLine(
+        openid=openid,
+        size=req.size,
+        length=req.length
+    )
+    db.add(user_line)
+    db.commit()
+    return {"status": "ok", "message": "主线录入成功", "id": user_line.id}
+
+@app.get("/api/inventory/mainline/{line_id}", tags=["主线"])
+async def get_user_mainline(
+    line_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取用户钓箱中单条主线的详情"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_line = db.query(UserMainLine).filter(UserMainLine.id == line_id, UserMainLine.openid == openid).first()
+    if not user_line:
+        raise HTTPException(status_code=404, detail="未找到该主线记录")
+        
+    return {
+        "status": "ok",
+        "data": {
+            "id": f"m{user_line.id}",
+            "size": user_line.size,
+            "length": user_line.length
+        }
+    }
+
+@app.put("/api/inventory/mainline/{line_id}", tags=["主线"])
+async def update_user_mainline(
+    line_id: int,
+    req: MainLineRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """修改用户私有钓箱中的主线"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_line = db.query(UserMainLine).filter(UserMainLine.id == line_id, UserMainLine.openid == openid).first()
+    if not user_line:
+        raise HTTPException(status_code=404, detail="未找到该主线记录")
+        
+    user_line.size = req.size
+    user_line.length = req.length
+    db.commit()
+    return {"status": "ok", "message": "主线修改成功"}
+
+@app.delete("/api/inventory/mainline/{line_id}", tags=["主线"])
+async def delete_user_mainline(
+    line_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """从用户私有钓箱中删除主线"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_line = db.query(UserMainLine).filter(UserMainLine.id == line_id, UserMainLine.openid == openid).first()
+    if not user_line:
+        raise HTTPException(status_code=404, detail="未找到该主线记录")
+        
+    db.delete(user_line)
+    db.commit()
+    return {"status": "ok", "message": "主线删除成功"}
+
+@app.get("/api/inventory/mainlines/user", tags=["主线"])
+async def list_user_mainlines(
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取用户钓箱里现有的所有主线"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+        
+    mainlines = db.query(UserMainLine).filter(UserMainLine.openid == openid).all()
+    result = []
+    for m in mainlines:
+        result.append({
+            "id": f"m{m.id}",
+            "size": m.size,
+            "length": m.length
         })
     return {"status": "ok", "data": result}
 

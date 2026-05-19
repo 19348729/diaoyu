@@ -142,3 +142,16 @@ class PublicRod(Base):
     is_verified = Column(Integer, default=1, comment="是否审核通过可用 (1:已审核, 0:待审)")
     
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+
+class UserMainLine(Base):
+    """
+    用户保存在数字钓箱里的主线
+    """
+    __tablename__ = "user_mainlines"
+
+    id = Column(Integer, primary_key=True, index=True)
+    openid = Column(String(64), index=True, nullable=False, comment="所属用户")
+    size = Column(Float, nullable=False, comment="线号 (如 2.0)")
+    length = Column(Float, nullable=False, comment="长度/米数 (如 4.5)")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())

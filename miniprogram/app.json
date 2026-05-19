@@ -10,7 +10,8 @@
     "pages/logs/logs",
     "pages/privacy/privacy",
     "pages/inventory/inventory",
-    "pages/add-rod/add-rod"
+    "pages/add-rod/add-rod",
+    "pages/add-mainline/add-mainline"
   ],
   "window": {
     "navigationBarBackgroundColor": "#1a73e8",
