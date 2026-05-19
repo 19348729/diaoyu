@@ -3,8 +3,17 @@ const api = require('../../utils/api');
 Page({
   data: {
     editId: '',
-    size: '',
-    length: ''
+    
+    // 规格定义
+    sizeOptions: ['0.4号', '0.6号', '0.8号', '1.0号', '1.2号', '1.5号', '2.0号', '2.5号', '3.0号', '3.5号', '4.0号', '5.0号', '6.0号', '7.0号', '8.0号', '10.0号'],
+    sizes: [0.4, 0.6, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0],
+    
+    lengthOptions: ['2.7米', '3.6米', '3.9米', '4.5米', '4.8米', '5.4米', '5.7米', '6.3米', '7.2米', '8.1米', '9.0米', '10.0米'],
+    lengths: [2.7, 3.6, 3.9, 4.5, 4.8, 5.4, 5.7, 6.3, 7.2, 8.1, 9.0, 10.0],
+
+    // 选中索引
+    sizeIndex: -1,
+    lengthIndex: -1
   },
 
   onLoad(options) {
@@ -21,9 +30,14 @@ Page({
         wx.hideLoading();
         if (res.status === 'ok' && res.data) {
           const line = res.data;
+          
+          // 根据值匹配索引
+          const sizeIndex = this.data.sizes.findIndex(s => parseFloat(s) === parseFloat(line.size));
+          const lengthIndex = this.data.lengths.findIndex(l => parseFloat(l) === parseFloat(line.length));
+          
           this.setData({
-            size: line.size.toString(),
-            length: line.length.toString()
+            sizeIndex: sizeIndex,
+            lengthIndex: lengthIndex
           });
         } else {
           wx.showToast({ title: '加载主线失败', icon: 'none' });
@@ -36,38 +50,34 @@ Page({
       });
   },
 
-  onSizeInput(e) {
-    this.setData({ size: e.detail.value });
+  onSizeChange(e) {
+    this.setData({
+      sizeIndex: parseInt(e.detail.value)
+    });
   },
 
-  onLengthInput(e) {
-    this.setData({ length: e.detail.value });
+  onLengthChange(e) {
+    this.setData({
+      lengthIndex: parseInt(e.detail.value)
+    });
   },
 
   saveMainLine() {
-    const { editId, size, length } = this.data;
+    const { editId, sizeIndex, lengthIndex, sizes, lengths } = this.data;
 
-    if (!size.trim() || !length.trim()) {
-      wx.showToast({ title: '线号和米数均不能为空', icon: 'none' });
+    if (sizeIndex < 0) {
+      wx.showToast({ title: '请选择主线线号', icon: 'none' });
       return;
     }
 
-    const parsedSize = parseFloat(size.trim());
-    const parsedLength = parseFloat(length.trim());
-
-    if (isNaN(parsedSize) || parsedSize <= 0) {
-      wx.showToast({ title: '请输入合法的线号数值', icon: 'none' });
-      return;
-    }
-
-    if (isNaN(parsedLength) || parsedLength <= 0) {
-      wx.showToast({ title: '请输入合法的长度数值', icon: 'none' });
+    if (lengthIndex < 0) {
+      wx.showToast({ title: '请选择长度/米数', icon: 'none' });
       return;
     }
 
     const payload = {
-      size: parsedSize,
-      length: parsedLength
+      size: sizes[sizeIndex],
+      length: lengths[lengthIndex]
     };
 
     wx.showLoading({ title: '保存中...' });

@@ -47,11 +47,18 @@
   color: #333;
 }
 
-.input-view {
+picker {
   flex: 1;
+}
+
+.picker-view {
   font-size: 30rpx;
   color: #333;
   text-align: right;
+}
+
+.picker-view.placeholder {
+  color: #999;
 }
 
 .btn-group {

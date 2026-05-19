@@ -2,18 +2,26 @@
   
   <view class="header">
     <text class="title">{{editId ? '修改主线信息' : '录入新主线'}}</text>
-    <text class="subtitle">输入主线规格以匹配更合理的线组预测</text>
+    <text class="subtitle">选择主线规格以匹配更合理的线组预测</text>
   </view>
 
   <view class="form-group">
     <view class="form-item">
-      <text class="label">主线线号 (号)</text>
-      <input class="input-view" type="digit" placeholder="请输入线号，例如：2.0 或 1.5" value="{{size}}" bindinput="onSizeInput" />
+      <text class="label">选择主线线号</text>
+      <picker bindchange="onSizeChange" value="{{sizeIndex}}" range="{{sizeOptions}}">
+        <view class="picker-view {{sizeIndex < 0 ? 'placeholder' : ''}}">
+          {{sizeIndex < 0 ? '点击选择线号' : sizeOptions[sizeIndex]}}
+        </view>
+      </picker>
     </view>
 
     <view class="form-item">
-      <text class="label">主线长度/米数 (米)</text>
-      <input class="input-view" type="digit" placeholder="请输入长度，例如：4.5 或 5.4" value="{{length}}" bindinput="onLengthInput" />
+      <text class="label">选择长度/米数</text>
+      <picker bindchange="onLengthChange" value="{{lengthIndex}}" range="{{lengthOptions}}">
+        <view class="picker-view {{lengthIndex < 0 ? 'placeholder' : ''}}">
+          {{lengthIndex < 0 ? '点击选择适配竿长' : lengthOptions[lengthIndex]}}
+        </view>
+      </picker>
     </view>
   </view>
 
