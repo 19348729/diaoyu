@@ -49,9 +49,10 @@ Page({
       api.getUserRods(),
       api.getUserMainLines(),
       api.getUserSubLineHooks(),
-      api.getUserFloats()
+      api.getUserFloats(),
+      api.getUserBaits()
     ])
-      .then(([rodsRes, mainlinesRes, sublinesRes, floatsRes]) => {
+      .then(([rodsRes, mainlinesRes, sublinesRes, floatsRes, baitsRes]) => {
         if (rodsRes.status === 'ok') {
           this.setData({
             'inventory.rods': rodsRes.data
@@ -70,6 +71,11 @@ Page({
         if (floatsRes.status === 'ok') {
           this.setData({
             'inventory.floats': floatsRes.data
+          });
+        }
+        if (baitsRes.status === 'ok') {
+          this.setData({
+            'inventory.baits': baitsRes.data
           });
         }
       })
@@ -99,6 +105,10 @@ Page({
     } else if (this.data.currentTab === 3) {
       wx.navigateTo({
         url: '/pages/add-float/add-float'
+      });
+    } else if (this.data.currentTab === 4) {
+      wx.navigateTo({
+        url: '/pages/add-bait/add-bait'
       });
     } else {
       wx.showToast({
@@ -250,5 +260,60 @@ Page({
         }
       }
     });
+  },
+
+  editBait(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.navigateTo({
+      url: `/pages/add-bait/add-bait?id=${id}`
+    });
+  },
+
+  deleteBait(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.showModal({
+      title: '删除确认',
+      content: '确定要将这款饵料移出钓箱吗？',
+      confirmColor: '#d32f2f',
+      success: (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '删除中...' });
+          api.deleteUserBait(id)
+            .then((resp) => {
+              wx.hideLoading();
+              if (resp.status === 'ok') {
+                wx.showToast({ title: '已删除', icon: 'success' });
+                this.loadUserInventory();
+              } else {
+                wx.showToast({ title: resp.message || '删除失败', icon: 'none' });
+              }
+            })
+            .catch((err) => {
+              wx.hideLoading();
+              console.error('[Inventory] 删除饵料失败:', err);
+              wx.showToast({ title: '删除失败', icon: 'none' });
+            });
+        }
+      }
+    });
+  },
+
+  addOldThree() {
+    wx.showLoading({ title: '添加中...' });
+    api.addOldThreeBait()
+      .then((res) => {
+        wx.hideLoading();
+        if (res.status === 'ok') {
+          wx.showToast({ title: '老三样添加成功', icon: 'success' });
+          this.loadUserInventory();
+        } else {
+          wx.showToast({ title: res.message || '添加失败', icon: 'none' });
+        }
+      })
+      .catch((err) => {
+        wx.hideLoading();
+        console.error('[Inventory] 添加老三样失败:', err);
+        wx.showToast({ title: '添加失败', icon: 'none' });
+      });
   }
 });

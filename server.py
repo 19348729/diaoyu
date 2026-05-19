@@ -27,7 +27,7 @@ from domain.prescription import PrescriptionService
 from domain.poster import PosterGenerator
 from domain.verification import RodVerificationService
 from infrastructure.database import engine, Base, get_db
-from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook, UserFloat
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook, UserFloat, UserBait
 
 # 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
 Base.metadata.create_all(bind=engine)
@@ -689,6 +689,141 @@ async def list_user_floats(
             "shape": f.shape,
             "lead": f.lead,
             "tail_type": f.tail_type
+        })
+    return {"status": "ok", "data": result}
+
+
+# ──────────────────────────────────────────────
+#  饵料 CRUD 接口列表
+# ──────────────────────────────────────────────
+class BaitRequest(BaseModel):
+    category: str
+    brand: str
+    name: str
+    flavor: str
+    target_fish: str
+
+@app.post("/api/inventory/bait", tags=["饵料"])
+async def add_user_bait(
+    req: BaitRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """用户录入新的饵料到私有钓箱"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_bait = UserBait(
+        openid=openid,
+        category=req.category,
+        brand=req.brand,
+        name=req.name,
+        flavor=req.flavor,
+        target_fish=req.target_fish
+    )
+    db.add(user_bait)
+    db.commit()
+    return {"status": "ok", "message": "饵料录入成功", "id": user_bait.id}
+
+@app.post("/api/inventory/bait/old-three", tags=["饵料"])
+async def add_old_three_bait(
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """一键添加老三样 (野战蓝鲫 + 九一八 + 速攻)"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    baits_to_add = [
+        UserBait(openid=openid, category="商品饵", brand="龙王恨", name="野战蓝鲫", flavor="腥香", target_fish="综合"),
+        UserBait(openid=openid, category="商品饵", brand="老鬼", name="九一八野战篇", flavor="麸香", target_fish="综合"),
+        UserBait(openid=openid, category="状态辅料", brand="老鬼", name="速攻2号", flavor="状态", target_fish="综合")
+    ]
+    
+    db.add_all(baits_to_add)
+    db.commit()
+    return {"status": "ok", "message": "老三样添加成功"}
+
+@app.get("/api/inventory/bait/{bait_id}", tags=["饵料"])
+async def get_user_bait(
+    bait_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取用户钓箱中单款饵料的详情"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_bait = db.query(UserBait).filter(UserBait.id == bait_id, UserBait.openid == openid).first()
+    if not user_bait:
+        raise HTTPException(status_code=404, detail="未找到该饵料记录")
+        
+    return {
+        "status": "ok",
+        "data": {
+            "id": f"b{user_bait.id}",
+            "category": user_bait.category,
+            "brand": user_bait.brand,
+            "name": user_bait.name,
+            "flavor": user_bait.flavor,
+            "targetFish": user_bait.target_fish
+        }
+    }
+
+@app.put("/api/inventory/bait/{bait_id}", tags=["饵料"])
+async def update_user_bait(
+    bait_id: int,
+    req: BaitRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """修改用户私有钓箱中的饵料"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_bait = db.query(UserBait).filter(UserBait.id == bait_id, UserBait.openid == openid).first()
+    if not user_bait:
+        raise HTTPException(status_code=404, detail="未找到该饵料记录")
+        
+    user_bait.category = req.category
+    user_bait.brand = req.brand
+    user_bait.name = req.name
+    user_bait.flavor = req.flavor
+    user_bait.target_fish = req.target_fish
+    db.commit()
+    return {"status": "ok", "message": "饵料修改成功"}
+
+@app.delete("/api/inventory/bait/{bait_id}", tags=["饵料"])
+async def delete_user_bait(
+    bait_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """从用户私有钓箱中删除饵料"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_bait = db.query(UserBait).filter(UserBait.id == bait_id, UserBait.openid == openid).first()
+    if not user_bait:
+        raise HTTPException(status_code=404, detail="未找到该饵料记录")
+        
+    db.delete(user_bait)
+    db.commit()
+    return {"status": "ok", "message": "饵料删除成功"}
+
+@app.get("/api/inventory/baits/user", tags=["饵料"])
+async def list_user_baits(
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取用户钓箱里现有的所有饵料"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+        
+    baits = db.query(UserBait).filter(UserBait.openid == openid).all()
+    result = []
+    for b in baits:
+        result.append({
+            "id": f"b{b.id}",
+            "category": b.category,
+            "brand": b.brand,
+            "name": b.name,
+            "flavor": b.flavor,
+            "targetFish": b.target_fish
         })
     return {"status": "ok", "data": result}
 

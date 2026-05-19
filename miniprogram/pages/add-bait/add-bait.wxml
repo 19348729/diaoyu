@@ -1,0 +1,74 @@
+<view class="container">
+  
+  <view class="header">
+    <text class="title">{{editId ? '修改饵料' : '录入饵料'}}</text>
+    <text class="subtitle">丰富钓箱饵料，让智能预测更懂你</text>
+  </view>
+
+  <view class="form-group">
+    <view class="form-item">
+      <text class="label">饵料大类</text>
+      <picker bindchange="onCategoryChange" value="{{categoryIndex}}" range="{{categoryOptions}}">
+        <view class="picker-view {{categoryIndex < 0 ? 'placeholder' : ''}}">
+          {{categoryIndex < 0 ? '请选择饵料分类' : categoryOptions[categoryIndex]}}
+        </view>
+      </picker>
+    </view>
+
+    <!-- 品牌选择 (商品饵/状态辅料/小药显示) -->
+    <view class="form-item" wx:if="{{categoryIndex === 0 || categoryIndex === 2 || categoryIndex === 3}}">
+      <text class="label">品牌</text>
+      <picker bindchange="onBrandChange" value="{{brandIndex}}" range="{{brandOptions}}">
+        <view class="picker-view {{brandIndex < 0 ? 'placeholder' : ''}}">
+          {{brandIndex < 0 ? '请选择品牌' : brandOptions[brandIndex]}}
+        </view>
+      </picker>
+    </view>
+
+    <!-- 自定义品牌输入框 -->
+    <view class="form-item" wx:if="{{(categoryIndex === 0 || categoryIndex === 2 || categoryIndex === 3) && isCustomBrand}}">
+      <text class="label">自定义品牌</text>
+      <input class="input-view" value="{{customBrand}}" bindinput="onCustomBrandInput" placeholder="请输入品牌" />
+    </view>
+
+    <!-- 名称选择/输入 -->
+    <view class="form-item">
+      <text class="label">饵料名称</text>
+      <picker wx:if="{{useNamePicker}}" bindchange="onNamePickerChange" value="{{nameIndex}}" range="{{nameOptions}}">
+        <view class="picker-view {{nameIndex < 0 ? 'placeholder' : ''}}">
+          {{nameIndex < 0 ? '请选择经典饵料' : nameOptions[nameIndex]}}
+        </view>
+      </picker>
+      <input wx:else class="input-view" value="{{baitName}}" bindinput="onNameInput" placeholder="请输入饵料名称" />
+    </view>
+
+    <view class="form-item">
+      <text class="label">主打味型</text>
+      <picker bindchange="onFlavorChange" value="{{flavorIndex}}" range="{{flavorOptions}}">
+        <view class="picker-view {{flavorIndex < 0 ? 'placeholder' : ''}}">
+          {{flavorIndex < 0 ? '请选择味型' : flavorOptions[flavorIndex]}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="label">目标鱼</text>
+      <picker bindchange="onTargetFishChange" value="{{targetFishIndex}}" range="{{targetFishOptions}}">
+        <view class="picker-view {{targetFishIndex < 0 ? 'placeholder' : ''}}">
+          {{targetFishIndex < 0 ? '请选择目标鱼' : targetFishOptions[targetFishIndex]}}
+        </view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- 提示信息 -->
+  <view class="tip-card" wx:if="{{showAutoFillTip}}">
+    <text class="icon">💡</text>
+    <text class="tip-text">已为您自动匹配该经典单品的味型与目标鱼，您也可手动修改。</text>
+  </view>
+
+  <view class="btn-group">
+    <button class="save-btn" bindtap="saveBait">{{editId ? '保存修改' : '保存到我的钓箱'}}</button>
+  </view>
+
+</view>

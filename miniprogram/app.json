@@ -13,7 +13,8 @@
     "pages/add-rod/add-rod",
     "pages/add-mainline/add-mainline",
     "pages/add-sublinehook/add-sublinehook",
-    "pages/add-float/add-float"
+    "pages/add-float/add-float",
+    "pages/add-bait/add-bait"
   ],
   "window": {
     "navigationBarBackgroundColor": "#1a73e8",

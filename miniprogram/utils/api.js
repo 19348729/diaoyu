@@ -426,6 +426,62 @@ function deleteUserFloat(floatId) {
   return request(`/inventory/float/${cleanId}`, 'DELETE');
 }
 
+/**
+ * 获取用户钓箱里现有的所有饵料
+ * @returns {Promise<object>}
+ */
+function getUserBaits() {
+  return request('/inventory/baits/user', 'GET');
+}
+
+/**
+ * 用户录入新的饵料到私有钓箱
+ * @param {object} baitData 
+ * @returns {Promise<object>}
+ */
+function addUserBait(baitData) {
+  return request('/inventory/bait', 'POST', baitData);
+}
+
+/**
+ * 一键添加老三样
+ * @returns {Promise<object>}
+ */
+function addOldThreeBait() {
+  return request('/inventory/bait/old-three', 'POST');
+}
+
+/**
+ * 获取单款饵料详情
+ * @param {number|string} baitId 
+ * @returns {Promise<object>}
+ */
+function getUserBait(baitId) {
+  const cleanId = typeof baitId === 'string' && baitId.startsWith('b') ? baitId.substring(1) : baitId;
+  return request(`/inventory/bait/${cleanId}`, 'GET');
+}
+
+/**
+ * 修改用户私有钓箱中的饵料
+ * @param {number|string} baitId 
+ * @param {object} baitData 
+ * @returns {Promise<object>}
+ */
+function updateUserBait(baitId, baitData) {
+  const cleanId = typeof baitId === 'string' && baitId.startsWith('b') ? baitId.substring(1) : baitId;
+  return request(`/inventory/bait/${cleanId}`, 'PUT', baitData);
+}
+
+/**
+ * 从用户私有钓箱中删除饵料
+ * @param {number|string} baitId 
+ * @returns {Promise<object>}
+ */
+function deleteUserBait(baitId) {
+  const cleanId = typeof baitId === 'string' && baitId.startsWith('b') ? baitId.substring(1) : baitId;
+  return request(`/inventory/bait/${cleanId}`, 'DELETE');
+}
+
 module.exports = {
   reportRealtimeData,
   reportHistoryBatch,
@@ -461,5 +517,11 @@ module.exports = {
   getUserFloat,
   updateUserFloat,
   deleteUserFloat,
+  getUserBaits,
+  addUserBait,
+  addOldThreeBait,
+  getUserBait,
+  updateUserBait,
+  deleteUserBait,
 };
 

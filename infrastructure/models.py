@@ -186,3 +186,20 @@ class UserFloat(Base):
     name = Column(String(64), nullable=True, comment="自动生成的浮漂名称")
 
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+
+class UserBait(Base):
+    """
+    用户保存在数字钓箱里的饵料
+    """
+    __tablename__ = "user_baits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    openid = Column(String(64), index=True, nullable=False, comment="所属用户")
+    
+    category = Column(String(32), nullable=False, comment="大类 (如 商品饵, 自然饵, 状态辅料, 小药)")
+    brand = Column(String(32), nullable=False, comment="品牌 (如 老鬼, 龙王恨, 自定义)")
+    name = Column(String(64), nullable=False, comment="名称 (如 野战蓝鲫, 蚯蚓)")
+    flavor = Column(String(32), nullable=False, comment="味型 (如 腥香, 本味, 状态调整)")
+    target_fish = Column(String(32), nullable=False, comment="目标鱼 (如 综合, 鲫鱼)")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())

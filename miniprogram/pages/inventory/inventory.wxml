@@ -92,14 +92,19 @@
           <text class="icon">🍚</text>
         </view>
         <view class="card-body">
-          <text class="item-title">[{{item.brand}}] {{item.name}}</text>
-          <text class="item-desc">味型: {{item.flavor}}</text>
+          <text class="item-title">{{item.name}}</text>
+          <text class="item-desc">{{item.category}} | {{item.brand}} | {{item.flavor}} | 主攻{{item.targetFish}}</text>
+        </view>
+        <view class="card-actions">
+          <text class="action-btn edit" catchtap="editBait" data-id="{{item.id}}">修改</text>
+          <text class="action-btn delete" catchtap="deleteBait" data-id="{{item.id}}">删除</text>
         </view>
       </view>
     </view>
     
     <view class="empty-state">
-      <button class="add-btn" bindtap="addGear">+ 录入新装备</button>
+      <button class="add-btn" bindtap="addGear" style="margin-bottom: 20rpx;">+ 录入新装备</button>
+      <button class="add-btn" wx:if="{{currentTab === 4}}" bindtap="addOldThree" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); margin-bottom: 20rpx;">⚡ 一键添加“老三样”</button>
     </view>
   </scroll-view>
 
