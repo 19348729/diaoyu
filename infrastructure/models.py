@@ -126,3 +126,19 @@ class UserRod(Base):
     is_custom = Column(Integer, default=0, comment="是否是用户手填的")
 
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+
+class PublicRod(Base):
+    """
+    全球公共渔具品牌与型号库（支持大模型验证后自动收录，供所有人下拉选择）
+    """
+    __tablename__ = "public_rods"
+
+    id = Column(Integer, primary_key=True, index=True)
+    brand = Column(String(32), nullable=False, index=True, comment="品牌，如 化氏")
+    series = Column(String(64), nullable=False, index=True, comment="系列/型号，如 一味EX")
+    action = Column(String(32), nullable=True, comment="调性，如 28调")
+    rod_type = Column(String(32), default="台钓竿", comment="鱼竿种类")
+    length = Column(Float, nullable=False, comment="长度(米)")
+    is_verified = Column(Integer, default=1, comment="是否审核通过可用 (1:已审核, 0:待审)")
+    
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())

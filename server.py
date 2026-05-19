@@ -27,7 +27,7 @@ from domain.prescription import PrescriptionService
 from domain.poster import PosterGenerator
 from domain.verification import RodVerificationService
 from infrastructure.database import engine, Base, get_db
-from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod
 
 # 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
 Base.metadata.create_all(bind=engine)
@@ -145,22 +145,51 @@ async def list_fish_types():
 
 from domain.rods import ROD_DATABASE
 @app.get("/api/inventory/rods", tags=["配置"])
-async def list_rod_database():
-    """获取官方支持的鱼竿品牌与系列库"""
+async def list_rod_database(db: Session = Depends(get_db)):
+    """获取官方与用户众包自动收录的鱼竿品牌与系列库"""
+    # 1. 查询数据库中已核验的所有鱼竿记录
+    db_rods = db.query(PublicRod).filter(PublicRod.is_verified == 1).all()
+    
+    # 2. 数据库首运自适应自动同步种子数据
+    if not db_rods:
+        for key, profile in ROD_DATABASE.items():
+            for length in profile.available_lengths:
+                new_rod = PublicRod(
+                    brand=profile.brand,
+                    series=profile.series_name,
+                    action=profile.action,
+                    rod_type=profile.rod_type,
+                    length=length,
+                    is_verified=1
+                )
+                db.add(new_rod)
+        db.commit()
+        db_rods = db.query(PublicRod).filter(PublicRod.is_verified == 1).all()
+
+    # 3. 聚合成前端多级级联结构
     brands_map = {}
-    for key, profile in ROD_DATABASE.items():
-        if profile.brand not in brands_map:
-            brands_map[profile.brand] = []
-        brands_map[profile.brand].append({
-            "id": key,
-            "series": profile.series_name,
-            "action": profile.action,
-            "lengths": profile.available_lengths
-        })
+    for rod in db_rods:
+        if rod.brand not in brands_map:
+            brands_map[rod.brand] = {}
+            
+        if rod.series not in brands_map[rod.brand]:
+            brands_map[rod.brand][rod.series] = {
+                "action": rod.action or "综合调",
+                "lengths": set()
+            }
+        brands_map[rod.brand][rod.series]["lengths"].add(rod.length)
         
-    # 转换为前端友好的数组格式
+    # 4. 组装最终 JSON 格式
     result = []
-    for brand, series_list in brands_map.items():
+    for brand, series_map in brands_map.items():
+        series_list = []
+        for series_name, series_info in series_map.items():
+            sorted_lengths = sorted(list(series_info["lengths"]))
+            series_list.append({
+                "series": series_name,
+                "action": series_info["action"],
+                "lengths": sorted_lengths
+            })
         result.append({
             "brand": brand,
             "seriesList": series_list
@@ -195,6 +224,22 @@ async def add_user_rod(
                 "status": "error",
                 "message": f"校验未通过：{check_res.get('reason')}"
             }
+        
+        # 验证成功后，自动同步收录到公共品牌库表(PublicRod)中，支持全球众包，供后续任何人下拉选择！
+        existing = db.query(PublicRod).filter(
+            PublicRod.brand == req.brand,
+            PublicRod.series == req.series,
+            PublicRod.length == req.length
+        ).first()
+        if not existing:
+            new_public = PublicRod(
+                brand=req.brand,
+                series=req.series,
+                action=req.action or "综合调",
+                length=req.length,
+                is_verified=1
+            )
+            db.add(new_public)
         
     user_rod = UserRod(
         openid=openid,
@@ -256,6 +301,22 @@ async def update_user_rod(
                 "status": "error",
                 "message": f"校验未通过：{check_res.get('reason')}"
             }
+            
+        # 验证成功后，自动同步收录到公共品牌库表(PublicRod)中，支持全球众包，供后续任何人下拉选择！
+        existing = db.query(PublicRod).filter(
+            PublicRod.brand == req.brand,
+            PublicRod.series == req.series,
+            PublicRod.length == req.length
+        ).first()
+        if not existing:
+            new_public = PublicRod(
+                brand=req.brand,
+                series=req.series,
+                action=req.action or "综合调",
+                length=req.length,
+                is_verified=1
+            )
+            db.add(new_public)
             
     user_rod.brand = req.brand
     user_rod.series = req.series
