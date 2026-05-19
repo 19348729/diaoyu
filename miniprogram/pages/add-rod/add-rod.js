@@ -127,8 +127,9 @@ Page({
             // Find matched brand
             const brandIndex = this.data.brands.findIndex(b => b.brand === rod.brand);
             if (brandIndex >= 0) {
-              const seriesList = this.data.brands[brandIndex].seriesList;
+              const seriesList = this.data.brands[brandIndex].seriesList || [];
               const seriesNames = seriesList.map(s => s.series + ' (' + s.action + ')');
+              seriesNames.push("其它系列 (手动输入)...");
               const seriesIndex = seriesList.findIndex(s => s.series === rod.series);
               
               if (seriesIndex >= 0) {
@@ -188,8 +189,9 @@ Page({
       return;
     }
 
-    const series = this.data.brands[index].seriesList;
+    const series = this.data.brands[index].seriesList || [];
     const seriesNames = series.map(s => s.series + ' (' + s.action + ')');
+    seriesNames.push("其它系列 (手动输入)...");
 
     this.setData({
       isCustom: false,
@@ -204,6 +206,22 @@ Page({
 
   onSeriesChange(e) {
     const index = parseInt(e.detail.value);
+    const selectedSeriesName = this.data.seriesNames[index];
+    
+    if (selectedSeriesName.includes('其它系列')) {
+      const officialBrand = this.data.brandNames[this.data.selectedBrandIndex];
+      this.setData({
+        isCustom: true,
+        customBrand: officialBrand,
+        customSeries: '',
+        customLength: '',
+        selectedSeriesIndex: index,
+        lengths: [],
+        selectedLengthIndex: -1
+      });
+      return;
+    }
+
     const lengths = this.data.seriesList[index].lengths;
     const lengthNames = lengths.map(l => l + '米');
 
