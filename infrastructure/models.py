@@ -203,3 +203,21 @@ class UserBait(Base):
     target_fish = Column(String(32), nullable=False, comment="目标鱼 (如 综合, 鲫鱼)")
 
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+
+
+class PublicBait(Base):
+    """
+    全球公共饵料品牌与型号库（供所有人下拉选择）
+    """
+    __tablename__ = "public_baits"
+
+    id = Column(Integer, primary_key=True, index=True)
+    category = Column(String(32), nullable=False, comment="大类 (如 商品饵, 自然饵, 状态辅料, 小药)")
+    brand = Column(String(32), nullable=False, index=True, comment="品牌 (如 老鬼, 龙王恨)")
+    name = Column(String(64), nullable=False, index=True, comment="名称 (如 野战蓝鲫, 蚯蚓)")
+    flavor = Column(String(32), nullable=False, comment="味型 (如 腥香, 本味)")
+    target_fish = Column(String(32), nullable=False, comment="目标鱼 (如 综合, 鲫鱼)")
+    is_verified = Column(Integer, default=1, comment="是否审核通过 (1:已审核, 0:待审)")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+

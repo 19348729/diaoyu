@@ -27,7 +27,7 @@ from domain.prescription import PrescriptionService
 from domain.poster import PosterGenerator
 from domain.verification import RodVerificationService
 from infrastructure.database import engine, Base, get_db
-from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook, UserFloat, UserBait
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook, UserFloat, UserBait, PublicBait
 
 # 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
 Base.metadata.create_all(bind=engine)
@@ -805,6 +805,31 @@ async def delete_user_bait(
     db.delete(user_bait)
     db.commit()
     return {"status": "ok", "message": "饵料删除成功"}
+
+
+@app.get("/api/inventory/baits/public", tags=["饵料"])
+async def list_public_baits(db: Session = Depends(get_db)):
+    """获取公共标准饵料库，供下拉级联选择"""
+    baits = db.query(PublicBait).filter(PublicBait.is_verified == 1).all()
+    
+    # 按照 category -> brand -> name 进行聚合，方便前端读取
+    category_map = {}
+    for b in baits:
+        cat = b.category
+        brand = b.brand
+        if cat not in category_map:
+            category_map[cat] = {}
+        if brand not in category_map[cat]:
+            category_map[cat][brand] = []
+            
+        category_map[cat][brand].append({
+            "name": b.name,
+            "flavor": b.flavor,
+            "targetFish": b.target_fish
+        })
+        
+    return {"status": "ok", "data": category_map}
+
 
 @app.get("/api/inventory/baits/user", tags=["饵料"])
 async def list_user_baits(

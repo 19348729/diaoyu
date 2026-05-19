@@ -482,7 +482,16 @@ function deleteUserBait(baitId) {
   return request(`/inventory/bait/${cleanId}`, 'DELETE');
 }
 
+/**
+ * 获取公共标准饵料库，供下拉级联选择
+ * @returns {Promise<object>}
+ */
+function getPublicBaits() {
+  return request('/inventory/baits/public', 'GET');
+}
+
 module.exports = {
+  getPublicBaits,
   reportRealtimeData,
   reportHistoryBatch,
   getPrediction,
