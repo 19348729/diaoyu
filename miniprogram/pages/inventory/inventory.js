@@ -48,9 +48,10 @@ Page({
     Promise.all([
       api.getUserRods(),
       api.getUserMainLines(),
-      api.getUserSubLineHooks()
+      api.getUserSubLineHooks(),
+      api.getUserFloats()
     ])
-      .then(([rodsRes, mainlinesRes, sublinesRes]) => {
+      .then(([rodsRes, mainlinesRes, sublinesRes, floatsRes]) => {
         if (rodsRes.status === 'ok') {
           this.setData({
             'inventory.rods': rodsRes.data
@@ -64,6 +65,11 @@ Page({
         if (sublinesRes.status === 'ok') {
           this.setData({
             'inventory.subLineHooks': sublinesRes.data
+          });
+        }
+        if (floatsRes.status === 'ok') {
+          this.setData({
+            'inventory.floats': floatsRes.data
           });
         }
       })
@@ -89,6 +95,10 @@ Page({
     } else if (this.data.currentTab === 2) {
       wx.navigateTo({
         url: '/pages/add-sublinehook/add-sublinehook'
+      });
+    } else if (this.data.currentTab === 3) {
+      wx.navigateTo({
+        url: '/pages/add-float/add-float'
       });
     } else {
       wx.showToast({
@@ -199,6 +209,42 @@ Page({
             .catch((err) => {
               wx.hideLoading();
               console.error('[Inventory] 删除子线双钩失败:', err);
+              wx.showToast({ title: '删除失败', icon: 'none' });
+            });
+        }
+      }
+    });
+  },
+
+  editFloat(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.navigateTo({
+      url: `/pages/add-float/add-float?id=${id}`
+    });
+  },
+
+  deleteFloat(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.showModal({
+      title: '删除确认',
+      content: '确定要将这支浮漂移出钓箱吗？',
+      confirmColor: '#d32f2f',
+      success: (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '删除中...' });
+          api.deleteUserFloat(id)
+            .then((resp) => {
+              wx.hideLoading();
+              if (resp.status === 'ok') {
+                wx.showToast({ title: '已删除', icon: 'success' });
+                this.loadUserInventory();
+              } else {
+                wx.showToast({ title: resp.message || '删除失败', icon: 'none' });
+              }
+            })
+            .catch((err) => {
+              wx.hideLoading();
+              console.error('[Inventory] 删除浮漂失败:', err);
               wx.showToast({ title: '删除失败', icon: 'none' });
             });
         }

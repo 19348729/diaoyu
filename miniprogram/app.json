@@ -12,7 +12,8 @@
     "pages/inventory/inventory",
     "pages/add-rod/add-rod",
     "pages/add-mainline/add-mainline",
-    "pages/add-sublinehook/add-sublinehook"
+    "pages/add-sublinehook/add-sublinehook",
+    "pages/add-float/add-float"
   ],
   "window": {
     "navigationBarBackgroundColor": "#1a73e8",

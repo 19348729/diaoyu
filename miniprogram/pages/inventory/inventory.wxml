@@ -75,8 +75,12 @@
           <text class="icon">🌶️</text>
         </view>
         <view class="card-body">
-          <text class="item-title">{{item.name}} (吃铅{{item.lead}}g)</text>
-          <text class="item-desc">{{item.material}} | {{item.shape}}</text>
+          <text class="item-title">{{item.name}}</text>
+          <text class="item-desc">吃铅 {{item.lead}}g | {{item.material}} | {{item.shape}}</text>
+        </view>
+        <view class="card-actions">
+          <text class="action-btn edit" catchtap="editFloat" data-id="{{item.id}}">修改</text>
+          <text class="action-btn delete" catchtap="deleteFloat" data-id="{{item.id}}">删除</text>
         </view>
       </view>
     </view>

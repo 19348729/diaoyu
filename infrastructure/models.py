@@ -169,3 +169,20 @@ class UserSubLineHook(Base):
     hook_size = Column(String(16), nullable=False, comment="钩号 (如 3号)")
 
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+
+class UserFloat(Base):
+    """
+    用户保存在数字钓箱里的浮漂
+    """
+    __tablename__ = "user_floats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    openid = Column(String(64), index=True, nullable=False, comment="所属用户")
+    
+    lead = Column(Float, nullable=False, comment="吃铅量 (g)")
+    material = Column(String(32), nullable=False, comment="材质 (如 芦苇)")
+    shape = Column(String(32), nullable=False, comment="漂型 (如 枣核型)")
+    tail_type = Column(String(32), nullable=False, comment="漂尾类型 (如 软尾)")
+    name = Column(String(64), nullable=True, comment="自动生成的浮漂名称")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())

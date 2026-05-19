@@ -1,0 +1,62 @@
+<view class="container">
+  
+  <view class="header">
+    <text class="title">{{editId ? '修改浮漂' : '录入浮漂'}}</text>
+    <text class="subtitle">选择材质、漂型与吃铅以配准智能预测</text>
+  </view>
+
+  <view class="form-group">
+    <view class="form-item">
+      <text class="label">选择吃铅量</text>
+      <picker bindchange="onLeadChange" value="{{leadIndex}}" range="{{leadOptions}}">
+        <view class="picker-view {{leadIndex < 0 ? 'placeholder' : ''}}">
+          {{leadIndex < 0 ? '点击选择吃铅量/克数' : leadOptions[leadIndex]}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="label">选择浮漂材质</text>
+      <picker bindchange="onMaterialChange" value="{{materialIndex}}" range="{{materialOptions}}">
+        <view class="picker-view {{materialIndex < 0 ? 'placeholder' : ''}}">
+          {{materialIndex < 0 ? '点击选择材质' : materialOptions[materialIndex]}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="label">选择浮漂漂型</text>
+      <picker bindchange="onShapeChange" value="{{shapeIndex}}" range="{{shapeOptions}}">
+        <view class="picker-view {{shapeIndex < 0 ? 'placeholder' : ''}}">
+          {{shapeIndex < 0 ? '点击选择漂型' : shapeOptions[shapeIndex]}}
+        </view>
+      </picker>
+    </view>
+
+    <!-- 漂型形状对照参考图 -->
+    <view class="shape-guide-card">
+      <view class="guide-header" bindtap="toggleGuide">
+        <text class="guide-title">💡 常用标准漂型形状对照图</text>
+        <text class="guide-toggle">{{showGuide ? '收起 ▴' : '展开对照图 ▾'}}</text>
+      </view>
+      <view class="guide-content {{showGuide ? 'show' : ''}}">
+        <image class="guide-image" src="../../images/float_shapes.png" mode="widthFix" />
+        <text class="guide-tip">温馨提示：根据浮漂横截面与流线性，选择与您实物最相符的漂型款式。</text>
+      </view>
+    </view>
+
+    <view class="form-item">
+      <text class="label">选择漂尾类型</text>
+      <picker bindchange="onTailTypeChange" value="{{tailTypeIndex}}" range="{{tailTypeOptions}}">
+        <view class="picker-view {{tailTypeIndex < 0 ? 'placeholder' : ''}}">
+          {{tailTypeIndex < 0 ? '点击选择漂尾类型' : tailTypeOptions[tailTypeIndex]}}
+        </view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="btn-group">
+    <button class="save-btn" bindtap="saveFloat">{{editId ? '保存修改' : '保存到我的钓箱'}}</button>
+  </view>
+
+</view>

@@ -378,6 +378,54 @@ function deleteUserSubLineHook(sublineId) {
   return request(`/inventory/sublinehook/${cleanId}`, 'DELETE');
 }
 
+/**
+ * 获取用户钓箱里现有的所有浮漂
+ * @returns {Promise<object>}
+ */
+function getUserFloats() {
+  return request('/inventory/floats/user', 'GET');
+}
+
+/**
+ * 用户录入新的浮漂到私有钓箱
+ * @param {object} floatData 
+ * @returns {Promise<object>}
+ */
+function addUserFloat(floatData) {
+  return request('/inventory/float', 'POST', floatData);
+}
+
+/**
+ * 获取单条浮漂详情
+ * @param {number|string} floatId 
+ * @returns {Promise<object>}
+ */
+function getUserFloat(floatId) {
+  const cleanId = typeof floatId === 'string' && floatId.startsWith('f') ? floatId.substring(1) : floatId;
+  return request(`/inventory/float/${cleanId}`, 'GET');
+}
+
+/**
+ * 修改用户私有钓箱中的浮漂
+ * @param {number|string} floatId 
+ * @param {object} floatData 
+ * @returns {Promise<object>}
+ */
+function updateUserFloat(floatId, floatData) {
+  const cleanId = typeof floatId === 'string' && floatId.startsWith('f') ? floatId.substring(1) : floatId;
+  return request(`/inventory/float/${cleanId}`, 'PUT', floatData);
+}
+
+/**
+ * 从用户私有钓箱中删除浮漂
+ * @param {number|string} floatId 
+ * @returns {Promise<object>}
+ */
+function deleteUserFloat(floatId) {
+  const cleanId = typeof floatId === 'string' && floatId.startsWith('f') ? floatId.substring(1) : floatId;
+  return request(`/inventory/float/${cleanId}`, 'DELETE');
+}
+
 module.exports = {
   reportRealtimeData,
   reportHistoryBatch,
@@ -408,5 +456,10 @@ module.exports = {
   getUserSubLineHook,
   updateUserSubLineHook,
   deleteUserSubLineHook,
+  getUserFloats,
+  addUserFloat,
+  getUserFloat,
+  updateUserFloat,
+  deleteUserFloat,
 };
 

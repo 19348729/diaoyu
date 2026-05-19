@@ -27,7 +27,7 @@ from domain.prescription import PrescriptionService
 from domain.poster import PosterGenerator
 from domain.verification import RodVerificationService
 from infrastructure.database import engine, Base, get_db
-from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook, UserFloat
 
 # 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
 Base.metadata.create_all(bind=engine)
@@ -571,6 +571,124 @@ async def list_user_sublinehooks(
             "lineSize": s.line_size,
             "hookType": s.hook_type,
             "hookSize": s.hook_size
+        })
+    return {"status": "ok", "data": result}
+
+
+# ──────────────────────────────────────────────
+#  浮漂 CRUD 接口列表
+# ──────────────────────────────────────────────
+class FloatRequest(BaseModel):
+    lead: float
+    material: str
+    shape: str
+    tail_type: str
+
+@app.post("/api/inventory/float", tags=["浮漂"])
+async def add_user_float(
+    req: FloatRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """用户录入新的浮漂到私有钓箱"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    generated_name = f"{req.material} {req.shape} {req.tail_type}漂"
+    user_float = UserFloat(
+        openid=openid,
+        lead=req.lead,
+        material=req.material,
+        shape=req.shape,
+        tail_type=req.tail_type,
+        name=generated_name
+    )
+    db.add(user_float)
+    db.commit()
+    return {"status": "ok", "message": "浮漂录入成功", "id": user_float.id}
+
+@app.get("/api/inventory/float/{float_id}", tags=["浮漂"])
+async def get_user_float(
+    float_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取用户钓箱中单条浮漂的详情"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_float = db.query(UserFloat).filter(UserFloat.id == float_id, UserFloat.openid == openid).first()
+    if not user_float:
+        raise HTTPException(status_code=404, detail="未找到该浮漂记录")
+        
+    return {
+        "status": "ok",
+        "data": {
+            "id": f"f{user_float.id}",
+            "lead": user_float.lead,
+            "material": user_float.material,
+            "shape": user_float.shape,
+            "tail_type": user_float.tail_type,
+            "name": user_float.name
+        }
+    }
+
+@app.put("/api/inventory/float/{float_id}", tags=["浮漂"])
+async def update_user_float(
+    float_id: int,
+    req: FloatRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """修改用户私有钓箱中的浮漂"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_float = db.query(UserFloat).filter(UserFloat.id == float_id, UserFloat.openid == openid).first()
+    if not user_float:
+        raise HTTPException(status_code=404, detail="未找到该浮漂记录")
+        
+    generated_name = f"{req.material} {req.shape} {req.tail_type}漂"
+    user_float.lead = req.lead
+    user_float.material = req.material
+    user_float.shape = req.shape
+    user_float.tail_type = req.tail_type
+    user_float.name = generated_name
+    db.commit()
+    return {"status": "ok", "message": "浮漂修改成功"}
+
+@app.delete("/api/inventory/float/{float_id}", tags=["浮漂"])
+async def delete_user_float(
+    float_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """从用户私有钓箱中删除浮漂"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_float = db.query(UserFloat).filter(UserFloat.id == float_id, UserFloat.openid == openid).first()
+    if not user_float:
+        raise HTTPException(status_code=404, detail="未找到该浮漂记录")
+        
+    db.delete(user_float)
+    db.commit()
+    return {"status": "ok", "message": "浮漂删除成功"}
+
+@app.get("/api/inventory/floats/user", tags=["浮漂"])
+async def list_user_floats(
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取用户钓箱里现有的所有浮漂"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+        
+    floats = db.query(UserFloat).filter(UserFloat.openid == openid).all()
+    result = []
+    for f in floats:
+        result.append({
+            "id": f"f{f.id}",
+            "name": f.name or f"{f.material} {f.shape}漂",
+            "material": f.material,
+            "shape": f.shape,
+            "lead": f.lead,
+            "tail_type": f.tail_type
         })
     return {"status": "ok", "data": result}
 
