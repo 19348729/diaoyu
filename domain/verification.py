@@ -9,7 +9,7 @@ dashscope.api_key = os.getenv("DASHSCOPE_API_KEY", "")
 
 class RodVerificationService:
     """调用大模型验证用户手填的鱼竿品牌与系列型号是否真实存在。"""
-    def __init__(self, model_name="qwen-turbo"):
+    def __init__(self, model_name="qwen-plus"):
         self.model_name = model_name
 
     def verify_brand_and_series(self, brand: str, series: str) -> dict:
