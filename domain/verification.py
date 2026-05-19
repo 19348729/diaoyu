@@ -41,6 +41,16 @@ class RodVerificationService:
             {'role': 'user', 'content': user_prompt}
         ]
 
+        # ── 打印调用大模型入参日志 ────────────────────────
+        print("\n" + "="*50)
+        print(" [LLM CALL] 🚀 正在调用大模型核验用户自定义装备资产...")
+        print(f" [*] 模型名称 (Model): {self.model_name}")
+        print(f" [*] 校验目标品牌 (Brand): '{brand}'")
+        print(f" [*] 校验目标型号 (Series): '{series}'")
+        print(f" [*] 系统提示词 (System Prompt):\n{system_prompt}")
+        print(f" [*] 用户提示词 (User Prompt):\n{user_prompt}")
+        print("="*50 + "\n")
+
         try:
             response = dashscope.Generation.call(
                 model=self.model_name,
@@ -49,6 +59,17 @@ class RodVerificationService:
                 max_tokens=200,
                 temperature=0.3  # 较低温度以提高确定性
             )
+
+            # ── 打印调用大模型原始响应日志 ────────────────────────
+            print("\n" + "="*50)
+            print(" [LLM RESP] 📥 接收到大模型返回报文:")
+            print(f" [*] HTTP 状态码: {response.status_code}")
+            if response.status_code == 200:
+                raw_content = response.output.choices[0]['message']['content']
+                print(f" [*] 原始正文 (Raw Output):\n{raw_content}")
+            else:
+                print(f" [!] 错误信息 (Error Msg): {response.code} - {response.message}")
+            print("="*50 + "\n")
 
             if response.status_code == 200:
                 content = response.output.choices[0]['message']['content'].strip()
@@ -62,21 +83,27 @@ class RodVerificationService:
 
                 data = json.loads(content.strip())
                 # 保证返回字段结构符合规范
-                return {
+                result = {
                     "exists": bool(data.get("exists", True)),
                     "reason": str(data.get("reason", "校验通过"))
                 }
+                print(f" [LLM PARSED] 🎯 解析后校验结果: {result}\n")
+                return result
             else:
-                return {
+                err_result = {
                     "exists": True,  # 接口报错时默认放过，保证用户体验
                     "reason": f"AI 校验接口暂时不可用 (ErrorCode: {response.code})"
                 }
+                print(f" [LLM PARSED] ⚠️ 异常放行结果: {err_result}\n")
+                return err_result
         except Exception as e:
             print(f"[RodVerificationService] Exception: {e}")
-            return {
+            exception_result = {
                 "exists": True,  # 异常情况默认放过，保障可用性
                 "reason": f"AI 校验服务异常，默认允许录入 ({str(e)})"
             }
+            print(f" [LLM PARSED] ❌ 异常放行结果: {exception_result}\n")
+            return exception_result
 
     def _mock_verify(self, brand: str, series: str) -> dict:
         """兜底本地验证逻辑（在未配置 API Key 时使用）"""
