@@ -25,6 +25,7 @@ from domain.forecast import FishingForecastService
 from domain.engine import FishingEngine
 from domain.prescription import PrescriptionService
 from domain.poster import PosterGenerator
+from domain.verification import RodVerificationService
 from infrastructure.database import engine, Base, get_db
 from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod
 
@@ -184,6 +185,16 @@ async def add_user_rod(
     """用户录入新的鱼竿到私有钓箱"""
     # For testing, we can use a mock openid if missing
     openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    # UGC 自定义录入进行大模型验证
+    if req.is_custom:
+        verifier = RodVerificationService()
+        check_res = verifier.verify_brand_and_series(req.brand, req.series)
+        if not check_res.get("exists", True):
+            return {
+                "status": "error",
+                "message": f"校验未通过：{check_res.get('reason')}"
+            }
         
     user_rod = UserRod(
         openid=openid,
@@ -236,6 +247,16 @@ async def update_user_rod(
     if not user_rod:
         raise HTTPException(status_code=404, detail="未找到该鱼竿记录或无权访问")
         
+    # UGC 自定义录入进行大模型验证
+    if req.is_custom:
+        verifier = RodVerificationService()
+        check_res = verifier.verify_brand_and_series(req.brand, req.series)
+        if not check_res.get("exists", True):
+            return {
+                "status": "error",
+                "message": f"校验未通过：{check_res.get('reason')}"
+            }
+            
     user_rod.brand = req.brand
     user_rod.series = req.series
     user_rod.length = req.length
