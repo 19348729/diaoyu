@@ -57,7 +57,8 @@ class RodVerificationService:
                 messages=messages,
                 result_format='message',
                 max_tokens=200,
-                temperature=0.3  # 较低温度以提高确定性
+                temperature=0.3,  # 较低温度以提高确定性
+                enable_search=True  # 启用联网实时搜索，核验小众或最新钓具真实性
             )
 
             # ── 打印调用大模型原始响应日志 ────────────────────────
