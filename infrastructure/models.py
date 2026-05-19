@@ -155,3 +155,17 @@ class UserMainLine(Base):
     length = Column(Float, nullable=False, comment="长度/米数 (如 4.5)")
 
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+
+class UserSubLineHook(Base):
+    """
+    用户保存在数字钓箱里的子线双钩
+    """
+    __tablename__ = "user_subline_hooks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    openid = Column(String(64), index=True, nullable=False, comment="所属用户")
+    line_size = Column(Float, nullable=False, comment="子线线号 (如 0.8)")
+    hook_type = Column(String(32), nullable=False, comment="钩型 (如 袖钩)")
+    hook_size = Column(String(16), nullable=False, comment="钩号 (如 3号)")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())

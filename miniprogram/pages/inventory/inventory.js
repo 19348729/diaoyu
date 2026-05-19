@@ -47,9 +47,10 @@ Page({
   loadUserInventory() {
     Promise.all([
       api.getUserRods(),
-      api.getUserMainLines()
+      api.getUserMainLines(),
+      api.getUserSubLineHooks()
     ])
-      .then(([rodsRes, mainlinesRes]) => {
+      .then(([rodsRes, mainlinesRes, sublinesRes]) => {
         if (rodsRes.status === 'ok') {
           this.setData({
             'inventory.rods': rodsRes.data
@@ -58,6 +59,11 @@ Page({
         if (mainlinesRes.status === 'ok') {
           this.setData({
             'inventory.mainLines': mainlinesRes.data
+          });
+        }
+        if (sublinesRes.status === 'ok') {
+          this.setData({
+            'inventory.subLineHooks': sublinesRes.data
           });
         }
       })
@@ -79,6 +85,10 @@ Page({
     } else if (this.data.currentTab === 1) {
       wx.navigateTo({
         url: '/pages/add-mainline/add-mainline'
+      });
+    } else if (this.data.currentTab === 2) {
+      wx.navigateTo({
+        url: '/pages/add-sublinehook/add-sublinehook'
       });
     } else {
       wx.showToast({
@@ -153,6 +163,42 @@ Page({
             .catch((err) => {
               wx.hideLoading();
               console.error('[Inventory] 删除主线失败:', err);
+              wx.showToast({ title: '删除失败', icon: 'none' });
+            });
+        }
+      }
+    });
+  },
+
+  editSubLineHook(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.navigateTo({
+      url: `/pages/add-sublinehook/add-sublinehook?id=${id}`
+    });
+  },
+
+  deleteSubLineHook(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.showModal({
+      title: '删除确认',
+      content: '确定要将这付子线双钩移出钓箱吗？',
+      confirmColor: '#d32f2f',
+      success: (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '删除中...' });
+          api.deleteUserSubLineHook(id)
+            .then((resp) => {
+              wx.hideLoading();
+              if (resp.status === 'ok') {
+                wx.showToast({ title: '已删除', icon: 'success' });
+                this.loadUserInventory();
+              } else {
+                wx.showToast({ title: resp.message || '删除失败', icon: 'none' });
+              }
+            })
+            .catch((err) => {
+              wx.hideLoading();
+              console.error('[Inventory] 删除子线双钩失败:', err);
               wx.showToast({ title: '删除失败', icon: 'none' });
             });
         }

@@ -58,8 +58,12 @@
           <text class="icon">🪝</text>
         </view>
         <view class="card-body">
-          <text class="item-title">{{item.hookSize}}号 {{item.hookType}} ({{item.barb}})</text>
+          <text class="item-title">{{item.hookSize}} {{item.hookType}}</text>
           <text class="item-desc">绑 {{item.lineSize}} 号子线</text>
+        </view>
+        <view class="card-actions">
+          <text class="action-btn edit" catchtap="editSubLineHook" data-id="{{item.id}}">修改</text>
+          <text class="action-btn delete" catchtap="deleteSubLineHook" data-id="{{item.id}}">删除</text>
         </view>
       </view>
     </view>

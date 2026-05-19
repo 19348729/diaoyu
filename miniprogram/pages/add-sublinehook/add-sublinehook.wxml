@@ -1,0 +1,41 @@
+<view class="container">
+  
+  <view class="header">
+    <text class="title">{{editId ? '修改子线双钩' : '录入子线双钩'}}</text>
+    <text class="subtitle">选择子线与钩型规格以配准智能预测</text>
+  </view>
+
+  <view class="form-group">
+    <view class="form-item">
+      <text class="label">选择子线线号</text>
+      <picker bindchange="onLineSizeChange" value="{{lineSizeIndex}}" range="{{lineSizeOptions}}">
+        <view class="picker-view {{lineSizeIndex < 0 ? 'placeholder' : ''}}">
+          {{lineSizeIndex < 0 ? '点击选择子线号数' : lineSizeOptions[lineSizeIndex]}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="label">选择鱼钩型号</text>
+      <picker bindchange="onHookTypeChange" value="{{hookTypeIndex}}" range="{{hookTypeOptions}}">
+        <view class="picker-view {{hookTypeIndex < 0 ? 'placeholder' : ''}}">
+          {{hookTypeIndex < 0 ? '点击选择钩型 (如 袖钩)' : hookTypeOptions[hookTypeIndex]}}
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-item">
+      <text class="label">选择鱼钩大小</text>
+      <picker bindchange="onHookSizeChange" value="{{hookSizeIndex}}" range="{{hookSizeOptions}}">
+        <view class="picker-view {{hookSizeIndex < 0 ? 'placeholder' : ''}}">
+          {{hookSizeIndex < 0 ? '点击选择钩号大小' : hookSizeOptions[hookSizeIndex]}}
+        </view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="btn-group">
+    <button class="save-btn" bindtap="saveSubLineHook">{{editId ? '保存修改' : '保存到我的钓箱'}}</button>
+  </view>
+
+</view>

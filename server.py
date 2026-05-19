@@ -27,7 +27,7 @@ from domain.prescription import PrescriptionService
 from domain.poster import PosterGenerator
 from domain.verification import RodVerificationService
 from infrastructure.database import engine, Base, get_db
-from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook
 
 # 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
 Base.metadata.create_all(bind=engine)
@@ -464,6 +464,113 @@ async def list_user_mainlines(
             "id": f"m{m.id}",
             "size": m.size,
             "length": m.length
+        })
+    return {"status": "ok", "data": result}
+
+
+# ──────────────────────────────────────────────
+#  子线双钩 CRUD 接口列表
+# ──────────────────────────────────────────────
+class SubLineHookRequest(BaseModel):
+    line_size: float
+    hook_type: str
+    hook_size: str
+
+@app.post("/api/inventory/sublinehook", tags=["子线双钩"])
+async def add_user_sublinehook(
+    req: SubLineHookRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """用户录入新的子线双钩到私有钓箱"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_sub = UserSubLineHook(
+        openid=openid,
+        line_size=req.line_size,
+        hook_type=req.hook_type,
+        hook_size=req.hook_size
+    )
+    db.add(user_sub)
+    db.commit()
+    return {"status": "ok", "message": "子线双钩录入成功", "id": user_sub.id}
+
+@app.get("/api/inventory/sublinehook/{subline_id}", tags=["子线双钩"])
+async def get_user_sublinehook(
+    subline_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取用户钓箱中单条子线双钩的详情"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_sub = db.query(UserSubLineHook).filter(UserSubLineHook.id == subline_id, UserSubLineHook.openid == openid).first()
+    if not user_sub:
+        raise HTTPException(status_code=404, detail="未找到该子线双钩记录")
+        
+    return {
+        "status": "ok",
+        "data": {
+            "id": f"s{user_sub.id}",
+            "lineSize": user_sub.line_size,
+            "hookType": user_sub.hook_type,
+            "hookSize": user_sub.hook_size
+        }
+    }
+
+@app.put("/api/inventory/sublinehook/{subline_id}", tags=["子线双钩"])
+async def update_user_sublinehook(
+    subline_id: int,
+    req: SubLineHookRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """修改用户私有钓箱中的子线双钩"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_sub = db.query(UserSubLineHook).filter(UserSubLineHook.id == subline_id, UserSubLineHook.openid == openid).first()
+    if not user_sub:
+        raise HTTPException(status_code=404, detail="未找到该子线双钩记录")
+        
+    user_sub.line_size = req.line_size
+    user_sub.hook_type = req.hook_type
+    user_sub.hook_size = req.hook_size
+    db.commit()
+    return {"status": "ok", "message": "子线双钩修改成功"}
+
+@app.delete("/api/inventory/sublinehook/{subline_id}", tags=["子线双钩"])
+async def delete_user_sublinehook(
+    subline_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """从用户私有钓箱中删除子线双钩"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_sub = db.query(UserSubLineHook).filter(UserSubLineHook.id == subline_id, UserSubLineHook.openid == openid).first()
+    if not user_sub:
+        raise HTTPException(status_code=404, detail="未找到该子线双钩记录")
+        
+    db.delete(user_sub)
+    db.commit()
+    return {"status": "ok", "message": "子线双钩删除成功"}
+
+@app.get("/api/inventory/sublinehooks/user", tags=["子线双钩"])
+async def list_user_sublinehooks(
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取用户钓箱里现有的所有子线双钩"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+        
+    sublines = db.query(UserSubLineHook).filter(UserSubLineHook.openid == openid).all()
+    result = []
+    for s in sublines:
+        result.append({
+            "id": f"s{s.id}",
+            "lineSize": s.line_size,
+            "hookType": s.hook_type,
+            "hookSize": s.hook_size
         })
     return {"status": "ok", "data": result}
 

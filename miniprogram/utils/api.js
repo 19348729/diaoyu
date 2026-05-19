@@ -330,6 +330,54 @@ function deleteUserMainLine(mainlineId) {
   return request(`/inventory/mainline/${cleanId}`, 'DELETE');
 }
 
+/**
+ * 获取用户钓箱里现有的所有子线双钩
+ * @returns {Promise<object>}
+ */
+function getUserSubLineHooks() {
+  return request('/inventory/sublinehooks/user', 'GET');
+}
+
+/**
+ * 用户录入新的子线双钩到私有钓箱
+ * @param {object} sublineData 
+ * @returns {Promise<object>}
+ */
+function addUserSubLineHook(sublineData) {
+  return request('/inventory/sublinehook', 'POST', sublineData);
+}
+
+/**
+ * 获取单条子线双钩详情
+ * @param {number|string} sublineId 
+ * @returns {Promise<object>}
+ */
+function getUserSubLineHook(sublineId) {
+  const cleanId = typeof sublineId === 'string' && sublineId.startsWith('s') ? sublineId.substring(1) : sublineId;
+  return request(`/inventory/sublinehook/${cleanId}`, 'GET');
+}
+
+/**
+ * 修改用户私有钓箱中的子线双钩
+ * @param {number|string} sublineId 
+ * @param {object} sublineData 
+ * @returns {Promise<object>}
+ */
+function updateUserSubLineHook(sublineId, sublineData) {
+  const cleanId = typeof sublineId === 'string' && sublineId.startsWith('s') ? sublineId.substring(1) : sublineId;
+  return request(`/inventory/sublinehook/${cleanId}`, 'PUT', sublineData);
+}
+
+/**
+ * 从用户私有钓箱中删除子线双钩
+ * @param {number|string} sublineId 
+ * @returns {Promise<object>}
+ */
+function deleteUserSubLineHook(sublineId) {
+  const cleanId = typeof sublineId === 'string' && sublineId.startsWith('s') ? sublineId.substring(1) : sublineId;
+  return request(`/inventory/sublinehook/${cleanId}`, 'DELETE');
+}
+
 module.exports = {
   reportRealtimeData,
   reportHistoryBatch,
@@ -355,5 +403,10 @@ module.exports = {
   getUserMainLine,
   updateUserMainLine,
   deleteUserMainLine,
+  getUserSubLineHooks,
+  addUserSubLineHook,
+  getUserSubLineHook,
+  updateUserSubLineHook,
+  deleteUserSubLineHook,
 };
 

@@ -11,7 +11,8 @@
     "pages/privacy/privacy",
     "pages/inventory/inventory",
     "pages/add-rod/add-rod",
-    "pages/add-mainline/add-mainline"
+    "pages/add-mainline/add-mainline",
+    "pages/add-sublinehook/add-sublinehook"
   ],
   "window": {
     "navigationBarBackgroundColor": "#1a73e8",
