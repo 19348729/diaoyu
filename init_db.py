@@ -10,7 +10,7 @@ from infrastructure.database import engine, Base
 from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod
 
 def init_database():
-    print("====== 🎣 AI 钓鱼智能系统 - 数据库手动初始化脚本 ======")
+    print("====== AI Diaoyu System - Database Initialization Script ======")
     load_dotenv()
     db_url = os.getenv("DATABASE_URL")
     print(f"[*] 当前连接字符串: {db_url or 'SQLite 本地兜底模式'}")
@@ -23,17 +23,17 @@ def init_database():
         Base.metadata.create_all(bind=engine)
         # 关闭 SQL 打印
         engine.echo = False
-        print("[+] 物理表自动生成指令执行完成！")
+        print("[+] Physical table creation commands completed successfully!")
         
         # 实时检测并列出当前库里真实存在的表，向用户进行确认
         import sqlalchemy as sa
         inspector = sa.inspect(engine)
         tables = inspector.get_table_names()
-        print(f"[+] 经实时检测，当前数据库中真实存在的表有: {tables}")
+        print(f"[+] Detected tables in database: {tables}")
         print("====================================================")
     except Exception as e:
-        print(f"[!] 数据库初始化失败！错误信息: {e}")
-        print("[!] 请检查 .env 配置文件中的账号密码是否正确，或者 MySQL 服务是否正常运行。")
+        print(f"[!] Database initialization failed! Error: {e}")
+        print("[!] Please check if .env is configured correctly and database is running.")
 
 if __name__ == "__main__":
     init_database()

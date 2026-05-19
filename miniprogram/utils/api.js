@@ -226,6 +226,62 @@ function getPoster(sessionId) {
   return request(`/v2/poster/${sessionId}`, 'GET');
 }
 
+/**
+ * 获取官方支持的鱼竿品牌与系列库
+ * @returns {Promise<object>}
+ */
+function getRodDatabase() {
+  return request('/inventory/rods', 'GET');
+}
+
+/**
+ * 用户录入新的鱼竿到私有钓箱
+ * @param {object} rodData 
+ * @returns {Promise<object>}
+ */
+function addUserRod(rodData) {
+  return request('/inventory/rod', 'POST', rodData);
+}
+
+/**
+ * 获取用户钓箱里现有的所有鱼竿
+ * @returns {Promise<object>}
+ */
+function getUserRods() {
+  return request('/inventory/rods/user', 'GET');
+}
+
+/**
+ * 获取单根鱼竿详情
+ * @param {number|string} rodId 
+ * @returns {Promise<object>}
+ */
+function getUserRod(rodId) {
+  const cleanId = typeof rodId === 'string' && rodId.startsWith('r') ? rodId.substring(1) : rodId;
+  return request(`/inventory/rod/${cleanId}`, 'GET');
+}
+
+/**
+ * 修改用户私有钓箱中的鱼竿
+ * @param {number|string} rodId 
+ * @param {object} rodData 
+ * @returns {Promise<object>}
+ */
+function updateUserRod(rodId, rodData) {
+  const cleanId = typeof rodId === 'string' && rodId.startsWith('r') ? rodId.substring(1) : rodId;
+  return request(`/inventory/rod/${cleanId}`, 'PUT', rodData);
+}
+
+/**
+ * 从用户私有钓箱中删除鱼竿
+ * @param {number|string} rodId 
+ * @returns {Promise<object>}
+ */
+function deleteUserRod(rodId) {
+  const cleanId = typeof rodId === 'string' && rodId.startsWith('r') ? rodId.substring(1) : rodId;
+  return request(`/inventory/rod/${cleanId}`, 'DELETE');
+}
+
 module.exports = {
   reportRealtimeData,
   reportHistoryBatch,
@@ -240,4 +296,11 @@ module.exports = {
   getSessionList,
   getAiRescue,
   getPoster,
+  getRodDatabase,
+  addUserRod,
+  getUserRods,
+  getUserRod,
+  updateUserRod,
+  deleteUserRod,
 };
+

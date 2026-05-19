@@ -1,3 +1,5 @@
+const api = require('../../utils/api');
+
 Page({
   data: {
     tabs: ['鱼竿', '主线', '子线双钩', '浮漂', '饵料'],
@@ -43,21 +45,17 @@ Page({
   },
 
   loadUserInventory() {
-    const app = getApp();
-    wx.request({
-      url: 'http://127.0.0.1:8000/api/inventory/rods/user', // 替换为正式域名
-      method: 'GET',
-      header: {
-        'X-OpenID': app.globalData?.openid || 'test_openid_user_001'
-      },
-      success: (res) => {
-        if (res.data.status === 'ok') {
+    api.getUserRods()
+      .then((res) => {
+        if (res.status === 'ok') {
           this.setData({
-            'inventory.rods': res.data.data
+            'inventory.rods': res.data
           });
         }
-      }
-    });
+      })
+      .catch((err) => {
+        console.error('[Inventory] 获取装备库失败:', err);
+      });
   },
 
   switchTab(e) {
@@ -76,5 +74,41 @@ Page({
         icon: 'none'
       });
     }
+  },
+
+  editRod(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.navigateTo({
+      url: `/pages/add-rod/add-rod?id=${id}`
+    });
+  },
+
+  deleteRod(e) {
+    const id = e.currentTarget.dataset.id;
+    wx.showModal({
+      title: '删除确认',
+      content: '确定要将这根鱼竿移出钓箱吗？',
+      confirmColor: '#d32f2f',
+      success: (res) => {
+        if (res.confirm) {
+          wx.showLoading({ title: '删除中...' });
+          api.deleteUserRod(id)
+            .then((resp) => {
+              wx.hideLoading();
+              if (resp.status === 'ok') {
+                wx.showToast({ title: '已删除', icon: 'success' });
+                this.loadUserInventory();
+              } else {
+                wx.showToast({ title: resp.message || '删除失败', icon: 'none' });
+              }
+            })
+            .catch((err) => {
+              wx.hideLoading();
+              console.error('[Inventory] 删除失败:', err);
+              wx.showToast({ title: '删除失败', icon: 'none' });
+            });
+        }
+      }
+    });
   }
 });

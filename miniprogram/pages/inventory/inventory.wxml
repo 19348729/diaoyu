@@ -24,8 +24,12 @@
           <text class="icon">🎣</text>
         </view>
         <view class="card-body">
-          <text class="item-title">{{item.length}}米 {{item.name}}</text>
+          <text class="item-title">{{item.length}}米 {{item.brand || ''}} {{item.name}}</text>
           <text class="item-desc">{{item.action}} | {{item.type}}</text>
+        </view>
+        <view class="card-actions">
+          <text class="action-btn edit" catchtap="editRod" data-id="{{item.id}}">修改</text>
+          <text class="action-btn delete" catchtap="deleteRod" data-id="{{item.id}}">删除</text>
         </view>
       </view>
     </view>

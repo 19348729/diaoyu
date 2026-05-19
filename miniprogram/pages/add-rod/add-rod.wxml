@@ -1,7 +1,7 @@
 <view class="container">
   
   <view class="header">
-    <text class="title">录入新鱼竿</text>
+    <text class="title">{{editId ? '修改鱼竿信息' : '录入新鱼竿'}}</text>
     <text class="subtitle">从云端品牌库极速匹配</text>
   </view>
 
@@ -43,21 +43,21 @@
       </view>
       <view class="form-item">
         <text class="label">自定义品牌名称</text>
-        <input class="input-view" placeholder="如：杂牌/汉鼎" bindinput="onCustomBrandInput" />
+        <input class="input-view" placeholder="如：杂牌/汉鼎" value="{{customBrand}}" bindinput="onCustomBrandInput" />
       </view>
       <view class="form-item">
         <text class="label">具体型号或系列</text>
-        <input class="input-view" placeholder="如：黑坑杀手" bindinput="onCustomSeriesInput" />
+        <input class="input-view" placeholder="如：黑坑杀手" value="{{customSeries}}" bindinput="onCustomSeriesInput" />
       </view>
       <view class="form-item">
         <text class="label">长度(米)</text>
-        <input class="input-view" type="digit" placeholder="如：4.5" bindinput="onCustomLengthInput" />
+        <input class="input-view" type="digit" placeholder="如：4.5" value="{{customLength}}" bindinput="onCustomLengthInput" />
       </view>
     </block>
   </view>
 
   <view class="btn-group">
-    <button class="save-btn" bindtap="saveRod">保存到我的钓箱</button>
+    <button class="save-btn" bindtap="saveRod">{{editId ? '保存修改' : '保存到我的钓箱'}}</button>
   </view>
 
 </view>

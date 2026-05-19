@@ -123,3 +123,36 @@
   font-size: 32rpx;
   font-weight: bold;
 }
+
+.card-actions {
+  display: flex;
+  gap: 12rpx;
+  margin-left: 16rpx;
+}
+
+.action-btn {
+  font-size: 24rpx;
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  font-weight: bold;
+  text-align: center;
+}
+
+.action-btn.edit {
+  background-color: #e3f2fd;
+  color: #1a73e8;
+}
+
+.action-btn.edit:active {
+  opacity: 0.8;
+}
+
+.action-btn.delete {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.action-btn.delete:active {
+  opacity: 0.8;
+}
+

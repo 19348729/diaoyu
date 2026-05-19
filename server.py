@@ -197,6 +197,71 @@ async def add_user_rod(
     db.commit()
     return {"status": "ok", "message": "鱼竿录入成功", "id": user_rod.id}
 
+@app.get("/api/inventory/rod/{rod_id}", tags=["配置"])
+async def get_user_rod(
+    rod_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """获取单根鱼竿详情"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_rod = db.query(UserRod).filter(UserRod.id == rod_id, UserRod.openid == openid).first()
+    if not user_rod:
+        raise HTTPException(status_code=404, detail="未找到该鱼竿记录或无权访问")
+        
+    return {
+        "status": "ok",
+        "data": {
+            "id": f"r{user_rod.id}",
+            "brand": user_rod.brand,
+            "series": user_rod.series,
+            "length": user_rod.length,
+            "action": user_rod.action or "未知",
+            "is_custom": bool(user_rod.is_custom)
+        }
+    }
+
+@app.put("/api/inventory/rod/{rod_id}", tags=["配置"])
+async def update_user_rod(
+    rod_id: int,
+    req: AddRodRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """修改用户私有钓箱中的鱼竿"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_rod = db.query(UserRod).filter(UserRod.id == rod_id, UserRod.openid == openid).first()
+    if not user_rod:
+        raise HTTPException(status_code=404, detail="未找到该鱼竿记录或无权访问")
+        
+    user_rod.brand = req.brand
+    user_rod.series = req.series
+    user_rod.length = req.length
+    user_rod.action = req.action
+    user_rod.is_custom = 1 if req.is_custom else 0
+    
+    db.commit()
+    return {"status": "ok", "message": "鱼竿修改成功"}
+
+@app.delete("/api/inventory/rod/{rod_id}", tags=["配置"])
+async def delete_user_rod(
+    rod_id: int,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
+    """从用户私有钓箱中删除鱼竿"""
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    
+    user_rod = db.query(UserRod).filter(UserRod.id == rod_id, UserRod.openid == openid).first()
+    if not user_rod:
+        raise HTTPException(status_code=404, detail="未找到该鱼竿记录或无权访问")
+        
+    db.delete(user_rod)
+    db.commit()
+    return {"status": "ok", "message": "鱼竿删除成功"}
+
 @app.get("/api/inventory/rods/user", tags=["配置"])
 async def list_user_rods(
     x_openid: Optional[str] = Header(None, alias="X-OpenID"),

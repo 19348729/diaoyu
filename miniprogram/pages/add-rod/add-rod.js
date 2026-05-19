@@ -1,7 +1,9 @@
 const app = getApp();
+const api = require('../../utils/api');
 
 Page({
   data: {
+    editId: '', // 修改时的鱼竿ID
     brands: [],
     brandNames: [],
     selectedBrandIndex: -1,
@@ -19,8 +21,14 @@ Page({
     customLength: ''
   },
 
-  onLoad() {
+  onLoad(options) {
     this.fetchRodDatabase();
+    if (options && options.id) {
+      this.setData({
+        editId: options.id
+      });
+      this.loadRodDetail(options.id);
+    }
   },
 
   fetchRodDatabase() {
@@ -58,6 +66,69 @@ Page({
     this.setData({ 
       brands: mockData,
       brandNames: brandNames
+    });
+  },
+
+  loadRodDetail(id) {
+    wx.showLoading({ title: '加载中...' });
+    api.getUserRod(id)
+      .then((res) => {
+        wx.hideLoading();
+        if (res.status === 'ok' && res.data) {
+          const rod = res.data;
+          if (rod.is_custom) {
+            this.setData({
+              isCustom: true,
+              customBrand: rod.brand,
+              customSeries: rod.series,
+              customLength: rod.length.toString(),
+              selectedBrandIndex: this.data.brandNames.findIndex(b => b.includes('其它'))
+            });
+          } else {
+            // Find matched brand
+            const brandIndex = this.data.brands.findIndex(b => b.brand === rod.brand);
+            if (brandIndex >= 0) {
+              const seriesList = this.data.brands[brandIndex].seriesList;
+              const seriesNames = seriesList.map(s => s.series + ' (' + s.action + ')');
+              const seriesIndex = seriesList.findIndex(s => s.series === rod.series);
+              
+              if (seriesIndex >= 0) {
+                const lengths = seriesList[seriesIndex].lengths;
+                const lengthNames = lengths.map(l => l + '米');
+                const lengthIndex = lengths.findIndex(l => parseFloat(l) === parseFloat(rod.length));
+                
+                this.setData({
+                  isCustom: false,
+                  selectedBrandIndex: brandIndex,
+                  seriesList: seriesList,
+                  seriesNames: seriesNames,
+                  selectedSeriesIndex: seriesIndex,
+                  lengths: lengthNames,
+                  selectedLengthIndex: lengthIndex
+                });
+              } else {
+                this.setToCustom(rod);
+              }
+            } else {
+              this.setToCustom(rod);
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        wx.hideLoading();
+        console.error('[AddRod] 加载鱼竿详情失败:', err);
+        wx.showToast({ title: '加载失败', icon: 'none' });
+      });
+  },
+
+  setToCustom(rod) {
+    this.setData({
+      isCustom: true,
+      customBrand: rod.brand,
+      customSeries: rod.series,
+      customLength: rod.length.toString(),
+      selectedBrandIndex: this.data.brandNames.findIndex(b => b.includes('其它'))
     });
   },
 
@@ -154,16 +225,14 @@ Page({
     }
 
     wx.showLoading({ title: '保存中...' });
-    wx.request({
-      url: 'http://127.0.0.1:8000/api/inventory/rod', // 替换为正式域名
-      method: 'POST',
-      data: payload,
-      header: {
-        'X-OpenID': app.globalData.openid || 'test_openid_user_001'
-      },
-      success: (res) => {
+    const requestPromise = this.data.editId 
+      ? api.updateUserRod(this.data.editId, payload)
+      : api.addUserRod(payload);
+
+    requestPromise
+      .then((res) => {
         wx.hideLoading();
-        if (res.data.status === 'ok') {
+        if (res.status === 'ok') {
           wx.showToast({ title: '保存成功', icon: 'success' });
           // Notify previous page to refresh
           const pages = getCurrentPages();
@@ -175,13 +244,13 @@ Page({
             wx.navigateBack();
           }, 1500);
         } else {
-          wx.showToast({ title: '保存失败', icon: 'none' });
+          wx.showToast({ title: res.message || '保存失败', icon: 'none' });
         }
-      },
-      fail: () => {
+      })
+      .catch((err) => {
         wx.hideLoading();
+        console.error('[AddRod] 保存失败:', err);
         wx.showToast({ title: '网络错误', icon: 'none' });
-      }
-    });
+      });
   }
 });
