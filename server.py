@@ -26,7 +26,7 @@ from domain.engine import FishingEngine
 from domain.prescription import PrescriptionService
 from domain.poster import PosterGenerator
 from infrastructure.database import engine, Base, get_db
-from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod
 
 # 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
 Base.metadata.create_all(bind=engine)
@@ -167,7 +167,6 @@ async def list_rod_database():
         
     return {"status": "ok", "data": result}
 
-from infrastructure.models import UserRod
 
 class AddRodRequest(BaseModel):
     brand: str

@@ -1,19 +1,38 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
 
-# 数据库文件路径 (使用绝对路径或相对路径)
-# 这里默认在项目根目录下生成 diaoyu.db 文件
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(BASE_DIR, "diaoyu.db")
+# 加载项目根目录的 .env 文件（如果存在）
+load_dotenv()
 
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+# 从环境变量获取数据库连接字符串
+# 例如在 .env 文件中配置：
+# DATABASE_URL=mysql+pymysql://root:123456@127.0.0.1:3306/diaoyu_db?charset=utf8mb4
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
-# 初始化引擎
-# check_same_thread=False 是 SQLite 在 FastAPI (多线程异步环境) 必须的配置
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+if not SQLALCHEMY_DATABASE_URL:
+    # 如果没有配置 MySQL，默认退回到原来的 SQLite 本地文件
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    DB_PATH = os.path.join(BASE_DIR, "diaoyu.db")
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+
+# 判断是否是 SQLite
+is_sqlite = SQLALCHEMY_DATABASE_URL.startswith("sqlite")
+
+if is_sqlite:
+    # check_same_thread=False 是 SQLite 在 FastAPI (多线程异步环境) 必须的配置
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    )
+else:
+    # MySQL 引擎配置 (增加连接池等优化)
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        pool_size=10,        # 连接池大小
+        max_overflow=20,     # 最大超量连接
+        pool_recycle=3600    # 定期回收连接，防止被数据库主动断开 (MySQL 默认 8小时)
+    )
 
 # 创建会话工厂
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
