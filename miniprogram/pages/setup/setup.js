@@ -12,14 +12,22 @@ Page({
     bait: '香腥',
 
     isConnecting: false,
-    isConnected: false
+    isConnected: false,
+    isModifying: false,
+    savedContext: null
   },
 
   onLoad() {
-    // If already connected, maybe update state
+    // If already connected, restore global fishContext and update state
     const bleManager = ble.getBLEManager()
     if (bleManager.isConnected) {
-      this.setData({ isConnected: true })
+      const fishContext = app.globalData.fishContext || {}
+      this.setData({
+        isConnected: true,
+        targetFish: fishContext.target || '土鲮',
+        method: fishContext.method || '底钓',
+        bait: fishContext.bait || '香腥'
+      })
     }
   },
 
@@ -73,7 +81,9 @@ Page({
     bleManager.connectDevice().then(success => {
       this.setData({ 
         isConnecting: false,
-        isConnected: success
+        isConnected: success,
+        isModifying: false,
+        savedContext: null
       })
       if (success) {
         // Save to global context
@@ -98,5 +108,50 @@ Page({
     wx.navigateTo({
       url: '/pages/index/index',
     })
+  },
+
+  onTapModify() {
+    this.setData({
+      isModifying: true,
+      savedContext: {
+        targetFish: this.data.targetFish,
+        method: this.data.method,
+        bait: this.data.bait,
+        methodOptions: this.data.methodOptions,
+        baitOptions: this.data.baitOptions
+      }
+    })
+  },
+
+  onTapSaveModification() {
+    app.globalData.fishContext = {
+      target: this.data.targetFish,
+      method: this.data.method,
+      bait: this.data.bait
+    }
+    this.setData({
+      isModifying: false,
+      savedContext: null
+    })
+    wx.showToast({ title: '配置已更新', icon: 'success' })
+  },
+
+  onTapCancelModification() {
+    if (this.data.savedContext) {
+      const s = this.data.savedContext;
+      this.setData({
+        targetFish: s.targetFish,
+        method: s.method,
+        bait: s.bait,
+        methodOptions: s.methodOptions,
+        baitOptions: s.baitOptions,
+        isModifying: false,
+        savedContext: null
+      })
+    } else {
+      this.setData({
+        isModifying: false
+      })
+    }
   }
 })

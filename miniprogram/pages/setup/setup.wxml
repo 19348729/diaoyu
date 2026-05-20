@@ -1,30 +1,81 @@
 <view class="container">
-  <view class="header">第一次握手：出钓配置</view>
+  <view class="header">
+    <text class="header-title">第一次握手：出钓配置</text>
+  </view>
 
-  <view class="section">
-    <view class="title">目标鱼种</view>
-    <view class="grid">
-      <view class="tag {{targetFish === item ? 'active' : ''}}" wx:for="{{fishOptions}}" wx:key="*this" bindtap="selectFish" data-val="{{item}}">{{item}}</view>
+  <!-- 1. 网格配置区（未连接 或 修改状态下 显示） -->
+  <block wx:if="{{!isConnected || isModifying}}">
+    <view class="section card-shadow">
+      <view class="title">目标鱼种</view>
+      <view class="grid">
+        <view class="tag {{targetFish === item ? 'active' : ''}}" wx:for="{{fishOptions}}" wx:key="*this" bindtap="selectFish" data-val="{{item}}">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="section card-shadow">
+      <view class="title">钓法</view>
+      <view class="grid">
+        <view class="tag {{method === item ? 'active' : ''}}" wx:for="{{methodOptions}}" wx:key="*this" bindtap="selectMethod" data-val="{{item}}">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="section card-shadow">
+      <view class="title">饵料</view>
+      <view class="grid">
+        <view class="tag {{bait === item ? 'active' : ''}}" wx:for="{{baitOptions}}" wx:key="*this" bindtap="selectBait" data-val="{{item}}">{{item}}</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 2. 精美摘要卡片区（连接成功 且 非修改状态下 显示） -->
+  <view class="summary-card card-shadow" wx:if="{{isConnected && !isModifying}}">
+    <view class="status-badge-container">
+      <view class="status-badge">
+        <view class="pulse-dot"></view>
+        <text class="status-text">设备已连接 ⚡</text>
+      </view>
+    </view>
+    
+    <view class="summary-title">已锁定出钓配置</view>
+    
+    <view class="summary-content">
+      <view class="summary-item">
+        <text class="summary-label">目标鱼种</text>
+        <text class="summary-value">{{targetFish}}</text>
+      </view>
+      <view class="summary-divider"></view>
+      <view class="summary-item">
+        <text class="summary-label">钓法</text>
+        <text class="summary-value">{{method}}</text>
+      </view>
+      <view class="summary-divider"></view>
+      <view class="summary-item">
+        <text class="summary-label">饵料</text>
+        <text class="summary-value">{{bait}}</text>
+      </view>
     </view>
   </view>
 
-  <view class="section">
-    <view class="title">钓法</view>
-    <view class="grid">
-      <view class="tag {{method === item ? 'active' : ''}}" wx:for="{{methodOptions}}" wx:key="*this" bindtap="selectMethod" data-val="{{item}}">{{item}}</view>
-    </view>
-  </view>
-
-  <view class="section">
-    <view class="title">饵料</view>
-    <view class="grid">
-      <view class="tag {{bait === item ? 'active' : ''}}" wx:for="{{baitOptions}}" wx:key="*this" bindtap="selectBait" data-val="{{item}}">{{item}}</view>
-    </view>
-  </view>
-
+  <!-- 3. 底部操作按钮组 -->
   <view class="footer">
-    <button class="btn-primary" bindtap="startSession" loading="{{isConnecting}}" wx:if="{{!isConnected}}">开始作钓 (连接设备)</button>
-    <button class="btn-primary" bindtap="goToDashboard" wx:if="{{isConnected}}">进入实时监测大屏</button>
-    <view class="hint" wx:if="{{isConnected}}">设备已就绪，您可以查看实时数据或将手机放回口袋</view>
+    <!-- 未连接状态 -->
+    <block wx:if="{{!isConnected}}">
+      <button class="btn-primary" bindtap="startSession" loading="{{isConnecting}}">开始作钓 (连接设备)</button>
+    </block>
+
+    <!-- 已连接，正常查看状态 -->
+    <block wx:if="{{isConnected && !isModifying}}">
+      <button class="btn-primary btn-space" bindtap="goToDashboard">进入实时监测大屏</button>
+      <button class="btn-secondary" bindtap="onTapModify">修改出钓配置</button>
+      <view class="hint">配置已锁定，您也可以将手机放回口袋</view>
+    </block>
+
+    <!-- 已连接，修改配置状态 -->
+    <block wx:if="{{isConnected && isModifying}}">
+      <view class="btn-group">
+        <button class="btn-cancel" bindtap="onTapCancelModification">取消</button>
+        <button class="btn-save" bindtap="onTapSaveModification">保存修改</button>
+      </view>
+    </block>
   </view>
 </view>
