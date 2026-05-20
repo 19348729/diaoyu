@@ -425,3 +425,37 @@
   color: #a0aec0 !important;
   background: #f7fafc !important;
 }
+
+/* 传感器数据点击跳转趋势图及悬停微效果 */
+.sensor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.sensor-trend-btn {
+  font-size: 24rpx;
+  color: #1a73e8;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  padding: 8rpx 20rpx;
+  background: rgba(26, 115, 232, 0.06);
+  border-radius: 20rpx;
+  transition: all 0.2s ease;
+}
+
+.sensor-trend-btn:active {
+  background: rgba(26, 115, 232, 0.12);
+  transform: scale(0.95);
+}
+
+.grid-hover {
+  background: rgba(26, 115, 232, 0.03);
+  border-radius: 16rpx;
+  transform: scale(0.985);
+  transition: all 0.15s ease;
+}

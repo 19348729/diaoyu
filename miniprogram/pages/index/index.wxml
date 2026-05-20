@@ -36,8 +36,12 @@
 
   <!-- 传感器数据卡片 -->
   <view class="card">
-    <text class="card-title">传感器数据</text>
-    <view class="temp-grid">
+    <view class="sensor-header">
+      <text class="card-title" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">传感器数据</text>
+      <view class="sensor-trend-btn" catchtap="goToHistory">📊 历史趋势</view>
+    </view>
+    
+    <view class="temp-grid" bindtap="goToHistory" hover-class="grid-hover" hover-stay-time="100">
       <view class="temp-item">
         <text class="data-value">{{tWater}}</text>
         <text class="data-unit">℃</text>
