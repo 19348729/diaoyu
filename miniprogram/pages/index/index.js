@@ -109,21 +109,10 @@ Page({
       return;
     }
 
-    this.setData({ connecting: true, statusText: '搜索中...', statusClass: 'syncing' });
-
-    try {
-      const success = await this._ble.connectDevice();
-      if (success) {
-        this._updateConnectionStatus(true);
-      } else {
-        this._updateConnectionStatus(false);
-      }
-    } catch (e) {
-      console.error('[Index] 连接失败:', e);
-      this._updateConnectionStatus(false);
-    }
-
-    this.setData({ connecting: false });
+    // 如果未连接，直接优雅跳转回出钓准备页面进行连接与配置
+    wx.navigateTo({
+      url: '/pages/setup/setup'
+    });
   },
 
   /**

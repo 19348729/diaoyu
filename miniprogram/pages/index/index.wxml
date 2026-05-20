@@ -4,35 +4,32 @@
 -->
 <view class="container">
 
-  <!-- 连接状态卡片 -->
-  <view class="card">
-    <view class="status-header">
-      <text class="card-title">设备连接</text>
-      <text class="status-tag {{statusClass}}">{{statusText}}</text>
+  <!-- 顶部的精美设备状态条 (替换原有的厚重连接卡片) -->
+  <view class="connection-status-bar {{bleConnected ? 'connected-bar' : (connecting ? 'connecting-bar' : 'disconnected-bar')}} card-shadow">
+    <view class="bar-left">
+      <view class="pulse-dot" wx:if="{{bleConnected}}"></view>
+      <view class="syncing-dot" wx:elif="{{connecting}}"></view>
+      <view class="offline-dot" wx:else></view>
+      <text class="bar-status-text">{{connecting ? '正在配对 FishProbe 设备...' : (bleConnected ? 'FishProbe 已连接 ⚡' : '未连接 FishProbe 设备')}}</text>
     </view>
+    <view class="bar-right">
+      <text class="action-link" bindtap="onTapConnect">{{bleConnected ? '断开连接' : '去连接设备'}}</text>
+    </view>
+  </view>
 
-    <button
-      class="{{bleConnected ? 'btn-danger' : 'btn-primary'}} {{connecting ? 'disabled' : ''}}"
-      disabled="{{connecting}}"
-      bindtap="onTapConnect"
-    >
-      {{connecting ? '搜索中...' : (bleConnected ? '断开连接' : '连接 FishProbe')}}
-    </button>
-
-    <!-- 设备信息 -->
-    <view wx:if="{{bleConnected}}" class="device-info">
-      <view class="info-row">
-        <text class="info-label">数据接收</text>
-        <text class="info-value">实时 {{realtimeCount}} 条 / 历史补传 {{historyCount}} 条</text>
-      </view>
-      <view class="info-row">
-        <text class="info-label">设备缓存</text>
-        <view class="info-value">
-          <text>{{bufferUnsent}}/{{bufferCount}} 条待同步 </text>
-          <text class="link" catchtap="onTapQueryStatus">刷新</text>
-          <text> | </text>
-          <text class="link {{bufferUnsent > 0 ? '' : 'link-disabled'}}" catchtap="onTapPullHistory">拉取一批</text>
-        </view>
+  <!-- 仅在连接时，展示细致的设备缓存与数据同步微面板 -->
+  <view class="sync-mini-panel card-shadow" wx:if="{{bleConnected}}">
+    <view class="sync-row">
+      <text class="sync-label">实时传输</text>
+      <text class="sync-value">实时 {{realtimeCount}} 条 / 历史补传 {{historyCount}} 条</text>
+    </view>
+    <view class="sync-row">
+      <text class="sync-label">缓存同步</text>
+      <view class="sync-value">
+        <text>{{bufferUnsent}}/{{bufferCount}} 条待同步</text>
+        <text class="mini-btn" catchtap="onTapQueryStatus">🔄 刷新</text>
+        <text class="mini-btn-sep">|</text>
+        <text class="mini-btn {{bufferUnsent > 0 ? '' : 'mini-btn-disabled'}}" catchtap="onTapPullHistory">📥 补传历史</text>
       </view>
     </view>
   </view>

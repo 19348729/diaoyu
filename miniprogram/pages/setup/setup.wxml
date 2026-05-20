@@ -1,6 +1,6 @@
 <view class="container">
   <view class="header">
-    <text class="header-title">第一次握手：出钓配置</text>
+    <text class="header-title">作钓准备：配置您的专属策略</text>
   </view>
 
   <!-- 1. 网格配置区（未连接 或 修改状态下 显示） -->
@@ -9,6 +9,10 @@
       <view class="title">目标鱼种</view>
       <view class="grid">
         <view class="tag {{targetFish === item ? 'active' : ''}}" wx:for="{{fishOptions}}" wx:key="*this" bindtap="selectFish" data-val="{{item}}">{{item}}</view>
+      </view>
+      <!-- 智能推荐气泡提示 -->
+      <view class="recommendation-tip" wx:if="{{recommendationTip}}">
+        <text class="tip-text">{{recommendationTip}}</text>
       </view>
     </view>
 
