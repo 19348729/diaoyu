@@ -853,6 +853,53 @@ async def list_user_baits(
     return {"status": "ok", "data": result}
 
 
+def _get_user_inventory(db: Session, openid: str) -> dict:
+    """Helper to query all digital tackle box items for a user and format them."""
+    rods = db.query(UserRod).filter(UserRod.openid == openid).all()
+    mainlines = db.query(UserMainLine).filter(UserMainLine.openid == openid).all()
+    sublines = db.query(UserSubLineHook).filter(UserSubLineHook.openid == openid).all()
+    floats = db.query(UserFloat).filter(UserFloat.openid == openid).all()
+    baits = db.query(UserBait).filter(UserBait.openid == openid).all()
+    
+    return {
+        "rods": [{
+            "id": f"r{r.id}",
+            "brand": r.brand,
+            "name": r.series,
+            "length": r.length,
+            "action": r.action or "未知",
+            "type": "台钓竿"
+        } for r in rods],
+        "mainLines": [{
+            "id": f"m{m.id}",
+            "size": m.size,
+            "length": m.length
+        } for m in mainlines],
+        "subLineHooks": [{
+            "id": f"s{s.id}",
+            "lineSize": s.line_size,
+            "hookType": s.hook_type,
+            "hookSize": s.hook_size
+        } for s in sublines],
+        "floats": [{
+            "id": f"f{f.id}",
+            "name": f.name or f"{f.material} {f.shape}漂",
+            "material": f.material,
+            "shape": f.shape,
+            "lead": f.lead,
+            "tail_type": f.tail_type
+        } for f in floats],
+        "baits": [{
+            "id": f"b{b.id}",
+            "category": b.category,
+            "brand": b.brand,
+            "name": b.name,
+            "flavor": b.flavor,
+            "targetFish": b.target_fish
+        } for b in baits]
+    }
+
+
 @app.post("/api/predict", response_model=PredictResponse, tags=["预测"])
 async def predict(
     req: PredictRequest,
@@ -872,15 +919,13 @@ async def predict(
     - `full` (≥30分钟): 全量深度分析
     """
     # 校验并决定要计算的鱼种列表
-    if req.fish_type == "auto":
-        target_fishes = list(FISH_PROFILES.keys())
-    else:
-        if req.fish_type not in FISH_PROFILES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"不支持的鱼种: {req.fish_type}，可选: {', '.join(FISH_PROFILES.keys())}",
-            )
-        target_fishes = [req.fish_type]
+    # 为了保证排行榜完整性，无论是否指定鱼种，我们均计算所有支持的鱼种
+    if req.fish_type != "auto" and req.fish_type not in FISH_PROFILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的鱼种: {req.fish_type}，可选: {', '.join(FISH_PROFILES.keys())}",
+        )
+    target_fishes = list(FISH_PROFILES.keys())
 
     # 获取实时天气数据与地名解析并列执行
     weather_service = QWeatherService()
@@ -904,12 +949,15 @@ async def predict(
     readings = tuple(_to_reading(s) for s in req.sensors)
     series = SensorTimeSeries(readings=readings)
 
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    user_inventory = _get_user_inventory(db, openid)
+
     # 对目标鱼种循环跑分
     fish_results = []
     for f_name in target_fishes:
         profile = FISH_PROFILES[f_name]
         service = FishingPredictionService(fish_profile=profile)
-        res = service.predict_from_series(series=series, api=api_data)
+        res = service.predict_from_series(series=series, api=api_data, user_inventory=user_inventory)
         fish_results.append({
             "name": f_name,
             "result": res,
@@ -918,7 +966,12 @@ async def predict(
 
     # 按照 bite_index 降序排列
     fish_results.sort(key=lambda x: x["bite_index"], reverse=True)
-    best_match = fish_results[0]
+    
+    # 如果指定了具体目标鱼种，主推荐优先选择用户指定的那个鱼种，否则默认推荐得分最高的一个
+    if req.fish_type == "auto":
+        best_match = fish_results[0]
+    else:
+        best_match = next((item for item in fish_results if item["name"] == req.fish_type), fish_results[0])
     best_result = best_match["result"]
     
     # 提取推荐榜单
@@ -981,7 +1034,11 @@ class WeatherPredictRequest(BaseModel):
 
 
 @app.post("/api/predict/weather", tags=["预测"])
-async def predict_weather_only(req: WeatherPredictRequest):
+async def predict_weather_only(
+    req: WeatherPredictRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db)
+):
     """
     🌤️ 纯天气模式预测（无需传感器数据）
 
@@ -996,16 +1053,16 @@ async def predict_weather_only(req: WeatherPredictRequest):
     hourly = await weather_service.get_hourly_forecast(req.lat, req.lng)
     air_temp = hourly[0]["temp"] if hourly else 22.0  # 兜底 22℃
 
-    # 决定鱼种列表
-    if req.fish_type == "auto":
-        target_fishes = list(FISH_PROFILES.keys())
-    else:
-        if req.fish_type not in FISH_PROFILES:
-            raise HTTPException(
-                status_code=400,
-                detail=f"不支持的鱼种: {req.fish_type}",
-            )
-        target_fishes = [req.fish_type]
+    # 始终计算所有鱼种，以便生成完整的排行榜
+    if req.fish_type != "auto" and req.fish_type not in FISH_PROFILES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的鱼种: {req.fish_type}",
+        )
+    target_fishes = list(FISH_PROFILES.keys())
+
+    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    user_inventory = _get_user_inventory(db, openid)
 
     # 对目标鱼种循环跑分
     fish_results = []
@@ -1014,7 +1071,7 @@ async def predict_weather_only(req: WeatherPredictRequest):
         service = FishingPredictionService(fish_profile=profile)
         res = service.predict_weather_only(
             api=api_data, air_temp=air_temp, lat=req.lat, lng=req.lng,
-            hourly_forecast=hourly,
+            hourly_forecast=hourly, user_inventory=user_inventory,
         )
         fish_results.append({
             "name": f_name,
@@ -1023,7 +1080,11 @@ async def predict_weather_only(req: WeatherPredictRequest):
         })
 
     fish_results.sort(key=lambda x: x["bite_index"], reverse=True)
-    best = fish_results[0]
+    # 如果指定了具体鱼种，主推荐优先锁定该鱼种，否则默认推荐得分最高的鱼种
+    if req.fish_type == "auto":
+        best = fish_results[0]
+    else:
+        best = next((item for item in fish_results if item["name"] == req.fish_type), fish_results[0])
     best_result = best["result"]
 
     weather_info = {

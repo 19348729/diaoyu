@@ -35,6 +35,7 @@ Page({
     // 预测相关
     predicting: false,
     lastPredictTime: 0,
+    targetFish: '',
     biteIndex: '--',
     tacticalTags: [],
     recommendedFish: '',
@@ -85,6 +86,12 @@ Page({
     // 恢复前台时刷新状态
     this._updateConnectionStatus(this._ble.isConnected);
     this._refreshLatestData();
+
+    // 获取用户在上一页选择的目标鱼种并更新
+    const app = getApp();
+    const targetFish = (app.globalData.fishContext && app.globalData.fishContext.target) || '';
+    this.setData({ targetFish });
+
     // 恢复前台时立即刷新预测新鲜度显示
     if (this.data.lastPredictTime) {
       this._updatePredictFreshness();
@@ -273,7 +280,8 @@ Page({
       success: async (res) => {
         try {
           const sensors = historyData.length > 0 ? historyData : [app.globalData.latestData];
-          const prediction = await api.getPrediction(sensors, res.latitude, res.longitude);
+          const fishType = (app.globalData.fishContext && app.globalData.fishContext.target) || 'auto';
+          const prediction = await api.getPrediction(sensors, res.latitude, res.longitude, fishType);
           
           const predictTime = Date.now();
           this.setData({

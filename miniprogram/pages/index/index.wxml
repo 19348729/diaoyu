@@ -91,8 +91,9 @@
     </view>
 
     <view class="card-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-top: none; margin-top: 0; padding-top: 0;">
-      <text>🎯 最适宜作钓: {{recommendedFish}}</text>
-      <text style="font-size: 24rpx; color: #666; font-weight: normal;">(系统智能推荐)</text>
+      <text wx:if="{{targetFish}}">🎯 目标鱼种: {{targetFish}}</text>
+      <text wx:else>🎯 最适宜作钓: {{recommendedFish}}</text>
+      <text style="font-size: 24rpx; color: #666; font-weight: normal;">{{targetFish ? '(当前选择)' : '(系统智能推荐)'}}</text>
     </view>
     
     <view style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20rpx; margin-top: 10rpx;">

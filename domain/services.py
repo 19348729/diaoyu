@@ -204,6 +204,7 @@ class FishingPredictionService:
         series: SensorTimeSeries,
         api: ApiData,
         session: SessionContext = None,
+        user_inventory: Optional[dict] = None,
     ) -> PredictionResult:
         """基于时序数据的完整预测流程。
 
@@ -394,7 +395,7 @@ class FishingPredictionService:
 
         # ── 19. 生成结构化战术建议 ──
         tactical_advice = self._generate_tactical_advice(
-            final_score, tags, session, latest, api=api
+            final_score, tags, session, latest, api=api, user_inventory=user_inventory
         )
 
         return PredictionResult(
@@ -732,6 +733,7 @@ class FishingPredictionService:
         self, result_score: int, tags: List[str],
         session: SessionContext, latest: SensorReading = None,
         api: ApiData = None,
+        user_inventory: Optional[dict] = None,
     ) -> dict:
         """生成结构化战术建议（与鱼种绑定 + 动态数据引用）。"""
         advice = {}
@@ -815,6 +817,341 @@ class FishingPredictionService:
             highlights.append("✅ 气压处于最适范围（1005-1020 hPa），利好出钓")
         advice["highlight"] = "；".join(highlights) if highlights else ""
 
+        # ── 关联查询用户的数字钓箱设备并做个性化匹配 ──
+        advice["equipment_advice"] = self._generate_equipment_advice(
+            target_fish=profile.name,
+            api=api,
+            user_inventory=user_inventory,
+            session=session,
+            tags=tags,
+            latest=latest
+        )
+
+        return advice
+
+    def _generate_equipment_advice(
+        self,
+        target_fish: str,
+        api: ApiData,
+        user_inventory: Optional[dict],
+        session: SessionContext,
+        tags: List[str],
+        latest: SensorReading = None
+    ) -> dict:
+        """
+        根据目标鱼种、天气/季节/温度数据，从用户拥有的数字钓箱(user_inventory)中精准匹配最合适的装备。
+        如果没有匹配的，或者用户未录入装备，则给出建议配比，并提示在数字钓箱中补充。
+        """
+        advice = {
+            "rod": {},
+            "main_line": {},
+            "sub_line_hook": {},
+            "float": {},
+            "bait": {}
+        }
+        
+        # 1. 安全初始化与空钓箱标志
+        if not user_inventory:
+            user_inventory = {}
+            
+        rods = user_inventory.get("rods", [])
+        main_lines = user_inventory.get("mainLines", [])
+        sub_lines = user_inventory.get("subLineHooks", [])
+        floats = user_inventory.get("floats", [])
+        baits = user_inventory.get("baits", [])
+        
+        # 风速判断 (>12km/h, 约 3.33 m/s)
+        is_windy = False
+        if api and api.wind_speed > 3.33:
+            is_windy = True
+            
+        # 温度/极寒判断 (水温或气温极低 < 12℃)
+        is_cold = False
+        if TacticalTag.STATUS_TEMP_EXTREME_COLD.value in tags:
+            is_cold = True
+        elif latest and latest.t_bottom is not None and latest.t_bottom < 12.0:
+            is_cold = True
+        elif latest and latest.t_surface is not None and latest.t_surface < 12.0:
+            is_cold = True
+            
+        # 目标鱼种特性：大鱼（鲤鱼/草鱼/青鱼/大物/鲢鳙）还是小鱼（鲫鱼/白条/鲮鱼/罗非鱼）
+        is_big_fish = target_fish in ("鲤鱼", "草鱼", "青鱼", "鲢鳙", "大物")
+        
+        # ──────────────────────────────────────────────
+        #  (1) 鱼竿适配逻辑 (Rods)
+        # ──────────────────────────────────────────────
+        ideal_rod_desc = ""
+        if is_windy:
+            ideal_rod_desc = "短硬竿 (长度 <= 4.5米，19调或28调)，以获得更好的抛投精准度与抗风控制力"
+        elif is_big_fish:
+            ideal_rod_desc = "长硬竿 (长度 >= 5.4米，19调或28调)，提供足够的腰力控鱼，防爆竿断线"
+        else:
+            ideal_rod_desc = "轻软竿 (长度 <= 4.5米，28调或37调)，手感轻盈，防拉豁小鱼嘴"
+            
+        best_rod = None
+        best_rod_score = -999
+        
+        for r in rods:
+            try:
+                length = float(r.get("length", 4.5))
+            except (ValueError, TypeError):
+                length = 4.5
+            action = r.get("action", "未知") or "未知"
+            
+            score = 0
+            # 风天适配
+            if is_windy:
+                if length <= 4.5:
+                    score += 50
+                if any(x in action for x in ("19", "28", "极硬")):
+                    score += 30
+            # 大鱼适配
+            elif is_big_fish:
+                if length >= 5.4:
+                    score += 50
+                if any(x in action for x in ("19", "28", "大物")):
+                    score += 30
+            # 小鱼适配
+            else:
+                if length <= 4.5:
+                    score += 50
+                if any(x in action for x in ("28", "37", "软", "综合")):
+                    score += 30
+                    
+            if score > best_rod_score:
+                best_rod_score = score
+                best_rod = r
+                
+        if best_rod:
+            advice["rod"] = {
+                "recommendation": f"{best_rod.get('brand', '')} {best_rod.get('name', '')} ({best_rod.get('length')}米, {best_rod.get('action', '未知')})",
+                "matching_id": best_rod.get("id"),
+                "reason": f"已为您从数字钓箱匹配最优鱼竿。当前{'大风' if is_windy else '作钓' + target_fish}场景，该竿的长度与调性契合度高。"
+            }
+        else:
+            advice["rod"] = {
+                "recommendation": f"推荐使用【{ideal_rod_desc}】",
+                "matching_id": None,
+                "reason": "数字钓箱暂无最适配的鱼竿，建议在钓箱中补充相应规格。"
+            }
+            
+        # ──────────────────────────────────────────────
+        #  (2) 主线适配逻辑 (MainLine)
+        # ──────────────────────────────────────────────
+        # 确定理想主线号
+        if is_big_fish:
+            ideal_main = 2.5 if is_cold else 4.0
+        else:
+            ideal_main = 0.8 if is_cold else 1.2
+            
+        best_ml = None
+        best_ml_score = -999
+        for ml in main_lines:
+            try:
+                size = float(ml.get("size", 1.5))
+            except (ValueError, TypeError):
+                size = 1.5
+            # 打分：越接近理想线号分数越高
+            score = 100 - abs(size - ideal_main) * 30
+            if score > best_ml_score:
+                best_ml_score = score
+                best_ml = ml
+                
+        if best_ml:
+            advice["main_line"] = {
+                "recommendation": f"{best_ml.get('size')}号主线",
+                "matching_id": best_ml.get("id"),
+                "reason": f"已为您从数字钓箱匹配最优主线。针对{target_fish}{'且处于轻口低温期' if is_cold else ''}，该线号兼顾拉力与敏感度。"
+            }
+        else:
+            advice["main_line"] = {
+                "recommendation": f"推荐使用【{ideal_main}号】主线",
+                "matching_id": None,
+                "reason": f"数字钓箱暂无适配主线。针对{target_fish}{'低温轻口' if is_cold else ''}推荐此线号。"
+            }
+            
+        # ──────────────────────────────────────────────
+        #  (3) 子线双钩适配逻辑 (SubLineHook)
+        # ──────────────────────────────────────────────
+        # 确定理想子线与钩型
+        if is_big_fish:
+            ideal_sub = 1.5 if is_cold else 3.0
+            ideal_hook_type = "伊势尼"
+            ideal_hook_size = "5号" if is_cold else "7号"
+        else:
+            ideal_sub = 0.3 if is_cold else 0.6
+            ideal_hook_type = "袖钩"
+            ideal_hook_size = "2号" if is_cold else "4号"
+            
+        best_sl = None
+        best_sl_score = -999
+        for sl in sub_lines:
+            try:
+                line_size = float(sl.get("lineSize", 0.8))
+            except (ValueError, TypeError):
+                line_size = 0.8
+            hook_type = sl.get("hookType", "") or ""
+            hook_size = str(sl.get("hookSize", ""))
+            
+            score = 100 - abs(line_size - ideal_sub) * 40
+            if ideal_hook_type in hook_type:
+                score += 20
+            # 钩号如果刚好匹配
+            if ideal_hook_size in hook_size:
+                score += 10
+                
+            if score > best_sl_score:
+                best_sl_score = score
+                best_sl = sl
+                
+        if best_sl:
+            advice["sub_line_hook"] = {
+                "recommendation": f"{best_sl.get('lineSize')}号子线 + {best_sl.get('hookSize')}{best_sl.get('hookType')}",
+                "matching_id": best_sl.get("id"),
+                "reason": f"已为您从数字钓箱匹配最优子线双钩。{'极寒降温，推荐细线小钩以降低鱼警惕性；' if is_cold else ''}双钩类型与拉力匹配。"
+            }
+        else:
+            advice["sub_line_hook"] = {
+                "recommendation": f"推荐使用【{ideal_sub}号子线 + {ideal_hook_size}{ideal_hook_type}】",
+                "matching_id": None,
+                "reason": f"数字钓箱暂无适配子线。针对{target_fish}{'低温轻口' if is_cold else ''}推荐此配置。"
+            }
+            
+        # ──────────────────────────────────────────────
+        #  (4) 浮漂适配逻辑 (Float)
+        # ──────────────────────────────────────────────
+        is_deep = False
+        depth_advice = self._suggest_depth(session, tags)
+        if any(x in depth_advice for x in ("深", "2.5-", "3-", "4米")):
+            is_deep = True
+            
+        if is_windy or is_deep:
+            ideal_lead = 3.0
+            ideal_float_desc = "大吃铅量浮漂 (>= 2.5g，如大底漂)，以便抗风抗流水、迅速带线到底"
+        else:
+            ideal_lead = 1.2
+            ideal_float_desc = "小吃铅量灵敏浮漂 (< 1.5g，如浅水鲫鱼漂)，提升吃口敏锐度"
+            
+        best_fl = None
+        best_fl_score = -999
+        for fl in floats:
+            try:
+                lead = float(fl.get("lead", 1.8))
+            except (ValueError, TypeError):
+                lead = 1.8
+            score = 100 - abs(lead - ideal_lead) * 30
+            if score > best_fl_score:
+                best_fl_score = score
+                best_fl = fl
+                
+        if best_fl:
+            advice["float"] = {
+                "recommendation": f"{best_fl.get('name')} (吃铅{best_fl.get('lead')}g)",
+                "matching_id": best_fl.get("id"),
+                "reason": f"已从数字钓箱匹配。当前{'大风' if is_windy else ''}{'且' if is_windy and is_deep else ''}{'深水' if is_deep else ''}环境，吃铅量与抗风/灵敏度完美契合。"
+            }
+        else:
+            advice["float"] = {
+                "recommendation": f"推荐使用【{ideal_float_desc}】",
+                "matching_id": None,
+                "reason": f"未在钓箱找到最优浮漂。建议准备吃铅约 {ideal_lead}g 的浮漂以应对当前环境。"
+            }
+            
+        # ──────────────────────────────────────────────
+        #  (5) 饵料适配与“老三样”黄金配比检测 (Bait)
+        # ──────────────────────────────────────────────
+        has_blue = False
+        has_918 = False
+        has_sugong = False
+        
+        blue_id, n918_id, sugong_id = None, None, None
+        
+        for b in baits:
+            name = b.get("name", "") or ""
+            b_id = b.get("id")
+            
+            if "蓝鲫" in name:
+                has_blue = True
+                blue_id = b_id
+            if "九一八" in name or "918" in name:
+                has_918 = True
+                n918_id = b_id
+            if "速攻" in name:
+                has_sugong = True
+                sugong_id = b_id
+                
+        match_count = sum([has_blue, has_918, has_sugong])
+        if match_count >= 2:
+            owned_names = []
+            if has_blue: owned_names.append("野战蓝鲫")
+            if has_918: owned_names.append("九一八")
+            if has_sugong: owned_names.append("速攻2号")
+            
+            is_cold_bait = is_cold
+            if api and hasattr(api, "humidity") and not is_cold_bait:
+                if session.season == "winter":
+                    is_cold_bait = True
+                    
+            if is_cold_bait:
+                ratio_desc = "野战蓝鲫 (腥) 40% + 九一八 (香) 40% + 速攻 (状态) 20%"
+                ratio_reason = "当前属于低温季节，鱼类极度需要高蛋白补充体力，推荐此经典【老三样】重腥配方，拉饵作钓，促低温开口。"
+            else:
+                ratio_desc = "野战蓝鲫 (腥) 20% + 九一八 (香) 60% + 速攻 (状态) 20%"
+                ratio_reason = "当前气温偏高，为避开表层小杂鱼闹钩，推荐此【老三样】谷物麦香主攻大鱼配方，搓大饵钓底。"
+                
+            advice["bait"] = {
+                "recommendation": f"经典【老三样】黄金配比：{ratio_desc}",
+                "matching_id": blue_id or n918_id or sugong_id,
+                "reason": f"检测到您的钓箱已备齐 {', '.join(owned_names)} 等经典饵料。{ratio_reason}"
+            }
+        else:
+            ideal_flavor = ""
+            if is_cold:
+                ideal_flavor = "浓腥/腥香/活体肉腥"
+            elif session.season == "summer":
+                ideal_flavor = "天然麸香/谷香/清甜"
+            else:
+                ideal_flavor = "香腥均衡/本味"
+                
+            best_bait = None
+            best_bait_score = -999
+            for b in baits:
+                flavor = b.get("flavor", "") or ""
+                target = b.get("targetFish", "") or ""
+                
+                score = 0
+                if target_fish in target or "综合" in target:
+                    score += 50
+                if is_cold and any(x in flavor for x in ("腥", "活")):
+                    score += 30
+                elif not is_cold and any(x in flavor for x in ("麸", "香", "谷", "甜")):
+                    score += 30
+                else:
+                    score += 10
+                    
+                if score > best_bait_score:
+                    best_bait_score = score
+                    best_bait = b
+                    
+            if best_bait and best_bait_score >= 40:
+                advice["bait"] = {
+                    "recommendation": f"{best_bait.get('brand', '')} {best_bait.get('name', '')} ({best_bait.get('flavor')})",
+                    "matching_id": best_bait.get("id"),
+                    "reason": f"已从数字钓箱匹配最适配的单品饵料。味型为【{best_bait.get('flavor')}】，十分契合当前{target_fish}在{'低温' if is_cold else '常温'}下的开口偏好。"
+                }
+            else:
+                if is_cold:
+                    rec = "浓腥型商品饵 (如 4/6号鲫、野战蓝鲫) 或 鲜活红虫/蚯蚓"
+                    reason = "水温较低，鱼活性差，重腥味/鲜活红虫能大幅提高诱鱼效率。"
+                else:
+                    rec = "谷物清香型商品饵 (如 九一八野战篇、大板鲫) 搭配拉丝粉"
+                    reason = "温暖水域杂鱼较多，清淡天然的谷物麦香能有效避开小鱼侵扰，直击底层大鱼。"
+                advice["bait"] = {
+                    "recommendation": f"推荐使用【{rec}】",
+                    "matching_id": None,
+                    "reason": f"数字钓箱暂无适配饵料。{reason}"
+                }
+                
         return advice
 
     def _suggest_depth(
@@ -988,6 +1325,7 @@ class FishingPredictionService:
         lat: float = 0.0,
         lng: float = 0.0,
         hourly_forecast: Optional[List[dict]] = None,
+        user_inventory: Optional[dict] = None,
     ) -> PredictionResult:
         """纯天气模式预测（无需传感器数据）。
 
@@ -1075,7 +1413,7 @@ class FishingPredictionService:
 
         # ── 战术建议 ──
         tactical_advice = self._generate_tactical_advice(
-            final_score, tags, session, api=api
+            final_score, tags, session, api=api, user_inventory=user_inventory
         )
         tactical_advice["estimated_water_temp"] = f"{t_water_est:.1f}℃（根据气温{air_temp:.0f}℃推算）"
 
