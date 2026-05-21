@@ -10,7 +10,9 @@ Page({
       { label: '完全无口无鱼星', val: 'SYM_NO_ACTIVITY', checked: false },
       { label: '浮漂频繁走水', val: 'SYM_FLOAT_DRIFT', checked: false },
       { label: '看到鱼跳但不吃饵', val: 'SYM_FISH_JUMP', checked: false },
-      { label: '原本连杆突然停口', val: 'SYM_SUDDEN_STOP', checked: false }
+      { label: '原本连杆突然停口', val: 'SYM_SUDDEN_STOP', checked: false },
+      { label: '鱼口极轻，有动作打不到', val: 'SYM_WEAK_BITE', checked: false },
+      { label: '鱼层明显上浮', val: 'SYM_FISH_UP', checked: false }
     ],
     isRescuing: false,
     prescription: null

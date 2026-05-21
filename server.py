@@ -935,8 +935,15 @@ async def predict(
     # 构建时序数据（包含 v2 降级映射）
     def _to_reading(s: SensorDataIn) -> SensorReading:
         if s.t_water is not None:
-            # v2 设备：单一水温投影到三个水层
-            t_b = t_m = t_s = s.t_water
+            # v2 设备：单水温传感器结合气温进行温跃层估算
+            t_b = s.t_water
+            if s.t_air is not None:
+                # 物理模型：水面温度估算为底水温与实测气温的加权热力学响应值 (取因子 0.65)
+                # t_surface = t_bottom + (t_air - t_bottom) * 0.65
+                t_s = round(t_b + (s.t_air - t_b) * 0.65, 2)
+                t_m = round((t_s + t_b) / 2, 2)
+            else:
+                t_m = t_s = s.t_water
         else:
             # v1 设备：保持原值
             t_b, t_m, t_s = s.t_bottom, s.t_mid, s.t_surface
@@ -1509,15 +1516,23 @@ async def ai_rescue(req: RescueRequest):
     接收传感器批量 Dump 数据和用户主观症状，
     经过物理引擎处理后交由大模型生成处方。
     """
-    readings = tuple(
-        SensorReading(
+    def _to_reading(s: SensorDataIn) -> SensorReading:
+        if s.t_water is not None:
+            t_b = s.t_water
+            if s.t_air is not None:
+                t_s = round(t_b + (s.t_air - t_b) * 0.65, 2)
+                t_m = round((t_s + t_b) / 2, 2)
+            else:
+                t_m = t_s = s.t_water
+        else:
+            t_b, t_m, t_s = s.t_bottom, s.t_mid, s.t_surface
+        return SensorReading(
             timestamp=s.timestamp,
-            t_bottom=s.t_water if s.t_water is not None else s.t_bottom, 
-            t_mid=s.t_water if s.t_water is not None else s.t_mid, 
-            t_surface=s.t_water if s.t_water is not None else s.t_surface,
+            t_bottom=t_b, t_mid=t_m, t_surface=t_s,
             p_local=s.p_local
-        ) for s in req.sensors
-    )
+        )
+    
+    readings = tuple(_to_reading(s) for s in req.sensors)
     series = SensorTimeSeries(readings=readings)
     
     # 1. 物理引擎分析

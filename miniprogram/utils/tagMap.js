@@ -116,7 +116,11 @@ const TAG_MAP = {
   // ── 天气转变 (P2) ──
   WEATHER_POST_RAIN_CLEAR: "🎉 雨后初晴",
   WEATHER_LONG_RAIN_TO_CLEAR: "🔥 久雨放晴",
-  WEATHER_STORM_APPROACHING: "⚡ 雷暴逼近"
+  WEATHER_STORM_APPROACHING: "⚡ 雷暴逼近",
+
+  // ── 温跃层单探头 ──
+  THERMOCLINE_SINGLE_SENSOR: "单水温探头模式",
+  THERMAL_WELL_MIXED: "水体混合良好"
 };
 
 /**

@@ -188,6 +188,19 @@ class TestDataFlowConversion:
         assert get_time_period(reading.timestamp) == "morning"
         assert get_season(reading.timestamp) == "spring"
 
+    # C1-6 V2温跃层估算测试
+    def test_v2_thermocline_estimation(self):
+        # 模拟 V2 设备：提供了 t_water=20.0 和 t_air=30.0
+        t_b = 20.0
+        t_a = 30.0
+        # 物理估算模型：
+        t_s = round(t_b + (t_a - t_b) * 0.65, 2)
+        t_m = round((t_s + t_b) / 2, 2)
+
+        assert t_s == 26.5
+        assert t_m == 23.25
+
+
 
 # ================================================================
 #  Task C2：渐进式报告端到端

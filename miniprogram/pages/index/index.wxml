@@ -97,9 +97,12 @@
       <text style="font-size: 24rpx; color: #666; font-weight: normal;">{{targetFish ? '(当前选择)' : '(系统智能推荐)'}}</text>
     </view>
     
-    <view style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20rpx; margin-top: 10rpx;">
-      <text style="font-size: 28rpx; color: #666;">开口指数:</text>
-      <text style="font-size: 48rpx; font-weight: bold; color: #e53935;">{{biteIndex}}</text>
+    <view style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20rpx; margin-top: 10rpx; padding: 20rpx; border-radius: 12rpx; background: {{biteRatingBg || '#f5f5f5'}};">
+      <view style="display: flex; flex-direction: column;">
+        <text style="font-size: 28rpx; color: #666;">开口指数</text>
+        <text style="font-size: 24rpx; color: {{biteRatingColor || '#999'}}; margin-top: 6rpx; font-weight: 600;">{{biteRatingText}}</text>
+      </view>
+      <text style="font-size: 56rpx; font-weight: bold; color: {{biteRatingColor || '#e53935'}};">{{biteIndex}}</text>
     </view>
     
     <view style="display: flex; flex-wrap: wrap; gap: 10rpx; margin-bottom: 30rpx;">

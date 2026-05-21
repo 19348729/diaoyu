@@ -65,6 +65,7 @@
     <!-- 未连接状态 -->
     <block wx:if="{{!isConnected}}">
       <button class="btn-primary" bindtap="startSession" loading="{{isConnecting}}">开始作钓 (连接设备)</button>
+      <button class="btn-secondary" style="margin-top: 24rpx; width: 100%;" bindtap="goToDecision">出发前纯气象预测 🌤️</button>
     </block>
 
     <!-- 已连接，正常查看状态 -->

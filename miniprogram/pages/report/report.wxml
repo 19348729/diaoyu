@@ -1,5 +1,5 @@
 <view class="container">
-  <view class="header">第三次握手：生成战报</view>
+  <view class="header">📋 今日战报</view>
 
   <view class="section">
     <view class="title">本次渔获等级</view>

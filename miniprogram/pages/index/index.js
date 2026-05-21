@@ -47,6 +47,11 @@ Page({
     predictTimeText: '',       // "2分钟前" / "刚刚"
     predictFreshness: 'none',  // none / fresh / normal / stale / expired
     predictStatusText: '',     // 底部状态栏文案
+
+    // 开口指数解读
+    biteRatingText: '',        // "🔥 爆护信号" / "👍 适合出钓" / ...
+    biteRatingColor: '',       // 颜色值
+    biteRatingBg: '',          // 背景色
   },
 
   onLoad() {
@@ -273,9 +278,13 @@ Page({
           const prediction = await api.getPrediction(sensors, res.latitude, res.longitude, fishType);
           
           const predictTime = Date.now();
+          const biteRating = this._calcBiteRating(prediction.bite_index);
           this.setData({
             lastPredictTime: predictTime,
             biteIndex: prediction.bite_index !== undefined ? prediction.bite_index : '--',
+            biteRatingText: biteRating.text,
+            biteRatingColor: biteRating.color,
+            biteRatingBg: biteRating.bg,
             tacticalTags: translateTags(prediction.tactical_tags || []),
             recommendedFish: prediction.recommended_fish || '',
             fishRanking: prediction.recommended_fishes || [],
@@ -565,6 +574,26 @@ Page({
       wx.hideLoading();
       console.error('[Index] 保存会话失败:', e);
       wx.showToast({ title: '保存失败', icon: 'none' });
+    }
+  },
+
+  /**
+   * 根据 bite_index 分值计算颜色、文案、背景色
+   * @param {number} score
+   * @returns {{text: string, color: string, bg: string}}
+   */
+  _calcBiteRating(score) {
+    if (score === undefined || score === null || score === '--') {
+      return { text: '', color: '#999', bg: '#f5f5f5' };
+    }
+    if (score >= 80) {
+      return { text: '🔥 爆护信号！心动不如行动', color: '#2e7d32', bg: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)' };
+    } else if (score >= 60) {
+      return { text: '👍 鱼情不错，适合出钓', color: '#f57f17', bg: 'linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%)' };
+    } else if (score >= 40) {
+      return { text: '⚠️ 鱼口一般，考验技术', color: '#e65100', bg: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)' };
+    } else {
+      return { text: '💀 建议改日或换钓点', color: '#c62828', bg: 'linear-gradient(135deg, #fce4ec 0%, #f8bbd0 100%)' };
     }
   }
 });

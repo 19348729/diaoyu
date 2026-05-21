@@ -1,5 +1,5 @@
 <view class="container">
-  <view class="header">第二次握手：AI救场</view>
+  <view class="header">🏥 智能诊断</view>
 
   <view class="section" wx:if="{{!prescription}}">
     <view class="title">当前水面症状 (可多选)</view>

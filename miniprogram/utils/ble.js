@@ -85,7 +85,19 @@ class BLEManager {
       const device = await this._scanForDevice();
       if (!device) {
         wx.hideLoading();
-        wx.showToast({ title: '未找到 FishProbe 设备', icon: 'none' });
+        // 提供详细排查引导与重试选项
+        const self = this;
+        wx.showModal({
+          title: '未找到 FishProbe 设备',
+          content: '请检查以下几项：\n1. 设备电源是否已开启（指示灯闪烁）\n2. 手机蓝牙是否已打开\n3. 设备是否在手机 2 米范围内\n4. 设备是否被其他手机连接占用',
+          confirmText: '重新搜索',
+          cancelText: '取消',
+          success(res) {
+            if (res.confirm) {
+              self.connectDevice(); // 用户点击重试
+            }
+          }
+        });
         return false;
       }
       this._deviceId = device.deviceId;

@@ -307,10 +307,17 @@ class FishingPredictionService:
         # ── 7. 季节修正 ──
         season_modifier = self._calc_season_modifier(session.season, tags)
 
-        # ── 8. 温跃层分析 ──
+        # ── 8. 温跃层分析（仅多层水温传感器可用） ──
         thermocline_modifier = 0
-        if "thermocline" in features:
+        is_single_sensor = (
+            latest.t_bottom is not None
+            and latest.t_surface is not None
+            and latest.t_bottom == latest.t_surface
+        )
+        if "thermocline" in features and not is_single_sensor:
             thermocline_modifier = self._calc_thermocline_modifier(latest, tags)
+        elif "thermocline" in features and is_single_sensor:
+            tags.append(TacticalTag.THERMOCLINE_SINGLE_SENSOR.value)
 
         # ── 9. 温度趋势分析 ──
         temp_rate_modifier = 0
@@ -344,9 +351,9 @@ class FishingPredictionService:
         # ── 13. 湿度评分 ── [P1 新增]
         humidity_modifier = self._calc_humidity_modifier(api, tags)
 
-        # ── 14. 三层水温空间分析 ── [P1 新增]
+        # ── 14. 三层水温空间分析（仅多层水温传感器可用） ── [P1 新增]
         thermal_profile_modifier = 0
-        if "thermocline" in features and len(readings) >= 2:
+        if "thermocline" in features and len(readings) >= 2 and not is_single_sensor:
             thermal_profile_modifier = self._calc_thermal_profile_modifier(
                 readings, tags
             )

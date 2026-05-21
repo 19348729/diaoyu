@@ -142,6 +142,12 @@ Page({
     })
   },
 
+  goToDecision() {
+    wx.navigateTo({
+      url: '/pages/decision/decision',
+    })
+  },
+
   onTapModify() {
     this.setData({
       isModifying: true,

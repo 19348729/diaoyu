@@ -116,6 +116,7 @@ class TacticalTag(str, Enum):
     # ── 三层水温空间分布标签 ──
     THERMAL_WELL_MIXED = "THERMAL_WELL_MIXED"          # 水体混合良好（温差<1℃）
     THERMAL_LAYERS_DIVERGING = "THERMAL_LAYERS_DIVERGING"  # 各层温度趋势分化
+    THERMOCLINE_SINGLE_SENSOR = "THERMOCLINE_SINGLE_SENSOR"  # V2 单水温探头，无法分析温跃层
 
     # ── 报告阶段标签 ──
     STAGE_INSTANT = "STAGE_INSTANT"        # 速报阶段

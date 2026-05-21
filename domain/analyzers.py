@@ -96,6 +96,8 @@ class TimeSeriesAnalyzer:
         for r in readings:
             if r.timestamp >= cutoff_ts:
                 val = getattr(r, field, None)
+                if field == "t_mid" and val is None and r.t_surface is not None and r.t_bottom is not None:
+                    val = round((r.t_surface + r.t_bottom) / 2, 2)
                 if val is not None:
                     points.append((r.timestamp, val))
 
@@ -169,6 +171,8 @@ class TimeSeriesAnalyzer:
             if r.timestamp >= cutoff_ts:
                 for field in sums:
                     val = getattr(r, field, None)
+                    if field == "t_mid" and val is None and r.t_surface is not None and r.t_bottom is not None:
+                        val = round((r.t_surface + r.t_bottom) / 2, 2)
                     if val is not None:
                         sums[field] += val
                         counts[field] += 1
@@ -196,10 +200,14 @@ class TimeSeriesAnalyzer:
         Returns:
             参考水温值，若对应层无数据则尝试降级到其他层
         """
+        t_mid = reading.t_mid
+        if t_mid is None and reading.t_surface is not None and reading.t_bottom is not None:
+            t_mid = round((reading.t_surface + reading.t_bottom) / 2, 2)
+
         layer_map = {
-            "bottom": [reading.t_bottom, reading.t_mid, reading.t_surface],
-            "mid":    [reading.t_mid, reading.t_bottom, reading.t_surface],
-            "top":    [reading.t_surface, reading.t_mid, reading.t_bottom],
+            "bottom": [reading.t_bottom, t_mid, reading.t_surface],
+            "mid":    [t_mid, reading.t_bottom, reading.t_surface],
+            "top":    [reading.t_surface, t_mid, reading.t_bottom],
         }
 
         candidates = layer_map.get(water_layer, layer_map["bottom"])
@@ -343,6 +351,8 @@ class TimeSeriesAnalyzer:
             for r in readings:
                 if r.timestamp >= cutoff_ts:
                     val = getattr(r, field, None)
+                    if field == "t_mid" and val is None and r.t_surface is not None and r.t_bottom is not None:
+                        val = round((r.t_surface + r.t_bottom) / 2, 2)
                     if val is not None:
                         points.append((r.timestamp, val))
 
