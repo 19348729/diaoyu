@@ -24,6 +24,9 @@
         <view class="presc-reason">原理：{{item.reason}}</view>
       </view>
     </view>
+
+    <!-- 装备上下文提示（AI 已将钓箱作为处方上下文） -->
+    <view wx:if="{{prescription.diagnosis}}" style="font-size: 22rpx; color: #1565c0; background: #e3f2fd; border-radius: 6rpx; padding: 8rpx 16rpx; margin-top: 16rpx; display: inline-block;">🎒 已结合你的数字钓箱生成处方</view>
     <view class="note" wx:if="{{prescription.confidence_note}}">💡 {{prescription.confidence_note}}</view>
     
     <button class="btn-outline mt" bindtap="resetRescue">重新问诊</button>

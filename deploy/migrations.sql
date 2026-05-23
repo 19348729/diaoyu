@@ -54,3 +54,12 @@ CREATE TABLE IF NOT EXISTS `user_baits` (
   INDEX `idx_openid` (`openid`),
   INDEX `idx_category` (`category`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户保存在数字钓箱里的饵料';
+
+
+-- -----------------------------------------------------------------------------
+-- PART 4: 为 fishing_sessions 表新增装备快照字段 (V2 装备闭环)
+-- -----------------------------------------------------------------------------
+-- 记录本次出钓使用的装备快照，后续可用于:
+--   1) 战报展示"本次使用装备"与渔获联动
+--   2) 长期沉淀装备表现评分、购置建议、大数据分析
+ALTER TABLE fishing_sessions ADD COLUMN equipment_used JSON DEFAULT NULL COMMENT '本次出钓使用的装备快照 {rods, mainLines, subLineHooks, floats, baits}';

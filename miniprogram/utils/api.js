@@ -199,9 +199,10 @@ function getSessionList(limit = 20) {
  * @param {object} fishContext 
  * @param {number} lat 
  * @param {number} lng 
+ * @param {object} [userInventory] - 用户数字钓箱快照 {rods, mainLines, subLineHooks, floats, baits}
  * @returns {Promise<object>}
  */
-function getAiRescue(sensors, symptomTags, fishContext, lat, lng) {
+function getAiRescue(sensors, symptomTags, fishContext, lat, lng, userInventory) {
   const formattedSensors = sensors.map(s => ({
     timestamp: s.timestamp,
     t_water: s.tWater !== undefined ? s.tWater : null,
@@ -213,8 +214,30 @@ function getAiRescue(sensors, symptomTags, fishContext, lat, lng) {
     symptom_tags: symptomTags,
     fish_context: fishContext,
     lat,
-    lng
+    lng,
+    user_inventory: userInventory || null
   });
+}
+
+/**
+ * 一次性拉取数字钓箱全量装备，组装成后端期望的 user_inventory 结构
+ * 钓鱼实战：装备库即出钓清单（钓友习惯全部带上）
+ * @returns {Promise<object>} {rods, mainLines, subLineHooks, floats, baits}
+ */
+function getUserInventoryAll() {
+  return Promise.all([
+    getUserRods().catch(() => ({ data: [] })),
+    getUserMainLines().catch(() => ({ data: [] })),
+    getUserSubLineHooks().catch(() => ({ data: [] })),
+    getUserFloats().catch(() => ({ data: [] })),
+    getUserBaits().catch(() => ({ data: [] })),
+  ]).then(([rodsRes, mlRes, slRes, flRes, btRes]) => ({
+    rods: (rodsRes && rodsRes.data) || [],
+    mainLines: (mlRes && mlRes.data) || [],
+    subLineHooks: (slRes && slRes.data) || [],
+    floats: (flRes && flRes.data) || [],
+    baits: (btRes && btRes.data) || [],
+  }));
 }
 
 /**
@@ -504,6 +527,7 @@ module.exports = {
   saveSession,
   getSessionList,
   getAiRescue,
+  getUserInventoryAll,
   getPoster,
   getRodDatabase,
   addUserRod,

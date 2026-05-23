@@ -1394,6 +1394,8 @@ class SessionSaveRequest(BaseModel):
     bite_index_max: Optional[int] = None
     bite_index_avg: Optional[int] = None
     recommended_fish: Optional[str] = None
+    # 本次出钓使用的装备快照 (V2 装备闭环)
+    equipment_used: Optional[Dict] = Field(None, description="本次出钓使用的装备快照 {rods, mainLines, subLineHooks, floats, baits}")
 
 
 @app.post("/api/session/save", tags=["会话日志"])
@@ -1442,6 +1444,7 @@ async def save_session(
         bite_index_max=req.bite_index_max,
         bite_index_avg=req.bite_index_avg,
         recommended_fish=req.recommended_fish,
+        equipment_used=req.equipment_used,
     )
     db.add(session)
     db.commit()

@@ -50,7 +50,15 @@ Page({
       
       const context = app.globalData.fishContext || { target: '未知', method: '未知', bait: '未知' }
       
-      const res = await api.getAiRescue(sensors, selectedTags, context, loc.lat, loc.lng)
+      // 拉取数字钓箱全量装备，让 AI 处方能精准到型号
+      let userInventory = null
+      try {
+        userInventory = await api.getUserInventoryAll()
+      } catch (invErr) {
+        console.warn('[Rescue] 拉取装备库失败，降级为通用建议:', invErr)
+      }
+      
+      const res = await api.getAiRescue(sensors, selectedTags, context, loc.lat, loc.lng, userInventory)
       if (res.status === 'ok') {
         this.setData({ prescription: res.prescription })
         wx.showToast({ title: '分析完成', icon: 'success' })

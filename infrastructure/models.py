@@ -108,6 +108,10 @@ class FishingSession(Base):
     bite_index_avg = Column(Integer, nullable=True, comment="开口指数平均值")
     recommended_fish = Column(String(32), nullable=True, comment="推荐鱼种（出现频率最高的）")
 
+    # 本次出钓使用的装备快照 (V2 装备闭环)
+    # 结构: {rods, mainLines, subLineHooks, floats, baits} - 与 user_inventory 一致
+    equipment_used = Column(JSON, nullable=True, comment="本次出钓使用的装备快照")
+
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
 
 class UserRod(Base):

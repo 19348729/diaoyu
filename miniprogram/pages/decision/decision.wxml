@@ -95,6 +95,47 @@
         </view>
       </view>
 
+      <!-- AI 装备推荐（从数字钓箱匹配） -->
+      <view wx:if="{{tacticalAdvice.equipment_advice}}" style="background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 8rpx; padding: 20rpx; margin-top: 16rpx;">
+        <text style="font-size: 26rpx; color: #2e7d32; font-weight: bold; display: block; margin-bottom: 12rpx;">🎒 AI 装备推荐（已匹配你的钓箱）</text>
+        <view wx:if="{{tacticalAdvice.equipment_advice.rod && tacticalAdvice.equipment_advice.rod.recommendation}}" style="margin-bottom: 10rpx;">
+          <view style="display: flex;">
+            <text style="font-size: 24rpx; color: #2e7d32; min-width: 110rpx; font-weight: bold;">🎣 鱼竿:</text>
+            <text style="font-size: 24rpx; color: #1b5e20; flex: 1;">{{tacticalAdvice.equipment_advice.rod.recommendation}}{{tacticalAdvice.equipment_advice.rod.matching_id ? ' ✓' : ''}}</text>
+          </view>
+          <text wx:if="{{tacticalAdvice.equipment_advice.rod.reason}}" style="font-size: 22rpx; color: #666; display: block; margin-left: 110rpx;">{{tacticalAdvice.equipment_advice.rod.reason}}</text>
+        </view>
+        <view wx:if="{{tacticalAdvice.equipment_advice.main_line && tacticalAdvice.equipment_advice.main_line.recommendation}}" style="margin-bottom: 10rpx;">
+          <view style="display: flex;">
+            <text style="font-size: 24rpx; color: #2e7d32; min-width: 110rpx; font-weight: bold;">🧵 主线:</text>
+            <text style="font-size: 24rpx; color: #1b5e20; flex: 1;">{{tacticalAdvice.equipment_advice.main_line.recommendation}}{{tacticalAdvice.equipment_advice.main_line.matching_id ? ' ✓' : ''}}</text>
+          </view>
+          <text wx:if="{{tacticalAdvice.equipment_advice.main_line.reason}}" style="font-size: 22rpx; color: #666; display: block; margin-left: 110rpx;">{{tacticalAdvice.equipment_advice.main_line.reason}}</text>
+        </view>
+        <view wx:if="{{tacticalAdvice.equipment_advice.sub_line_hook && tacticalAdvice.equipment_advice.sub_line_hook.recommendation}}" style="margin-bottom: 10rpx;">
+          <view style="display: flex;">
+            <text style="font-size: 24rpx; color: #2e7d32; min-width: 110rpx; font-weight: bold;">🪝 子线双钩:</text>
+            <text style="font-size: 24rpx; color: #1b5e20; flex: 1;">{{tacticalAdvice.equipment_advice.sub_line_hook.recommendation}}{{tacticalAdvice.equipment_advice.sub_line_hook.matching_id ? ' ✓' : ''}}</text>
+          </view>
+          <text wx:if="{{tacticalAdvice.equipment_advice.sub_line_hook.reason}}" style="font-size: 22rpx; color: #666; display: block; margin-left: 110rpx;">{{tacticalAdvice.equipment_advice.sub_line_hook.reason}}</text>
+        </view>
+        <view wx:if="{{tacticalAdvice.equipment_advice.float && tacticalAdvice.equipment_advice.float.recommendation}}" style="margin-bottom: 10rpx;">
+          <view style="display: flex;">
+            <text style="font-size: 24rpx; color: #2e7d32; min-width: 110rpx; font-weight: bold;">🌶️ 浮漂:</text>
+            <text style="font-size: 24rpx; color: #1b5e20; flex: 1;">{{tacticalAdvice.equipment_advice.float.recommendation}}{{tacticalAdvice.equipment_advice.float.matching_id ? ' ✓' : ''}}</text>
+          </view>
+          <text wx:if="{{tacticalAdvice.equipment_advice.float.reason}}" style="font-size: 22rpx; color: #666; display: block; margin-left: 110rpx;">{{tacticalAdvice.equipment_advice.float.reason}}</text>
+        </view>
+        <view wx:if="{{tacticalAdvice.equipment_advice.bait && tacticalAdvice.equipment_advice.bait.recommendation}}">
+          <view style="display: flex;">
+            <text style="font-size: 24rpx; color: #2e7d32; min-width: 110rpx; font-weight: bold;">🍚 饵料:</text>
+            <text style="font-size: 24rpx; color: #1b5e20; flex: 1;">{{tacticalAdvice.equipment_advice.bait.recommendation}}{{tacticalAdvice.equipment_advice.bait.matching_id ? ' ✓' : ''}}</text>
+          </view>
+          <text wx:if="{{tacticalAdvice.equipment_advice.bait.reason}}" style="font-size: 22rpx; color: #666; display: block; margin-left: 110rpx;">{{tacticalAdvice.equipment_advice.bait.reason}}</text>
+        </view>
+        <text style="font-size: 20rpx; color: #999; display: block; margin-top: 10rpx;">✓ 表示已从你的数字钓箱中匹配</text>
+      </view>
+
       <!-- 鱼种排行 -->
       <view style="margin-top: 16rpx; padding-top: 12rpx; border-top: 1px dashed #eee;" wx:if="{{fishRanking.length > 1}}">
         <text style="font-size: 24rpx; color: #999; display: block; margin-bottom: 10rpx;">🏆 鱼种适宜度排行</text>

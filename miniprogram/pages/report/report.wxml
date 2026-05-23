@@ -30,6 +30,17 @@
       <view class="p-title">{{posterData.title}}</view>
       <view class="p-line" wx:for="{{posterData.text_lines}}" wx:key="*this">{{item}}</view>
     </view>
+
+    <!-- 本次使用装备快照 -->
+    <view wx:if="{{equipmentUsed}}" class="section" style="margin-top: 24rpx;">
+      <view class="title">🎒 本次出钓装备</view>
+      <view wx:if="{{equipmentUsed.rods.length > 0}}" style="font-size: 24rpx; color: #555; margin: 6rpx 0;">🎣 鱼竿 x{{equipmentUsed.rods.length}}</view>
+      <view wx:if="{{equipmentUsed.mainLines.length > 0}}" style="font-size: 24rpx; color: #555; margin: 6rpx 0;">🧵 主线 x{{equipmentUsed.mainLines.length}}</view>
+      <view wx:if="{{equipmentUsed.subLineHooks.length > 0}}" style="font-size: 24rpx; color: #555; margin: 6rpx 0;">🪝 子线双钩 x{{equipmentUsed.subLineHooks.length}}</view>
+      <view wx:if="{{equipmentUsed.floats.length > 0}}" style="font-size: 24rpx; color: #555; margin: 6rpx 0;">🌶️ 浮漂 x{{equipmentUsed.floats.length}}</view>
+      <view wx:if="{{equipmentUsed.baits.length > 0}}" style="font-size: 24rpx; color: #555; margin: 6rpx 0;">🍚 饵料 x{{equipmentUsed.baits.length}}</view>
+    </view>
+
     <button class="btn-outline mt" bindtap="sharePoster">分享给钓友</button>
   </view>
 </view>
