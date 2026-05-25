@@ -30,7 +30,7 @@ class BLEManager {
 
     // 回调函数
     this._onDataCallback = null;       // 收到数据回调
-    this._onConnectCallback = null;    // 连接状态变化回调
+    this._onConnectCallbacks = [];     // 连接状态变化回调（支持多订阅，避免页面间互相覆盖）
     this._onTimeSyncCallback = null;   // 对表完成回调
     this._onDumpCompleteCallback = null; // 快闪完成回调
 
@@ -40,9 +40,7 @@ class BLEManager {
         console.log('[BLE] 连接已断开:', res.deviceId);
         this._connected = false;
         this._timeSynced = false;
-        if (this._onConnectCallback) {
-          this._onConnectCallback(false);
-        }
+        this._notifyConnect(false);
       }
     });
 
@@ -65,9 +63,27 @@ class BLEManager {
    * 注册回调
    */
   onData(callback) { this._onDataCallback = callback; }
-  onConnect(callback) { this._onConnectCallback = callback; }
+  /**
+   * 注册连接状态变化回调（支持多订阅）
+   * 返回一个取消函数，调用后可移除该回调
+   */
+  onConnect(callback) {
+    if (typeof callback !== 'function') return () => {};
+    this._onConnectCallbacks.push(callback);
+    return () => {
+      const idx = this._onConnectCallbacks.indexOf(callback);
+      if (idx >= 0) this._onConnectCallbacks.splice(idx, 1);
+    };
+  }
   onTimeSync(callback) { this._onTimeSyncCallback = callback; }
   onDumpComplete(callback) { this._onDumpCompleteCallback = callback; }
+
+  /** 内部广播连接状态变更 */
+  _notifyConnect(connected) {
+    this._onConnectCallbacks.forEach((cb) => {
+      try { cb(connected); } catch (e) { console.error('[BLE] onConnect callback error:', e); }
+    });
+  }
 
   /**
    * 扫描并连接 FishProbe 设备
@@ -145,8 +161,8 @@ class BLEManager {
       wx.hideLoading();
       wx.showToast({ title: '连接成功', icon: 'success' });
 
-      if (this._onConnectCallback) {
-        this._onConnectCallback(true);
+      if (this._onConnectCallbacks.length) {
+        this._notifyConnect(true);
       }
       if (this._onTimeSyncCallback) {
         this._onTimeSyncCallback();
@@ -180,9 +196,7 @@ class BLEManager {
     this._timeSynced = false;
     this._deviceId = null;
     console.log('[BLE] 已主动断开');
-    if (this._onConnectCallback) {
-      this._onConnectCallback(false);
-    }
+    this._notifyConnect(false);
   }
 
   /**
@@ -481,6 +495,23 @@ class BLEManager {
       case protocol.CMD.STATUS_REPLY:
         console.log('[BLE] 设备状态:', data);
         break;
+
+      case protocol.CMD.SONAR_DATA: {
+        // 水下声呐数据：不入历史/不上报后端，仅更新全局供页面 onShow 恢复
+        const appS = getApp();
+        appS.globalData.latestSonar = {
+          timestamp: data.timestamp,
+          distanceCm: data.distanceCm,
+          baselineCm: data.baselineCm,
+          status: data.status,
+          fishEvent: data.fishEvent,
+        };
+        // fish_event 上升沿计数器（可选，供页面展示计数）
+        if (data.fishEvent) {
+          appS.globalData.sonarFishEventCount = (appS.globalData.sonarFishEventCount || 0) + 1;
+        }
+        break;
+      }
     }
 
     // 触发数据回调

@@ -16,7 +16,7 @@ from config import (
 )
 from ble.protocol import (
     decode_incoming, encode_realtime_data, encode_history_batch,
-    encode_status_reply, encode_dump_complete,
+    encode_status_reply, encode_dump_complete, encode_sonar_data,
 )
 
 # ── BLE 事件常量 ──
@@ -229,6 +229,19 @@ class BLEService:
             return False
 
         frame = encode_realtime_data(timestamp, t_water, t_air, p_local)
+        return self._send(frame)
+
+    def send_sonar(self, timestamp, distance_cm, baseline_cm,
+                   status: int, fish_event: bool) -> bool:
+        """发送一帧水下声呐实时数据（只要已连接+已对表即可，不受 realtime_mode 开关限制）。
+
+        设计说明：声呐是强实时信号，使用独立指令码 CMD_SONAR_DATA。
+        主循环不使用 ring_buffer 缓存（量大且价值随时间衰减）。
+        """
+        if not self._connected or not self._time_synced:
+            return False
+        frame = encode_sonar_data(timestamp, distance_cm, baseline_cm,
+                                   status, fish_event)
         return self._send(frame)
 
     def send_history_batch(self) -> bool:

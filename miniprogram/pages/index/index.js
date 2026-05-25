@@ -24,6 +24,17 @@ Page({
     pLocal: '--',
     updateTime: '--',
 
+    // 水下声呐数据（来自 ESP32-B 测距板，通过 ESP-NOW -> ESP32-A -> BLE）
+    sonarHasData: false,
+    sonarDistance: '--',     // 当前距离 cm
+    sonarBaseline: '--',     // 基线（30秒滑动均值）cm
+    sonarStatus: -1,         // 0/1/2/3
+    sonarStatusText: '等待数据',
+    sonarStatusClass: 'idle',
+    sonarFishEvent: false,   // 当前帧是否检测到鱼经过
+    sonarFishCount: 0,       // 累计鱼经过次数
+    sonarUpdateTime: '--',
+
     // 设备状态
     bufferUnsent: 0,
     bufferCount: 0,
@@ -205,7 +216,47 @@ Page({
           bufferCount: data.count,
         });
         break;
+
+      case protocol.CMD.SONAR_DATA:
+        this._updateSonarDisplay(data);
+        break;
     }
+  },
+
+  /**
+   * 更新水下声呐显示
+   * @param {object} data - 解码后的声呐帧 {timestamp, distanceCm, baselineCm, status, fishEvent}
+   */
+  _updateSonarDisplay(data) {
+    const app = getApp();
+    const fmt = (v) => (v !== null && v !== undefined) ? v.toFixed(1) : '--';
+
+    // 状态码 -> 文案 + 样式 class
+    const statusMap = {
+      0: { text: '正常', cls: 'ok' },
+      1: { text: '超出量程', cls: 'warn' },
+      2: { text: '距离过近', cls: 'warn' },
+      3: { text: '通讯失败', cls: 'err' },
+    };
+    const st = statusMap[data.status] || { text: '未知', cls: 'idle' };
+
+    let timeStr = '--';
+    if (data.timestamp) {
+      const d = new Date(data.timestamp * 1000);
+      timeStr = `${this._pad(d.getHours())}:${this._pad(d.getMinutes())}:${this._pad(d.getSeconds())}`;
+    }
+
+    this.setData({
+      sonarHasData: true,
+      sonarDistance: fmt(data.distanceCm),
+      sonarBaseline: fmt(data.baselineCm),
+      sonarStatus: data.status,
+      sonarStatusText: st.text,
+      sonarStatusClass: st.cls,
+      sonarFishEvent: !!data.fishEvent,
+      sonarFishCount: app.globalData.sonarFishEventCount || 0,
+      sonarUpdateTime: timeStr,
+    });
   },
 
   /**
@@ -238,6 +289,11 @@ Page({
     const latest = app.globalData.latestData;
     if (latest && latest.timestamp > 0) {
       this._updateRealtimeDisplay(latest);
+    }
+    // 恢复声呐显示
+    const sonar = app.globalData.latestSonar;
+    if (sonar && sonar.timestamp > 0) {
+      this._updateSonarDisplay(sonar);
     }
   },
 

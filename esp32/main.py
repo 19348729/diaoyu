@@ -3,7 +3,7 @@ ESP32 钓鱼传感器主程序 (Main Entry)
 =====================================
 初始化所有模块，运行主采集-通信循环。
 
-硬件版本: v2（单水温 DS18B20 + BMP280 气温/气压）
+硬件版本: v2（单水温 DS18B20 + BMP280 气温/气压 + 可选 ESP32-B 水下声呐）
 
 主循环逻辑（每 60 秒一轮）：
   1. 读取水温（DS18B20）
@@ -16,6 +16,9 @@ ESP32 钓鱼传感器主程序 (Main Entry)
      - 未连接 → 数据留在缓冲区
   6. 历史数据采用手动拉取模式：由小程序下发 CMD_PULL_HISTORY
      主动拉取，每次回发一批（最多 BLE_BATCH_SIZE 条）。
+  7. 水下声呐数据：在 keepalive_sleep 的 tick_callback 中以 ~50ms 节拍
+     非阻塞轮询 ESP-NOW，收到一帧即立刻通过 BLE CMD_SONAR_DATA 转发。
+     声呐数据不入 ring_buffer（量大且强实时，无需历史补传）。
 
 充电宝保活：
   采用 keepalive_sleep 替代 time.sleep_ms，在长睡眠期间
@@ -31,37 +34,41 @@ from sensors.pressure import PressureSensor
 from storage.ring_buffer import RingBuffer
 from utils.time_sync import TimeSync
 from utils.keepalive import keepalive_sleep
+import utils.keepalive as _ka  # 用于关闭 WiFi 踢脚（避免与 ESP-NOW 冲突）
 from ble.service import BLEService
+from sonar.receiver import SonarReceiver
 
 
-def _disable_wifi():
-    """初始关闭 WiFi 射频。
+def _enable_sta_for_espnow():
+    """启用 STA WiFi 并关闭 AP，仅供 ESP-NOW 使用（不连接任何 AP）。
 
-    MicroPython 启动时 WiFi STA 模式默认处于 active 状态。
-    先关闭 WiFi 建立基准，保活模块会在需要时短暂开启 WiFi
-    产生电流脉冲以维持充电宝供电。
+    ESP-NOW 协议依赖 WiFi 射频。STA 保持 active(True) 但不连接 AP，
+    通信信道默认 1，与 ESP32-B 端 esp-hcrs04.py 默认信道一致。
     """
     try:
         import network
         sta = network.WLAN(network.STA_IF)
         ap = network.WLAN(network.AP_IF)
-        if sta.active():
-            sta.active(False)
-            print("[系统] WiFi STA 已关闭（初始状态）")
+        if not sta.active():
+            sta.active(True)
         if ap.active():
             ap.active(False)
-            print("[系统] WiFi AP 已关闭（初始状态）")
+        print("[系统] WiFi STA 已开启（用于 ESP-NOW），AP 已关闭")
     except Exception as e:
-        print("[系统] 关闭 WiFi 失败（可忽略）: {}".format(e))
+        print("[系统] 启用 STA 失败（ESP-NOW 可能不可用）: {}".format(e))
 
 
 def main():
     print("=" * 40)
-    print("FishProbe ESP32 传感器系统 (v2)")
+    print("FishProbe ESP32 传感器系统 (v2 + 水下声呐)")
     print("=" * 40)
 
-    # ── 0. 关闭 WiFi 省电（仅使用 BLE）──
-    _disable_wifi()
+    # ── 0. 启用 STA WiFi（供 ESP-NOW 使用）──
+    _enable_sta_for_espnow()
+
+    # 关闭 keepalive 内的 WiFi 踢脚：它会反复 active(True/False)，
+    # 而 ESP-NOW 需要 STA 常驻 active，二者冲突。
+    _ka._WIFI_KICK_ENABLED = False
 
     # ── 1. 初始化各模块 ──
     time_sync = TimeSync()
@@ -69,6 +76,7 @@ def main():
     ble_service = BLEService(time_sync, ring_buffer)
     temp_sensor = TemperatureSensor()
     press_sensor = PressureSensor()
+    sonar = SonarReceiver()
 
     print("\n[系统] 初始化传感器...")
     temp_ok = temp_sensor.init()
@@ -87,8 +95,29 @@ def main():
     print("\n[系统] 初始化 BLE...")
     ble_service.init()
 
+    print("\n[系统] 初始化 ESP-NOW 声呐接收器...")
+    sonar_ok = sonar.init()
+    if not sonar_ok:
+        print("[系统] 警告: ESP-NOW 不可用，将不上报水下声呐数据（不影响主链路）。")
+
+    # ── 主循环 tick: 既处理 BLE 快闪 Dump，又轮询 ESP-NOW 声呐 ──
+    def tick_callback():
+        # BLE 快闪历史 Dump
+        ble_service.process_fast_dump()
+        # ESP-NOW 声呐：非阻塞收一帧并立刻 BLE 转发
+        if sonar.initialized:
+            pkt = sonar.poll(timeout_ms=0)
+            if pkt is not None and ble_service.is_connected and ble_service.is_time_synced:
+                ble_service.send_sonar(
+                    time_sync.now(),
+                    pkt["distance_cm"],
+                    pkt["baseline_cm"],
+                    pkt["status"],
+                    pkt["fish_event"],
+                )
+
     print("\n[系统] 启动完成！开始采集循环 (间隔: {}秒)".format(SAMPLE_INTERVAL_SEC))
-    print("[系统] 充电宝保活模式已启用（脉冲间隔 2 秒）")
+    print("[系统] 充电宝保活模式已启用（脉冲间隔 2 秒，WiFi 踢脚已禁用以兼容 ESP-NOW）")
     print("[系统] 等待小程序连接并对表...\n")
 
     # ── 2. 主循环 ──
@@ -144,11 +173,11 @@ def main():
         # ── 2.7 精确等待（扣除采集耗时）──
         # 使用 keepalive_sleep 替代 time.sleep_ms，
         # 在睡眠期间周期性产生电流脉冲，防止充电宝小电流保护断电
-        # 传入 tick_callback 用于后台处理 BLE 快闪 Dump
+        # 传入 tick_callback 用于后台处理 BLE 快闪 Dump + ESP-NOW 声呐转发
         elapsed = time.ticks_diff(time.ticks_ms(), loop_start)
         sleep_ms = max(0, SAMPLE_INTERVAL_SEC * 1000 - elapsed)
         if sleep_ms > 0:
-            keepalive_sleep(sleep_ms, tick_callback=ble_service.process_fast_dump)
+            keepalive_sleep(sleep_ms, tick_callback=tick_callback)
 
 
 def _print_status(count, timestamp, t_water, t_air, p_local, ble, buf, ts):
