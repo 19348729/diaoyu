@@ -133,6 +133,11 @@ def init_espnow():
     sta = network.WLAN(network.STA_IF)
     sta.active(True)
     # 不连接任何 AP；ESP-NOW 默认使用 STA 信道（信道 1）
+    # ⚠ 不同固件不连 AP 时默认信道可能不一，显式锁定避免 A/B 不一致
+    try:
+        sta.config(channel=1)
+    except Exception as err:
+        print("[ESP-NOW] 锁定 channel=1 失败（继续运行）: {}".format(err))
 
     e = espnow.ESPNow()
     e.active(True)
@@ -143,7 +148,12 @@ def init_espnow():
         msg = str(err)
         if "ESP_ERR_ESPNOW_EXIST" not in msg and "exists" not in msg:
             print("[ESP-NOW] add_peer 失败（继续运行）: {}".format(err))
-    print("[ESP-NOW] 已就绪，本机 STA MAC =", _format_mac(sta.config('mac')))
+    try:
+        ch = sta.config('channel')
+    except Exception:
+        ch = '?'
+    print("[ESP-NOW] 已就绪，本机 STA MAC = {} channel = {}".format(
+        _format_mac(sta.config('mac')), ch))
     return e
 
 
@@ -178,6 +188,8 @@ print("=" * 50)
 
 espnow_dev = init_espnow()
 seq = 0
+send_ok = 0
+send_fail = 0
 
 while True:
     loop_start = time.ticks_ms()
@@ -198,8 +210,14 @@ while True:
     pkt = encode_sonar_packet(distance_mm, status, seq)
     try:
         espnow_dev.send(BROADCAST_MAC, pkt, False)  # 第三参数=sync，False 异步更省时
+        send_ok += 1
     except Exception as e:
+        send_fail += 1
         print("[ESP-NOW] 发送异常: {}".format(e))
+
+    # 每 30 帧（约 30 秒）打一次心跳，确认 B 端还在发包
+    if (seq % 30) == 0:
+        print("[心跳] 累计 send_ok={} send_fail={} seq={}".format(send_ok, send_fail, seq))
 
     seq = (seq + 1) & 0xFF
 

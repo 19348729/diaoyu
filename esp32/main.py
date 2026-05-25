@@ -44,6 +44,7 @@ def _enable_sta_for_espnow():
 
     ESP-NOW 协议依赖 WiFi 射频。STA 保持 active(True) 但不连接 AP，
     通信信道默认 1，与 ESP32-B 端 esp-hcrs04.py 默认信道一致。
+    ⚠ 不同 MicroPython 固件不连 AP 时默认信道可能不一，这里显式锁定为 1。
     """
     try:
         import network
@@ -53,6 +54,10 @@ def _enable_sta_for_espnow():
             sta.active(True)
         if ap.active():
             ap.active(False)
+        try:
+            sta.config(channel=1)
+        except Exception as e:
+            print("[系统] 锁定 STA channel=1 失败（继续运行）: {}".format(e))
         print("[系统] WiFi STA 已开启（用于 ESP-NOW），AP 已关闭")
     except Exception as e:
         print("[系统] 启用 STA 失败（ESP-NOW 可能不可用）: {}".format(e))
@@ -146,7 +151,7 @@ def main():
         if sample_count % 10 == 1:
             _print_status(
                 sample_count, timestamp, t_water, t_air, p_local,
-                ble_service, ring_buffer, time_sync,
+                ble_service, ring_buffer, time_sync, sonar,
             )
 
         # ── 2.5 BLE 数据发送策略 ──
@@ -180,7 +185,7 @@ def main():
             keepalive_sleep(sleep_ms, tick_callback=tick_callback)
 
 
-def _print_status(count, timestamp, t_water, t_air, p_local, ble, buf, ts):
+def _print_status(count, timestamp, t_water, t_air, p_local, ble, buf, ts, sonar=None):
     """打印调试状态信息。"""
     cal = "已校准" if ts.is_calibrated else "未校准"
     conn = "已连接" if ble.is_connected else "未连接"
@@ -196,6 +201,19 @@ def _print_status(count, timestamp, t_water, t_air, p_local, ble, buf, ts):
         conn, synced, cal,
         buf.unsent_count, buf.count,
     ))
+    # 声呐链路统计：rx=收到的合法帧数, drop=丢弃的非法帧数, last=距上次收包多少秒
+    if sonar is not None and sonar.initialized:
+        st = sonar.get_status()
+        last_recv_ms = st.get("last_recv_ms", 0)
+        if last_recv_ms:
+            ago_ms = time.ticks_diff(time.ticks_ms(), last_recv_ms)
+            ago = "{}s前".format(ago_ms // 1000)
+        else:
+            ago = "从未"
+        print("        └─ 声呐: rx={} drop={} 最近收包={} dist_cm={} baseline_cm={}".format(
+            st.get("packets", 0), st.get("dropped", 0), ago,
+            st.get("last_distance_cm"), st.get("last_baseline_cm"),
+        ))
 
 
 # MicroPython 入口

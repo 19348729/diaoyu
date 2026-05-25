@@ -49,6 +49,22 @@ class SonarReceiver:
             import espnow  # MicroPython 内置
             self._espnow = espnow.ESPNow()
             self._espnow.active(True)
+            # 部分 MicroPython 固件接收广播帧也需要显式 add_peer(broadcast)
+            try:
+                self._espnow.add_peer(b'\xff\xff\xff\xff\xff\xff')
+                print("[Sonar] 已添加广播 peer (FF:FF:FF:FF:FF:FF)")
+            except OSError as e:
+                # ESP_ERR_ESPNOW_EXIST 等错误可忽略
+                print("[Sonar] add_peer(broadcast) 跳过: {}".format(e))
+            # 打印本机 STA MAC 与 WiFi 信道，便于和 ESP32-B 比对
+            try:
+                import network, binascii
+                sta = network.WLAN(network.STA_IF)
+                mac = binascii.hexlify(sta.config('mac'), ':').decode()
+                ch = sta.config('channel')
+                print("[Sonar] STA MAC={} channel={}".format(mac, ch))
+            except Exception as e:
+                print("[Sonar] 读取 MAC/channel 失败: {}".format(e))
             self._initialized = True
             print("[Sonar] ESP-NOW 接收器已启动（仅接收 magic=0x5A 的广播包）")
             return True
@@ -97,11 +113,23 @@ class SonarReceiver:
             return None
         if len(msg) != SONAR_PKT_LEN:
             self._dropped_count += 1
+            # 收到非声呐协议长度的包，前几次打印出来，便于排查
+            if self._dropped_count <= 5:
+                try:
+                    import binascii
+                    src = binascii.hexlify(host, ':').decode() if host else "?"
+                    print("[Sonar] 丢弃异常长度帧 len={} src={} (#{})".format(
+                        len(msg), src, self._dropped_count))
+                except Exception:
+                    print("[Sonar] 丢弃异常长度帧 len={} (#{})".format(
+                        len(msg), self._dropped_count))
             return None
 
         pkt = decode_sonar_packet(bytes(msg))
         if pkt is None:
             self._dropped_count += 1
+            if self._dropped_count <= 5:
+                print("[Sonar] 解码失败（magic/ver/crc 不符）#{}".format(self._dropped_count))
             return None
 
         self._packet_count += 1
@@ -109,6 +137,11 @@ class SonarReceiver:
         self._last_recv_ms = now_ms
         self._last_seq = pkt["seq"]
         self._last_status = pkt["status"]
+
+        # 前 5 帧 + 之后每 50 帧打印一次，确认链路活着且不刷屏
+        if self._packet_count <= 5 or self._packet_count % 50 == 0:
+            print("[Sonar] RX #{} seq={} dist_mm={} status={}".format(
+                self._packet_count, pkt["seq"], pkt["distance_mm"], pkt["status"]))
 
         if pkt["valid"]:
             dist_cm = pkt["distance_mm"] / 10.0
