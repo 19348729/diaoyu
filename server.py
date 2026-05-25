@@ -25,6 +25,7 @@ from domain.forecast import FishingForecastService
 from domain.engine import FishingEngine
 from domain.prescription import PrescriptionService
 from domain.poster import PosterGenerator
+from domain.master_kb import MasterKBRetriever
 from domain.verification import RodVerificationService
 from infrastructure.database import engine, Base, get_db
 from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook, UserFloat, UserBait, PublicBait
@@ -93,6 +94,7 @@ class PredictResponse(BaseModel):
     weather_info: Optional[Dict] = Field(default=None, description="实时天气数据汇总")
     solunar_info: Dict = Field(default_factory=dict, description="月相信息")
     tactical_advice: Dict = Field(default_factory=dict, description="结构化战术建议")
+    master_tips: List[Dict] = Field(default_factory=list, description="大师知识库匹配的 Top-K 战术秘籍")
 
 
 class RealtimeSensorRequest(BaseModel):
@@ -992,6 +994,56 @@ async def predict(
         "humidity": api_data.humidity
     }
 
+    # ── 大师知识库 RAG 检索（阶段三注入） ──
+    # 从预测结果中提取查询维度，召回 Top-3 大师战术秘籍
+    master_tips = []
+    try:
+        # 提取水温（取最新传感器读数的水底温度）
+        rag_t_water = None
+        if readings:
+            latest_reading = readings[-1]
+            rag_t_water = latest_reading.t_bottom
+
+        # 提取气压状态（从战术标签推导）
+        rag_pressure_state = None
+        for tag in best_result.tactical_tags:
+            if "PRESSURE_CRASH" in tag or "气压骤降" in tag:
+                rag_pressure_state = "骤降"
+                break
+            elif "PRESSURE_DROPPING" in tag or "气压下降" in tag:
+                rag_pressure_state = "骤降"
+                break
+            elif "PRESSURE_RISING" in tag or "气压上升" in tag:
+                rag_pressure_state = "上升"
+                break
+            elif "PRESSURE_STABLE" in tag or "气压稳定" in tag:
+                rag_pressure_state = "稳定"
+                break
+
+        kb = MasterKBRetriever.get()
+        rag_records = kb.search(
+            target_fish=best_match["name"],
+            t_water=rag_t_water,
+            pressure_state=rag_pressure_state,
+            top_k=3,
+        )
+        # 格式化为前端友好的结构
+        for rec in rag_records:
+            master_tips.append({
+                "master": rec.get("master", ""),
+                "title": rec.get("title", ""),
+                "line": rec.get("line", ""),
+                "float_setup": rec.get("float_setup", ""),
+                "recipe": rec.get("recipe", ""),
+                "flavor": rec.get("flavor", ""),
+                "rhythm": rec.get("rhythm", ""),
+                "video_url": rec.get("video_url", ""),
+                "season": rec.get("season", ""),
+                "temp_range": f"{rec.get('temp_min', '?')}~{rec.get('temp_max', '?')}℃",
+            })
+    except Exception as e:
+        print(f"[Warning] RAG retrieval failed in /api/predict: {e}")
+
     response = PredictResponse(
         recommended_fish=best_match["name"],
         recommended_fishes=recommended_fishes,
@@ -1004,6 +1056,7 @@ async def predict(
         season_note=best_result.season_note or None,
         weather_info=weather_info,
         tactical_advice=best_result.tactical_advice,
+        master_tips=master_tips,
     )
 
     # 如果有登录态，异步或同步保存预测日志
