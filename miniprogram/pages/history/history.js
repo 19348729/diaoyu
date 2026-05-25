@@ -65,12 +65,16 @@ Page({
 
   _refreshData() {
     const history = app.globalData.historyData || [];
-    const count = history.length;
-    
+    const totalCount = history.length;
+
+    // 按当前 timeRange 过滤，使“数据概览”与图表保持一致
+    const filtered = this._filterByTimeRange(history);
+    const count = filtered.length;
+
     this.setData({ recordCount: count });
 
     if (count > 0) {
-      const summary = this._calcSummary(history);
+      const summary = this._calcSummary(filtered);
       this.setData({ summary });
     } else {
       this.setData({
@@ -88,6 +92,19 @@ Page({
     }
   },
 
+  /**
+   * 按当前 timeRange 过滤记录。
+   * timeRange == 0 表示“全部”，不过滤。
+   * 以最新一条记录的时间为参考（设备可能离线，不能用当前系统时间）。
+   */
+  _filterByTimeRange(records) {
+    if (!records || records.length === 0) return [];
+    if (this.data.timeRange <= 0) return records;
+    const latestTs = records[records.length - 1].timestamp;
+    const cutoff = latestTs - this.data.timeRange * 60;
+    return records.filter(r => r.timestamp >= cutoff);
+  },
+
   _updateChart() {
     if (!this.tempChart || !this.pressChart) return;
     const history = app.globalData.historyData || [];
@@ -98,14 +115,8 @@ Page({
       return;
     }
 
-    // 根据 timeRange 过滤数据
-    let displayRecords = history;
-    if (this.data.timeRange > 0) {
-      // 找到最后一条数据的时间作为当前参考时间，因为设备可能离线，以最新数据时间往前推更合理
-      const latestTs = history[history.length - 1].timestamp;
-      const cutoff = latestTs - this.data.timeRange * 60;
-      displayRecords = history.filter(r => r.timestamp >= cutoff);
-    }
+    // 根据 timeRange 过滤数据（与概览复用同一过滤函数）
+    const displayRecords = this._filterByTimeRange(history);
     
     const times = [];
     const tWaters = [];

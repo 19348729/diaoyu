@@ -19,8 +19,15 @@ Page({
   },
 
   onLoad() {
-    // If already connected, restore global fishContext and update state
     const bleManager = ble.getBLEManager()
+    this._ble = bleManager
+
+    // 注册连接状态回调，使 setup 页能跟随实时监测页的断开/连接事件刷新
+    bleManager.onConnect((connected) => {
+      this._syncConnectionState(connected)
+    })
+
+    // 首次进入：若已连接则恢复全局上下文
     if (bleManager.isConnected) {
       const fishContext = app.globalData.fishContext || {}
       this.setData({
@@ -28,6 +35,31 @@ Page({
         targetFish: fishContext.target || '土鲮',
         method: fishContext.method || '底钓',
         bait: fishContext.bait || '香腥'
+      })
+    }
+  },
+
+  onShow() {
+    // 从其他页面（如实时监测大屏）切回时，强制以 BLE 真实状态为准刷新
+    if (this._ble) {
+      this._syncConnectionState(this._ble.isConnected)
+    }
+  },
+
+  /**
+   * 同步 BLE 连接状态到页面 data
+   * 断开时清除 isModifying，避免卡在修改态
+   */
+  _syncConnectionState(connected) {
+    if (this.data.isConnected === connected) return
+    if (connected) {
+      this.setData({ isConnected: true })
+    } else {
+      this.setData({
+        isConnected: false,
+        isModifying: false,
+        savedContext: null,
+        isConnecting: false
       })
     }
   },
