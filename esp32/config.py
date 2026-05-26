@@ -17,6 +17,7 @@ PIN_DS18B20 = 32            # GPIO13: 水温（1-Wire 单总线）
 # BMP280 气压传感器 - I2C 软总线
 PIN_I2C_SDA = 2             # GPIO2:  I2C 数据线
 PIN_I2C_SCL = 15            # GPIO15: I2C 时钟线
+PIN_BUZZER = 25             # GPIO25: 声音蜂鸣器驱动引脚 (可配置)
 BMP280_I2C_ADDR = 0x76      # BMP280 默认 I2C 地址（SDO 接 GND 时为 0x76，接 VCC 时为 0x77）
 
 # ──────────────────────────────────────────────

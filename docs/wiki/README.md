@@ -1,7 +1,7 @@
 # 后端服务 Wiki
 
-> 范围：仅覆盖后端服务（FastAPI 应用），即 `server.py` / `main.py` / `gunicorn.conf.py` / `migrate_v2.py` / `domain/` / `infrastructure/` / `tests/` / `deploy/`。
-> ESP32 固件、微信小程序、ESPHome 不在本 Wiki 范围内。
+> 范围：仅覆盖后端服务（FastAPI 应用），即 `server.py` / `main.py` / `gunicorn.conf.py` / `migrate_v2.py` / `domain/` / `infrastructure/` / `deploy/`。
+> ESP32 固件、微信小程序不在本 Wiki 范围内。
 
 ## 目录
 
@@ -13,7 +13,6 @@
 | 04 | [API 参考](./04-API参考.md) | 所有 HTTP 接口（系统 / 预测 / 数据 / 钓箱 / V2） |
 | 05 | [领域层详解](./05-领域层详解.md) | `domain/` 每个模块的职责、关键函数与调用关系 |
 | 06 | [基础设施层](./06-基础设施层.md) | 数据库连接、ORM 模型与表关系 |
-| 07 | [测试与开发](./07-测试与开发.md) | pytest 套件、`main.py` CLI 演示 |
 | 08 | [部署与运维](./08-部署与运维.md) | Gunicorn、systemd、Nginx 反向代理 |
 | 09 | [外部集成与配置](./09-外部集成与配置.md) | 和风天气 / 腾讯 LBS / 通义千问 / 环境变量 |
 | 10 | [大师知识库 RAG](./10-大师知识库RAG.md) | 《大师战术与配方百科全书》清洗 · 检索 · 注入救场接口 |
@@ -27,7 +26,6 @@ diaoyu/
 ├── gunicorn.conf.py         # 生产 Gunicorn 配置
 ├── migrate_v2.py            # V1→V2 数据库迁移脚本
 ├── requirements.txt         # 依赖清单
-├── pytest.ini               # pytest 配置
 ├── 大师战术与配方百科全书.md   # RAG 知识库原始语料
 │
 ├── domain/                  # 领域层（DDD 核心业务）
@@ -58,11 +56,6 @@ diaoyu/
 │   ├── database.py          # SQLAlchemy 引擎 / Session 工厂
 │   └── models.py            # ORM 模型（用户 / 传感器 / 预测 / 会话 / 装备库）
 │
-├── tests/                   # 自动化测试
-│   ├── test_domain.py
-│   ├── test_ble_protocol.py
-│   ├── test_e2e_dataflow.py
-│   └── test_master_kb.py     # 知识库检索器测试
 │
 └── deploy/                  # 生产运维
     ├── fishapp.service      # systemd 单元

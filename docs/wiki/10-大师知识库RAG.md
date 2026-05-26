@@ -147,26 +147,8 @@ python scripts/build_master_kb.py
 - 控制台会打印：`总条数 / 按来源 / 按季节` 三组统计
 - 重启服务进程 `MasterKBRetriever` 单例自动重载
 
-## 10.9 测试
 
-[`tests/test_master_kb.py`](file:///d:/diaoyu/diaoyu/tests/test_master_kb.py)（13 项）：
-
-| 用例分组 | 验证点 |
-|---------|--------|
-| `TestRetrieverLoading` | 单例、JSONL 加载、字段 schema |
-| `TestNormalize` | 季节归一化、气压归一化、温度反推季节 |
-| `TestSearch` | 全空维度返回 `[]`、按鱼种、隆冬低温、盛夏鲢鳙、`top_k` 限制 |
-| `TestPromptFormat` | 空记录与单条记录的格式化输出 |
-
-运行：
-
-```powershell
-python -m pytest tests/test_master_kb.py -v
-```
-
-期望全绿；与既有业务测试并行执行无回归（`107 passed`）。
-
-## 10.10 失败模式与降级
+## 10.9 失败模式与降级
 
 | 失败点 | 行为 |
 |--------|------|
@@ -177,7 +159,7 @@ python -m pytest tests/test_master_kb.py -v
 
 **结论**：RAG 是"锦上添花"——任何环节崩溃都不会阻断 `/api/v2/rescue` 的主链路。
 
-## 10.11 后续可优化方向（未实现）
+## 10.10 后续可优化方向（未实现）
 
 - 把检索结果按 `(fish, season, pressure_state)` 缓存，省去重复评分
 - 把硬编码的评分权重抽到 [`domain/constants.py`](file:///d:/diaoyu/diaoyu/domain/constants.py) 集中调参

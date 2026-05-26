@@ -37,6 +37,7 @@ from utils.keepalive import keepalive_sleep
 import utils.keepalive as _ka  # 用于关闭 WiFi 踢脚（避免与 ESP-NOW 冲突）
 from ble.service import BLEService
 from sonar.receiver import SonarReceiver
+from utils.buzzer import BuzzerManager
 
 
 def _enable_sta_for_espnow():
@@ -82,6 +83,7 @@ def main():
     temp_sensor = TemperatureSensor()
     press_sensor = PressureSensor()
     sonar = SonarReceiver()
+    buzzer = BuzzerManager()
 
     print("\n[系统] 初始化传感器...")
     temp_ok = temp_sensor.init()
@@ -105,6 +107,9 @@ def main():
     if not sonar_ok:
         print("[系统] 警告: ESP-NOW 不可用，将不上报水下声呐数据（不影响主链路）。")
 
+    print("\n[系统] 初始化蜂鸣器报警系统...")
+    buzzer.init()
+
     # ── 主循环 tick: 既处理 BLE 快闪 Dump，又轮询 ESP-NOW 声呐 ──
     def tick_callback():
         # BLE 快闪历史 Dump
@@ -112,14 +117,23 @@ def main():
         # ESP-NOW 声呐：非阻塞收一帧并立刻 BLE 转发
         if sonar.initialized:
             pkt = sonar.poll(timeout_ms=0)
-            if pkt is not None and ble_service.is_connected and ble_service.is_time_synced:
-                ble_service.send_sonar(
-                    time_sync.now(),
-                    pkt["distance_cm"],
-                    pkt["baseline_cm"],
-                    pkt["status"],
-                    pkt["fish_event"],
-                )
+            if pkt is not None:
+                # 提取边缘节点判断的告警等级，触发本地物理声音警报
+                alarm_level = pkt.get("alarm_level", 0)
+                buzzer.trigger(alarm_level)
+
+                # 只有在蓝牙连接且对齐时钟后，才向手机小程序转发实时声呐帧
+                if ble_service.is_connected and ble_service.is_time_synced:
+                    ble_service.send_sonar(
+                        time_sync.now(),
+                        pkt["distance_cm"],
+                        pkt["baseline_cm"],
+                        pkt["status"],
+                        pkt["fish_event"],
+                        alarm_level,
+                    )
+        # 轮询非阻塞蜂鸣器状态机，平滑切换声音状态
+        buzzer.tick()
 
     print("\n[系统] 启动完成！开始采集循环 (间隔: {}秒)".format(SAMPLE_INTERVAL_SEC))
     print("[系统] 充电宝保活模式已启用（脉冲间隔 2 秒，WiFi 踢脚已禁用以兼容 ESP-NOW）")

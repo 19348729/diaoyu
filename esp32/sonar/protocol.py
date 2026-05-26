@@ -1,80 +1,95 @@
 """
-ESP-NOW 声呐包协议（ESP32-B 测距板 -> ESP32-A 主板）
+ESP-NOW 声呐包协议（ESP32-A 边缘节点 -> ESP32-B 岸上主板）
 ====================================================
-帧结构（共 8 字节，小端序 <BBHBBH）：
-    [magic(1)=0x5A] [ver(1)=0x01] [distance_mm(2)] [status(1)] [seq(1)] [crc(2)]
+帧结构（共 10 字节，小端序 <IHHBB）：
+    [timestamp(4)] [base_depth(2)] [current_depth(2)] [alarm_level(1)] [checksum(1)]
 
 字段:
-    magic         : 帧头标识，固定 0x5A，用于过滤非法广播
-    ver           : 协议版本，当前 1
-    distance_mm   : 距离（毫米），uint16_le；0xFFFF 表示无效
-    status        : 0=正常 1=超出量程 2=过近 3=通信失败
-    seq           : 序号 0~255 循环，用于丢包统计
-    crc           : payload 累加和 & 0xFFFF（前 6 字节求和），简单防御
+    timestamp       : 毫秒级时间戳 (time.ticks_ms())，uint32_le
+    base_depth      : 基准水深（毫米），uint16_le
+    current_depth   : 当前水深（毫米），uint16_le；0xFFFF 表示无效（传感器故障）
+    alarm_level     : 鱼讯告警级别
+                      0 = 无鱼
+                      1 = 底层拱窝（鲤鱼/鲫鱼贴底拱窝搅局，由方差波动判定）
+                      2 = 中层截杀（鲢鳙/草鱼截杀中心波束，由连续 3 帧突刺判定）
+    checksum        : 前 9 字节逐字节异或 (XOR)，简单防御
+
+注意:
+    - ESP32-A 已在边缘端完成基准锁定、动态阈值计算和双轨鱼讯判定
+    - 岸上只需解码并转发，无需二次判定
 """
 
 import struct
 
-SONAR_MAGIC = 0x5A
-SONAR_VER = 0x01
-SONAR_PKT_LEN = 8
+SONAR_PKT_LEN = 10
 
-# 状态码（与 ESP32-B esp-hcrs04.py 保持一致）
+# 告警级别常量
+ALARM_NONE = 0
+ALARM_BOTTOM_FISH = 1      # 底层拱窝
+ALARM_MID_FISH = 2          # 中层截杀
+
+# 距离无效占位
+DIST_INVALID = 0xFFFF
+
+# ── 向下兼容：旧 status 常量映射 ──
+# 新协议不再使用传感器状态码，但为了 BLE 层兼容保留映射
 STATUS_OK = 0
 STATUS_OUT_OF_RANGE = 1
 STATUS_TOO_NEAR = 2
 STATUS_COMM_FAIL = 3
 
-# 距离无效占位
-DIST_INVALID = 0xFFFF
+
+def _calc_xor_checksum(data: bytes) -> int:
+    """逐字节异或校验和。"""
+    chk = 0
+    for b in data:
+        chk ^= b
+    return chk
 
 
-def _calc_crc(payload6: bytes) -> int:
-    """简单累加和（前 6 字节求和取低 16 位）。"""
-    s = 0
-    for b in payload6:
-        s = (s + b) & 0xFFFF
-    return s
-
-
-def encode_sonar_packet(distance_mm: int, status: int, seq: int) -> bytes:
-    """打包一帧 ESP-NOW 声呐数据。
+def encode_sonar_packet(timestamp: int, base_depth: int,
+                        current_depth: int, alarm_level: int) -> bytes:
+    """打包一帧 10 字节 ESP-NOW 声呐数据。
 
     Args:
-        distance_mm: 0~65534；无效请传 0xFFFF
-        status:      STATUS_*
-        seq:         0~255
+        timestamp:     毫秒级时间戳
+        base_depth:    基准水深 mm
+        current_depth: 当前水深 mm（0xFFFF = 无效）
+        alarm_level:   ALARM_NONE / ALARM_BOTTOM_FISH / ALARM_MID_FISH
     """
-    if distance_mm < 0:
-        distance_mm = DIST_INVALID
-    if distance_mm > 0xFFFF:
-        distance_mm = DIST_INVALID
-    head = struct.pack("<BBHBB", SONAR_MAGIC, SONAR_VER,
-                       distance_mm & 0xFFFF, status & 0xFF, seq & 0xFF)
-    crc = _calc_crc(head)
-    return head + struct.pack("<H", crc)
+    payload = struct.pack('<IHHB',
+                          timestamp & 0xFFFFFFFF,
+                          base_depth & 0xFFFF,
+                          current_depth & 0xFFFF,
+                          alarm_level & 0xFF)
+    chk = _calc_xor_checksum(payload)
+    return payload + struct.pack('B', chk)
 
 
 def decode_sonar_packet(raw: bytes):
-    """解析一帧 ESP-NOW 声呐数据。
+    """解析一帧 10 字节 ESP-NOW 声呐数据。
 
     Returns:
-        dict {distance_mm, status, seq, valid: bool} 或 None（包非法）
+        dict {timestamp, base_depth, current_depth, alarm_level, valid: bool}
+        或 None（包非法 / 校验失败）
     """
     if not raw or len(raw) != SONAR_PKT_LEN:
         return None
     try:
-        magic, ver, dist, status, seq, crc = struct.unpack("<BBHBBH", raw)
+        timestamp, base_depth, current_depth, alarm_level, checksum = \
+            struct.unpack('<IHHBB', raw)
     except Exception:
         return None
-    if magic != SONAR_MAGIC or ver != SONAR_VER:
+
+    # 校验 XOR
+    expected = _calc_xor_checksum(raw[:9])
+    if checksum != expected:
         return None
-    expected_crc = _calc_crc(raw[:6])
-    if crc != expected_crc:
-        return None
+
     return {
-        "distance_mm": dist,
-        "status": status,
-        "seq": seq,
-        "valid": (status == STATUS_OK and dist != DIST_INVALID),
+        "timestamp": timestamp,
+        "base_depth": base_depth,
+        "current_depth": current_depth,
+        "alarm_level": alarm_level,
+        "valid": (current_depth != DIST_INVALID),
     }

@@ -1,7 +1,7 @@
 # AI 钓鱼智能系统 V2.0 🐟 
 > **IoT + AI 多因子融合战术专家系统**
 
-本项目是一套集成了 **ESP32 智能硬件 + 微信小程序前端 + Python FastAPI 物理变率与时序算法引擎 + 大语言模型（通义千问）** 的野钓智能化战术决策系统。经过 V2.0 的全面升级，系统彻底告别了传统“长驻后台的实时大屏监控”，重构为**最符合钓鱼人真实行为习惯的“三次精准握手式流式交互”**。结合极致的极低功耗策略、数字钓箱大模型自适应校验、以及完整的 Home Assistant 智能生态对接，为垂钓爱好者提供航天级的智能护航。
+本项目是一套集成了 **ESP32 智能硬件 + 微信小程序前端 + Python FastAPI 物理变率与时序算法引擎 + 大语言模型（通义千问）** 的野钓智能化战术决策系统。经过 V2.0 的全面升级，系统彻底告别了传统“长驻后台的实时大屏监控”，重构为**最符合钓鱼人真实行为习惯的“三次精准握手式流式交互”**。结合极致的极低功耗策略与数字钓箱大模型自适应校验，为垂钓爱好者提供航天级的智能护航。
 
 ---
 
@@ -24,9 +24,6 @@
 * **全装备链建模**：内置鱼竿（`rods.py`）、商品饵料与状态料（`baits.py`）、主线、子线双钩及浮漂等数字实体属性库。内置官方主流名竿名饵物理参数，支持一键添加经典“老三样”饵料。
 * **大模型 UGC 众包资产校验**：当用户手填录入小众或最新的自定义鱼竿/饵料时，系统调用 `RodVerificationService` (基于 `qwen-plus` 配合 **Live Web-Search 实时联网搜索** 功能)，极速确认该产品是否真实存在。核验成功后自动存入全球公共数据库 `public_rods`/`public_baits` 中，支持全球钓友众包收录，供后续任何人下拉直接选择！
 
-### 5. 🎙️ Home Assistant 语音助接入 (ESPHome)
-* **智能音箱秒变垂钓专家**：在 `esp32_esphome/` 下提供完整的 ESPHome 智能硬件配置，利用 ESP32-S3 自带的 PSRAM，完美运行离线唤醒词 TFLite 模型。
-* 用户可以直接在客厅里对着硬件喊 **“小管家，今天适合去仙湖钓鲮鱼吗？”**，Home Assistant 语音助手管道（Assist Pipeline）将通过 Whisper (STT) -> 阿里云通义千问 -> Piper (TTS) 极速播报由 AI 结合实时天气与 solunar 算出的开口指数与战术指南。
 
 ---
 
@@ -43,11 +40,6 @@
 │   │   └── ring_buffer.py              #   基于 Flash 持久化的环形缓冲区（防断电丢失）
 │   └── utils/
 │       └── keepalive.py                #   充电宝脉冲保活防关机发生器
-│
-├── esp32_esphome/                      # ── Home Assistant 智能生态对接 ──
-│   ├── voice_assistant.yaml            #   ESPHome 智能语音助手硬件配置（INMP441 + MAX98357A）
-│   ├── secrets.yaml                    #   Wi-Fi 及网关密钥加密文件
-│   └── ha_setup_guide.md               #   HA Extended OpenAI (通义千问) 搭建指南
 │
 ├── miniprogram/                        # ── 微信小程序前端（微信开发者工具） ──
 │   ├── app.json                        #   三屏握手路由配置
@@ -85,16 +77,10 @@
 │   ├── nginx-fishapp.conf              #   Nginx 反向代理与 SSL 配置
 │   └── migrations.sql                  #   数据库物理表迁移/建表 SQL
 │
-├── tests/                              # ── 系统自动化测试集 ──
-│   ├── test_ble_protocol.py            #   蓝牙 REQ-ACK 快闪协议帧编解码测试
-│   ├── test_domain.py                  #   多因子时序预测与物理变率引擎算法单元测试
-│   └── test_e2e_dataflow.py            #   小程序报文 -> FastAPI -> 变率引擎 -> AI 处方全链路 E2E 测试
-│
 ├── server.py                           #   FastAPI 服务主入口（提供 RESTful APIs）
 ├── init_db.py                          #   数据库物理建表及自动初始化脚本
 ├── migrate_v2.py                       #   数据库迁移脚本
-├── requirements.txt                    #   后端三方依赖列表
-└── pytest.ini                          #   自动化测试运行配置
+└── requirements.txt                    #   后端三方依赖列表
 ```
 
 ---
@@ -191,29 +177,6 @@ sequenceDiagram
 
 ---
 
-## 🎙️ Home Assistant 语音助手接入
-
-配合您的 **ESP32-S3 智能语音盒子**（搭载 INMP441 麦克风与 MAX98357A 功放，板载 8MB OPI PSRAM），可通过 `esp32_esphome/` 目录的文件极速接入 Home Assistant：
-
-### 1. 🛠️ Extended OpenAI Conversation (通义千问版) 搭建
-1. 进入阿里云 DashScope 平台获取 API Key。
-2. 在 Home Assistant 中通过 HACS 安装 **Extended OpenAI Conversation**。
-3. 添加集成，配置如下参数：
-   - **API Key**: `您的阿里云 API Key`
-   - **Base URL**: `https://dashscope.aliyuncs.com/compatible-mode/v1`
-   - **Model Name**: `qwen-plus` 或 `qwen-max`
-4. 在 HA 中配置语音助手管道 (Assist Pipeline)：
-   - 对话提供者选择 `Qwen LLM`。
-   - STT 选择 `Whisper` (推荐本地部署 `faster-whisper`)。
-   - TTS 选择 `Piper`。
-
-### 2. 🔌 烧录并接入设备
-1. 在 ESPHome 插件中新建设备，并在 `secrets.yaml` 中配置 Wi-Fi 的 SSID 和密码。
-2. 将 `esp32_esphome/voice_assistant.yaml` 复制写入您的 ESPHome 配置文件，点击编译并烧录。
-3. 在 HA 自动发现中点击“配置”，并在设备面板中将 **Voice Assistant Pipeline** 设置为刚才创建 of `通义千问助手`。
-4. 现在，您可以直接对着盒子说：**“小管家，今天适合去钓鱼吗？”** 即可享受通义千问大模型即时的分析与声音播报。
-
----
 
 ## 🚀 快速开始与部署指南
 
@@ -256,31 +219,21 @@ python init_db.py
 
 ---
 
-### 2. 🧪 自动化测试运行
 
-本项目具有高度严密的单元与端到端测试，确保算法和通信底座在进行任何改造时不会发生崩溃。请使用 `pytest` 运行测试：
-
-```bash
-# 执行全部测试集 (测试 BLE 帧解析、DDD 物理算力、大模型 UGC 拦截、E2E数据流)
-pytest -v
-```
-
----
-
-### 3. 📱 微信小程序开发与联调
+### 2. 📱 微信小程序开发与联调
 1. 安装微信开发者工具，点击“导入项目”，选择导入 `miniprogram/` 目录。
 2. 修改 `miniprogram/app.js` 中的 `apiBaseUrl` 为您刚才部署的 FastAPI 接口服务器地址。
 3. 开启“不校验合法域名、web-view（业务域名）、TLS版本以及HTTPS证书”选项以支持本地开发调试。
 
 ---
 
-### 4. 🪵 ESP32 感知终端固件上传
+### 3. 🪵 ESP32 感知终端固件上传
 1. 使用 Thonny IDE 或 `ampy`，将整个 `esp32/` 目录中的全部文件上传至 ESP32 硬件文件系统的根目录下。
 2. 硬件上电后，主板将自适应初始化并在本地建立 `/ring.bin` 文件。
 
 ---
 
-### 5. 🛡️ 生产环境运维部署 (Linux Nginx)
+### 4. 🛡️ 生产环境运维部署 (Linux Nginx)
 
 #### 注册 Systemd 守护进程
 将项目下的 `deploy/fishapp.service` 拷贝至系统的 systemd 目录，并使能开机自启：

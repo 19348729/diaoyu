@@ -1,45 +1,39 @@
 """
-声呐 ESP-NOW 接收器（ESP32-A 端）
-================================
-- 通过 espnow 模块以非阻塞方式收取 ESP32-B 广播的距离包
-- 维护近 N 秒滑动均值作为水下基线，与瞬时距离比较产生「鱼经过」事件
+声呐 ESP-NOW 接收器（ESP32-B 岸上主板端）
+==========================================
+- 通过 espnow 模块以非阻塞方式收取 ESP32-A 边缘节点广播的 10 字节声呐包
+- ESP32-A 已在边缘端完成基准锁定、动态阈值、双轨鱼讯判定
+- 岸上只需解码、状态映射，并通过 BLE 转发给小程序
 
 注意:
   - 使用前需保证 STA WiFi 已 active(True)（ESP-NOW 依赖 WiFi 射频）
-  - 只接收 magic=0x5A 的合法包，其它流量直接丢弃
+  - 仅接收帧长 = 10 且 XOR 校验通过的合法包
 """
 
 import time
 
 from sonar.protocol import (
     decode_sonar_packet, SONAR_PKT_LEN,
-    STATUS_OK, STATUS_OUT_OF_RANGE, STATUS_TOO_NEAR, STATUS_COMM_FAIL,
+    ALARM_NONE, ALARM_BOTTOM_FISH, ALARM_MID_FISH,
+    DIST_INVALID, STATUS_OK, STATUS_COMM_FAIL,
 )
 
 
-# ── 鱼经过检测参数 ──
-_BASELINE_WINDOW_SEC = 30        # 基线滑动窗口长度（秒）
-_FISH_DROP_CM = 5.0              # 距离突然变小多少 cm 视为鱼经过
-_FISH_HOLD_MS = 1500              # 触发后保持「fish_event=1」最少持续时间（ms）
-
-
 class SonarReceiver:
-    """ESP-NOW 声呐数据接收器 + 鱼经过事件检测器。"""
+    """ESP-NOW 声呐数据接收器（岸上 ESP32-B 端）。
+
+    接收 ESP32-A 的 10 字节帧，解码后提供与 BLE 层兼容的数据接口。
+    """
 
     def __init__(self):
         self._espnow = None
         self._initialized = False
 
-        # 滑动窗口（环形数组）
-        self._window = []  # [(ticks_ms, dist_cm), ...]
-
-        # 最新一帧
+        # 最新一帧数据
         self._last_distance_cm = None
         self._last_baseline_cm = None
-        self._last_status = None
-        self._last_seq = -1
+        self._last_alarm_level = ALARM_NONE
         self._last_recv_ms = 0
-        self._fish_event_until_ms = 0
         self._packet_count = 0
         self._dropped_count = 0
 
@@ -56,7 +50,7 @@ class SonarReceiver:
             except OSError as e:
                 # ESP_ERR_ESPNOW_EXIST 等错误可忽略
                 print("[Sonar] add_peer(broadcast) 跳过: {}".format(e))
-            # 打印本机 STA MAC 与 WiFi 信道，便于和 ESP32-B 比对
+            # 打印本机 STA MAC 与 WiFi 信道，便于和 ESP32-A 比对
             try:
                 import network, binascii
                 sta = network.WLAN(network.STA_IF)
@@ -66,7 +60,7 @@ class SonarReceiver:
             except Exception as e:
                 print("[Sonar] 读取 MAC/channel 失败: {}".format(e))
             self._initialized = True
-            print("[Sonar] ESP-NOW 接收器已启动（仅接收 magic=0x5A 的广播包）")
+            print("[Sonar] ESP-NOW 接收器已启动（10 字节帧协议，XOR 校验）")
             return True
         except Exception as e:
             print("[Sonar] ESP-NOW 初始化失败: {}".format(e))
@@ -95,8 +89,11 @@ class SonarReceiver:
         Returns:
             dict 形如:
               {
-                "distance_cm": float|None, "baseline_cm": float|None,
-                "status": int, "fish_event": bool, "seq": int,
+                "distance_cm": float|None,   # 当前水深 cm
+                "baseline_cm": float|None,   # 基准水深 cm (由 ESP32-A 锁定)
+                "status": int,               # STATUS_OK 或 STATUS_COMM_FAIL
+                "fish_event": bool,           # alarm_level > 0
+                "alarm_level": int,           # 0=无鱼 1=底层拱窝 2=中层截杀
               }
             没有新包时返回 None。
         """
@@ -105,7 +102,7 @@ class SonarReceiver:
 
         try:
             host, msg = self._espnow.recv(timeout_ms)
-        except Exception as e:
+        except Exception:
             # 偶发异常静默吞，等下一轮
             return None
 
@@ -113,13 +110,13 @@ class SonarReceiver:
             return None
         if len(msg) != SONAR_PKT_LEN:
             self._dropped_count += 1
-            # 收到非声呐协议长度的包，前几次打印出来，便于排查
+            # 前 5 次异常帧打印，便于排查
             if self._dropped_count <= 5:
                 try:
                     import binascii
                     src = binascii.hexlify(host, ':').decode() if host else "?"
-                    print("[Sonar] 丢弃异常长度帧 len={} src={} (#{})".format(
-                        len(msg), src, self._dropped_count))
+                    print("[Sonar] 丢弃异常长度帧 len={} src={} (#{})"
+                          .format(len(msg), src, self._dropped_count))
                 except Exception:
                     print("[Sonar] 丢弃异常长度帧 len={} (#{})".format(
                         len(msg), self._dropped_count))
@@ -129,74 +126,47 @@ class SonarReceiver:
         if pkt is None:
             self._dropped_count += 1
             if self._dropped_count <= 5:
-                print("[Sonar] 解码失败（magic/ver/crc 不符）#{}".format(self._dropped_count))
+                print("[Sonar] 解码/校验失败 #{}".format(self._dropped_count))
             return None
 
         self._packet_count += 1
         now_ms = time.ticks_ms()
         self._last_recv_ms = now_ms
-        self._last_seq = pkt["seq"]
-        self._last_status = pkt["status"]
+        self._last_alarm_level = pkt["alarm_level"]
 
         # 前 5 帧 + 之后每 50 帧打印一次，确认链路活着且不刷屏
         if self._packet_count <= 5 or self._packet_count % 50 == 0:
-            print("[Sonar] RX #{} seq={} dist_mm={} status={}".format(
-                self._packet_count, pkt["seq"], pkt["distance_mm"], pkt["status"]))
+            alarm_labels = {0: "无鱼", 1: "底层拱窝", 2: "中层截杀"}
+            print("[Sonar] RX #{} base={}mm cur={}mm alarm={} ({})".format(
+                self._packet_count,
+                pkt["base_depth"], pkt["current_depth"],
+                pkt["alarm_level"],
+                alarm_labels.get(pkt["alarm_level"], "?")))
 
         if pkt["valid"]:
-            dist_cm = pkt["distance_mm"] / 10.0
+            # 有效帧：转换为 cm 并更新缓存
+            dist_cm = pkt["current_depth"] / 10.0
+            base_cm = pkt["base_depth"] / 10.0
             self._last_distance_cm = dist_cm
+            self._last_baseline_cm = base_cm
 
-            # 维护滑动窗口（仅纳入有效值）
-            self._window.append((now_ms, dist_cm))
-            self._trim_window(now_ms)
-
-            baseline = self._calc_baseline(now_ms)
-            self._last_baseline_cm = baseline
-
-            fish_event = False
-            if baseline is not None and (baseline - dist_cm) >= _FISH_DROP_CM:
-                # 触发：拉长 hold 时长，防止 UI 闪烁
-                self._fish_event_until_ms = time.ticks_add(now_ms, _FISH_HOLD_MS)
-                fish_event = True
-            else:
-                fish_event = time.ticks_diff(self._fish_event_until_ms, now_ms) > 0
+            return {
+                "distance_cm": dist_cm,
+                "baseline_cm": base_cm,
+                "status": STATUS_OK,
+                "fish_event": pkt["alarm_level"] > 0,
+                "alarm_level": pkt["alarm_level"],
+            }
         else:
-            # 包合法但 status 异常（超出量程 / 通信失败）
+            # 无效帧（current_depth == 0xFFFF）：传感器故障
             self._last_distance_cm = None
-            baseline = self._last_baseline_cm  # 保留上一基线供 UI 显示
-            fish_event = False
-
-        return {
-            "distance_cm": self._last_distance_cm,
-            "baseline_cm": baseline,
-            "status": self._last_status,
-            "fish_event": fish_event,
-            "seq": self._last_seq,
-        }
-
-    def _trim_window(self, now_ms: int):
-        """裁剪超过窗口长度的旧样本。"""
-        cutoff = time.ticks_add(now_ms, -_BASELINE_WINDOW_SEC * 1000)
-        while self._window and time.ticks_diff(self._window[0][0], cutoff) < 0:
-            self._window.pop(0)
-        # 防御：最多保留 60 个样本
-        if len(self._window) > 60:
-            self._window = self._window[-60:]
-
-    def _calc_baseline(self, now_ms: int):
-        """近 N 秒均值，作为「水底/无鱼」基线。"""
-        if not self._window:
-            return None
-        # 至少 3 个样本才认为基线有意义
-        if len(self._window) < 3:
-            return self._window[-1][1]
-        s = 0.0
-        n = 0
-        for _, d in self._window:
-            s += d
-            n += 1
-        return s / n if n > 0 else None
+            return {
+                "distance_cm": None,
+                "baseline_cm": pkt["base_depth"] / 10.0 if pkt["base_depth"] > 0 else self._last_baseline_cm,
+                "status": STATUS_COMM_FAIL,
+                "fish_event": False,
+                "alarm_level": ALARM_NONE,
+            }
 
     def get_status(self) -> dict:
         return {
@@ -206,4 +176,5 @@ class SonarReceiver:
             "last_recv_ms": self._last_recv_ms,
             "last_distance_cm": self._last_distance_cm,
             "last_baseline_cm": self._last_baseline_cm,
+            "last_alarm_level": self._last_alarm_level,
         }
