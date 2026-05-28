@@ -1,3 +1,13 @@
+"""
+和风天气服务模块 (QWeather Service)
+==================================
+对接和风天气 API，提供实时天气、逐小时预报和 3 天逐日预报。
+
+内部实现内存缓存（5~60 分钟 TTL），减少重复调用；
+将和风天气原始数据映射为系统内部的标准 ApiData 值对象，
+供开口指数计算和鱼情预报服务消费。
+"""
+
 import time
 import httpx
 import logging
@@ -21,8 +31,8 @@ class QWeatherService:
     DAILY_URL = f"{BASE_DOMAIN}/v7/weather/3d"
     
     def __init__(self, api_key: Optional[str] = None):
-        # 优先从传入参数获取，或者环境变量获取，最后直接使用您写入的 Key
-        self.api_key = api_key or os.getenv("QWEATHER_API_KEY") or "50483fd7702045e3bd6557285c66c502"
+        # 优先从传入参数获取，其次从环境变量 QWEATHER_API_KEY 获取
+        self.api_key = api_key or os.getenv("QWEATHER_API_KEY")
         
     def _get_cache_key(self, lat: float, lng: float) -> str:
         # 对经纬度保留2位小数作为缓存 key（约1公里精度，足以用于天气缓存）

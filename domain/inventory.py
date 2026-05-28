@@ -1,3 +1,11 @@
+"""
+数字钓箱模块 —— 定义用户的装备实体与库存管理。
+
+本模块包含鱼竿、主线组、子线双钩、浮漂等装备实体类，以及 UserInventory（数字钓箱）
+聚合根。AI 引擎在生成作钓建议和救场方案时，会读取用户的数字钓箱数据，确保推荐
+的装备组合是用户实际拥有的，从而给出可执行的精准方案。
+"""
+
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -50,7 +58,7 @@ class UserInventory:
     sub_line_hooks: List[SubLineHook] = field(default_factory=list)
     floats: List[Float] = field(default_factory=list)
     
-    # 这里存储 domain/baits.py 中 BAIT_DATABASE 里的饵料 ID (如 "lg_918_yezhan")
+    # 存储用户在数字钓箱中的饵料 ID
     bait_ids: List[str] = field(default_factory=list)
 
     def add_rod(self, rod: Rod):
@@ -91,33 +99,3 @@ class UserInventory:
             return 0.0
         return max(l.size for l in self.main_lines)
 
-# ──────────────────────────────────────────────
-#  测试与初始化帮助函数
-# ──────────────────────────────────────────────
-def create_mock_inventory(user_id: str) -> UserInventory:
-    """创建一个模拟的初学者数字钓箱，用于测试 AI 逻辑。"""
-    inv = UserInventory(user_id=user_id)
-    
-    # 初始化两把竿：一把短竿钓鲫鱼，一把中长竿兼顾
-    inv.add_rod(Rod(id="r1", length=3.6, action="37调", type="台钓竿", brand="光威", name="竹山"))
-    inv.add_rod(Rod(id="r2", length=4.5, action="28调", type="台钓竿", brand="化氏", name="一味"))
-    
-    # 初始化两套主线
-    inv.add_main_line(MainLine(id="m1", size=1.0, length=3.6))
-    inv.add_main_line(MainLine(id="m2", size=1.5, length=4.5))
-    
-    # 初始化几套子线双钩
-    inv.add_sub_line_hook(SubLineHook(id="s1", line_size=0.6, hook_type="袖钩", hook_size=3, has_barb=False))
-    inv.add_sub_line_hook(SubLineHook(id="s2", line_size=1.0, hook_type="伊豆", hook_size=4, has_barb=True))
-    
-    # 初始化浮漂
-    inv.add_float(Float(id="f1", name="浅水漂", material="芦苇", shape="细长身", lead_weight=1.2))
-    inv.add_float(Float(id="f2", name="大底漂", material="纳米", shape="枣核型", lead_weight=3.5))
-
-    # 初始化一些基础老鬼/化氏饵料
-    inv.add_bait("lg_918_yezhan")
-    inv.add_bait("lg_yeluans_blue")
-    inv.add_bait("hs_dabanjie")
-    inv.add_bait("state_lasi_fen")
-    
-    return inv

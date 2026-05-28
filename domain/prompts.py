@@ -1,5 +1,11 @@
 """
-LLM Prompt 模板管理
+LLM Prompt 模板管理模块 (Prompt Templates)
+=========================================
+定义钓鱼专家大模型的系统提示词 (System Prompt) 与用户提示词构建函数。
+
+系统提示词规定了 LLM 的角色设定、输出 JSON 格式规范；
+build_user_prompt() 负责拼装目标鱼种、物理指标、症状标签、数字钓箱装备、
+RAG 大师秘籍等多维度上下文，生成完整的用户提示词。
 """
 
 SYSTEM_PROMPT_FISHING_EXPERT = """

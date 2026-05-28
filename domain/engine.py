@@ -1,5 +1,10 @@
 """
-变率引擎 (Physics Engine)
+物理变率引擎 (Physics Engine)
+============================
+纯物理规则引擎，从传感器时序数据中提取特征指标并输出结构化战术标签。
+
+这里抽取了 V1 中算物理变率的纯净逻辑，与 LLM 文案解耦。
+供核心预测服务调用，输出包含气压趋势、温跃层强度、水温均值等指标。
 """
 from typing import List
 from .value_objects import SensorTimeSeries

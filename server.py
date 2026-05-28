@@ -145,30 +145,12 @@ async def list_fish_types():
         ]
     }
 
-from domain.rods import ROD_DATABASE
 @app.get("/api/inventory/rods", tags=["配置"])
 async def list_rod_database(db: Session = Depends(get_db)):
     """获取官方与用户众包自动收录的鱼竿品牌与系列库"""
-    # 1. 查询数据库中已核验的所有鱼竿记录
     db_rods = db.query(PublicRod).filter(PublicRod.is_verified == 1).all()
-    
-    # 2. 数据库首运自适应自动同步种子数据
-    if not db_rods:
-        for key, profile in ROD_DATABASE.items():
-            for length in profile.available_lengths:
-                new_rod = PublicRod(
-                    brand=profile.brand,
-                    series=profile.series_name,
-                    action=profile.action,
-                    rod_type=profile.rod_type,
-                    length=length,
-                    is_verified=1
-                )
-                db.add(new_rod)
-        db.commit()
-        db_rods = db.query(PublicRod).filter(PublicRod.is_verified == 1).all()
 
-    # 3. 聚合成前端多级级联结构
+    # 聚合成前端多级级联结构
     brands_map = {}
     for rod in db_rods:
         if rod.brand not in brands_map:
@@ -181,7 +163,7 @@ async def list_rod_database(db: Session = Depends(get_db)):
             }
         brands_map[rod.brand][rod.series]["lengths"].add(rod.length)
         
-    # 4. 组装最终 JSON 格式
+    # 组装最终 JSON 格式
     result = []
     for brand, series_map in brands_map.items():
         series_list = []
