@@ -387,6 +387,11 @@ class BLEManager {
     const now = Math.floor(Date.now() / 1000); // 当前 Unix 时间戳（秒）
     const buffer = protocol.encodeTimeSync(now);
     await this._writeToDevice(buffer);
+    // 记录本次会话起点，供战报页等跨页面精确界定"本次出钓"数据范围
+    try {
+      const app = getApp();
+      if (app && app.globalData) app.globalData.sessionStartTs = now;
+    } catch (e) { /* getApp 不可用时忽略 */ }
     console.log('[BLE] 对表指令已发送, timestamp:', now);
   }
 

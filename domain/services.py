@@ -69,6 +69,82 @@ class FishingPredictionService:
         self.pressure_abs_config = pressure_abs_config or PressureAbsoluteConfig()
         self._analyzer = TimeSeriesAnalyzer()
 
+    # ================================================================
+    #  开口指数合成模型（乘性归一）
+    # ================================================================
+    #  设计目标：解决旧加法模型的结构缺陷
+    #    1) 各因子未归一、总和失控 → clamp 抹平两端区分度
+    #    2) base_score 台阶式 → 水温边界 30 分断崖
+    #    3) 气压三处重复计权、veto 硬编码定值
+    #  方案：base01（平滑隶属度，相对最适达成度，跨鱼种可比）
+    #        × 气压系数（合并封顶）× ∏环境系数（利好递减/不利短板）
+    _UP_SCALE = 55.0      # 利好因子强度缩放（边际递减，越接近满分提升越小）
+    _UP_CAP = 0.45        # 单个利好因子最多吃掉的剩余空间比例
+    _DOWN_SCALE = 42.0    # 不利因子强度缩放
+    _DOWN_MIN = 0.30      # 单因子乘性下限，避免单点过度压制
+    _PRESSURE_CLAMP = (-25.0, 18.0)  # 气压三项合并后的封顶区间
+    _VETO_FACTOR = 0.15   # 气压骤降一票否决的强力折减系数（软化原硬编码定值）
+    _TEMP_PEAK = 0.92     # 最适水温处的基准达成度峰值（<1，为利好因子留出上探空间）
+
+    def _temp_membership(self, t_water: float, tags: List[str]) -> float:
+        """平滑的水温隶属度 base01 ∈ (0, 0.92]，替代 70/40/10 三档台阶。
+
+        以鱼种最适区间中点为峰、高斯衰减，消除边界 30 分断崖；
+        该值是“相对该鱼种自身最适的达成度”，跨鱼种可直接比较，
+        从根上消除 auto 选鱼时高 base 鱼种的基准偏置。
+        """
+        o_lo, o_hi = self.fish_profile.optimal_temp
+        center = (o_lo + o_hi) / 2.0
+        half = max(0.5, (o_hi - o_lo) / 2.0)
+        # 标定 sigma，使最适区间边界处的高斯值约为 0.85
+        sigma = half / 0.4034
+        gauss = math.exp(-((t_water - center) / sigma) ** 2)
+        base01 = self._TEMP_PEAK * gauss
+
+        # 标签分档（与原 optimal/tolerable/extreme 语义对齐）
+        if gauss >= 0.85:
+            tags.append(TacticalTag.STATUS_TEMP_OPTIMAL.value)
+        elif gauss >= 0.35:
+            tags.append(TacticalTag.STATUS_TEMP_TOLERABLE.value)
+        elif t_water > center:
+            tags.append(TacticalTag.STATUS_TEMP_EXTREME_HOT.value)
+        else:
+            tags.append(TacticalTag.STATUS_TEMP_EXTREME_COLD.value)
+        return base01
+
+    def _apply_factor(self, c: float, score: float, up_gate: float = 1.0) -> float:
+        """把单个修正分值施加到当前达成度 c ∈ [0,1] 上。
+
+        利好(score>0)：按剩余空间 (1-c) 递减逼近上限（高分区不撞 100），
+                       并乘以 up_gate（水温达成度）—— 水温不到位时利好打折，
+                       体现“鱼不在状态，天气再好也有限”的短板直觉；
+        不利(score<0)：乘性压制（短板效应，多个不利连乘自然放大影响），不设闸门。
+        """
+        if score >= 0:
+            gain = min(score / self._UP_SCALE, self._UP_CAP) * up_gate
+            return c + (1.0 - c) * gain
+        factor = max(self._DOWN_MIN, 1.0 + score / self._DOWN_SCALE)
+        return c * factor
+
+    def _combine_score(
+        self, base01: float, env_scores: List[float],
+        pressure_sum: float = 0.0, veto: bool = False,
+    ) -> int:
+        """乘性归一汇总：base01 × 气压系数 × ∏环境系数 → 开口指数 [0,100]。"""
+        c = max(0.0, min(1.0, base01))
+        # 气压维度：合并封顶，避免变率/短窗/绝对值三处重复计权
+        if veto:
+            c *= self._VETO_FACTOR
+        else:
+            ps = max(self._PRESSURE_CLAMP[0], min(self._PRESSURE_CLAMP[1], pressure_sum))
+            c = self._apply_factor(c, ps, up_gate=c)
+        # 利好闸门 = 经气压/veto 折减后的达成度上限（综合状态差则利好打折，
+        # 且对环境因子取固定值以消除施加顺序依赖）
+        gate = min(base01, c)
+        for s in env_scores:
+            c = self._apply_factor(c, s, up_gate=gate)
+        return max(0, min(100, int(round(c * 100))))
+
     def predict(self, hardware: HardwareData, api: ApiData) -> PredictionResult:
         """单帧快照预测（向后兼容接口）。
         
@@ -79,20 +155,13 @@ class FishingPredictionService:
         # 1. 估算虚拟溶解氧
         do_est = self._calculate_do(hardware, api, tags)
 
-        # 2. 根据水温计算基准分
-        base_score = self._calc_temp_base_score(hardware.t_water, tags)
+        # 2. 根据水温计算基准达成度（平滑隶属度）
+        base01 = self._temp_membership(hardware.t_water, tags)
 
         # 3. 气压动态加权与一票否决判定
         pressure_modifier, is_veto = self._calc_pressure_modifier(hardware.delta_p, tags)
-
-        # 如果触发一票否决（如气压骤降），直接走短路逻辑返回极低分
         if is_veto:
             tags.append(TacticalTag.RATING_VETO.value)
-            return PredictionResult(
-                do_trend=round(do_est, 2),
-                bite_index=self.bite_config.pressure_crash_score,
-                tactical_tags=tags
-            )
 
         # 4. 溶解氧加权
         do_modifier = self._calc_do_modifier(do_est, tags)
@@ -100,9 +169,11 @@ class FishingPredictionService:
         # 5. 短临天气加权
         weather_modifier = self._calc_weather_modifier(api.weather_trend, tags)
 
-        # 6. 计算总分并限制在 [0, 100] 范围内
-        final_score = base_score + pressure_modifier + do_modifier + weather_modifier
-        final_score = max(0, min(100, int(final_score)))
+        # 6. 乘性归一汇总（气压 veto 时软化折减，而非硬编码定值）
+        final_score = self._combine_score(
+            base01, [do_modifier, weather_modifier],
+            pressure_sum=pressure_modifier, veto=is_veto,
+        )
 
         # 7. 根据最终得分补充综合评级标签
         self._add_rating_tag(final_score, tags)
@@ -273,23 +344,15 @@ class FishingPredictionService:
         else:
             delta_p = 0.0  # 数据不足时视为稳定
 
-        # ── 2. 基准分（水温） ──
-        base_score = self._calc_temp_base_score(ref_temp, tags)
+        # ── 2. 基准达成度（水温，平滑隶属度 0~0.92） ──
+        base01 = self._temp_membership(ref_temp, tags)
 
         # ── 3. 气压动态加权 ──
+        #   veto 不再短路返回固定分，而是在汇总阶段以强折减系数软化，
+        #   既保留“骤降几乎空军”的强先验，又能平滑反映水温等其它因子。
         pressure_modifier, is_veto = self._calc_pressure_modifier(delta_p, tags)
-
         if is_veto:
             tags.append(TacticalTag.RATING_VETO.value)
-            return PredictionResult(
-                do_trend=0.0,
-                bite_index=self.bite_config.pressure_crash_score,
-                tactical_tags=tags,
-                report_stage=report_stage,
-                confidence=confidence,
-                time_period_advice=self._generate_period_advice(session.time_period, tags),
-                season_note=self._generate_season_note(session.season, tags),
-            )
 
         # ── 4. 溶解氧估算与加权 ──
         do_est = 0.0
@@ -366,28 +429,20 @@ class FishingPredictionService:
             latest.p_local if latest and latest.p_local else None, tags
         )
 
-        # ── 17. 汇总评分（加权混合体系） ──
-        # 基础分 + 传统修正（加法）
-        additive_score = (
-            base_score
-            + pressure_modifier
-            + do_modifier
-            + weather_modifier
-            + period_modifier
-            + season_modifier
-            + thermocline_modifier
-            + solunar_modifier
-            + short_pressure_modifier
-            + wind_dir_modifier
-            + humidity_modifier
-            + thermal_profile_modifier
-            + temp_rate_modifier
-            + wind_speed_modifier
-            + pressure_abs_modifier
-        )
-        final_score = max(0, min(100, int(additive_score)))
+        # ── 17. 汇总评分（乘性归一模型） ──
+        #   - base01：相对该鱼种最适温度的达成度（跨鱼种可比）
+        #   - 气压三项（变率/短窗/绝对值）合并封顶为单一维度，避免重复计权
+        #   - 利好因子边际递减（高分区不撞 100），不利因子乘性压制（短板效应）
+        pressure_sum = pressure_modifier + short_pressure_modifier + pressure_abs_modifier
+        env_scores = [
+            do_modifier, weather_modifier, period_modifier, season_modifier,
+            thermocline_modifier, solunar_modifier, wind_dir_modifier,
+            humidity_modifier, thermal_profile_modifier, temp_rate_modifier,
+            wind_speed_modifier,
+        ]
+        final_score = self._combine_score(base01, env_scores, pressure_sum, veto=is_veto)
 
-        # ── 16. 综合评级 ──
+        # ── 18. 综合评级 ──
         self._add_rating_tag(final_score, tags)
 
         # ── 17. 鱼情趋势判断（标准阶段以上） ──
@@ -440,7 +495,16 @@ class FishingPredictionService:
 
         # 3. 风力增氧系数（微风促进气体交换，上限 15%）
         wind_factor = min(1.0 + 0.02 * api.wind_speed, 1.15)
-        do_est = do_sat * wind_factor
+        do_sat *= wind_factor
+
+        # 4. 高温缺氧折减：估算“实际溶氧”而非理论饱和值。
+        #    高温水体易热分层、底层耗氧，实际 DO 显著低于饱和值；
+        #    使溶氧因子在盛夏高温时能真正触发缺氧判定，
+        #    修复原实现“恒为健康、判别力失效”的缺陷。
+        reduction = 1.0
+        if t_water > 26.0:
+            reduction -= min((t_water - 26.0) * 0.035, 0.35)
+        do_est = do_sat * max(0.55, reduction)
 
         return do_est
 
@@ -1358,8 +1422,8 @@ class FishingPredictionService:
         t_water_est = self.air_to_water_config.estimate_water_temp(air_temp, season)
         t_water_est = max(0.0, min(45.0, t_water_est))  # 安全钳位
 
-        # ── 1. 水温基准分 ──
-        base_score = self._calc_temp_base_score(t_water_est, tags)
+        # ── 1. 水温基准达成度（平滑隶属度） ──
+        base01 = self._temp_membership(t_water_est, tags)
 
         # ── 2. 天气加权 ──
         weather_modifier = self._calc_weather_modifier(api.weather_trend, tags)
@@ -1394,14 +1458,13 @@ class FishingPredictionService:
             hourly_forecast, tags
         )
 
-        # ── 11. 汇总 ──
-        final_score = (
-            base_score + weather_modifier + period_modifier
-            + season_modifier + solunar_modifier + wind_dir_modifier
-            + humidity_modifier + wind_speed_modifier + do_modifier
-            + weather_transition_modifier
-        )
-        final_score = max(0, min(100, int(final_score)))
+        # ── 11. 汇总（乘性归一模型；纯天气模式无传感器气压维度） ──
+        env_scores = [
+            weather_modifier, period_modifier, season_modifier,
+            solunar_modifier, wind_dir_modifier, humidity_modifier,
+            wind_speed_modifier, do_modifier, weather_transition_modifier,
+        ]
+        final_score = self._combine_score(base01, env_scores, pressure_sum=0.0, veto=False)
         self._add_rating_tag(final_score, tags)
 
         # ── 构建会话上下文 ──

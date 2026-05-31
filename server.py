@@ -5,6 +5,7 @@ FastAPI 应用入口 — AI 钓鱼预测 API 服务
   开发: python server.py
   生产: gunicorn server:app -c gunicorn.conf.py
 """
+import os
 import time
 from typing import Dict, List, Optional
 
@@ -197,7 +198,7 @@ async def add_user_rod(
 ):
     """用户录入新的鱼竿到私有钓箱"""
     # For testing, we can use a mock openid if missing
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     # UGC 自定义录入进行大模型验证
     if req.is_custom:
@@ -244,7 +245,7 @@ async def get_user_rod(
     db: Session = Depends(get_db)
 ):
     """获取单根鱼竿详情"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_rod = db.query(UserRod).filter(UserRod.id == rod_id, UserRod.openid == openid).first()
     if not user_rod:
@@ -270,7 +271,7 @@ async def update_user_rod(
     db: Session = Depends(get_db)
 ):
     """修改用户私有钓箱中的鱼竿"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_rod = db.query(UserRod).filter(UserRod.id == rod_id, UserRod.openid == openid).first()
     if not user_rod:
@@ -318,7 +319,7 @@ async def delete_user_rod(
     db: Session = Depends(get_db)
 ):
     """从用户私有钓箱中删除鱼竿"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_rod = db.query(UserRod).filter(UserRod.id == rod_id, UserRod.openid == openid).first()
     if not user_rod:
@@ -334,7 +335,7 @@ async def list_user_rods(
     db: Session = Depends(get_db)
 ):
     """获取用户钓箱里现有的所有鱼竿"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
         
     rods = db.query(UserRod).filter(UserRod.openid == openid).all()
     result = []
@@ -364,7 +365,7 @@ async def add_user_mainline(
     db: Session = Depends(get_db)
 ):
     """用户录入新的主线到私有钓箱"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_line = UserMainLine(
         openid=openid,
@@ -382,7 +383,7 @@ async def get_user_mainline(
     db: Session = Depends(get_db)
 ):
     """获取用户钓箱中单条主线的详情"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_line = db.query(UserMainLine).filter(UserMainLine.id == line_id, UserMainLine.openid == openid).first()
     if not user_line:
@@ -405,7 +406,7 @@ async def update_user_mainline(
     db: Session = Depends(get_db)
 ):
     """修改用户私有钓箱中的主线"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_line = db.query(UserMainLine).filter(UserMainLine.id == line_id, UserMainLine.openid == openid).first()
     if not user_line:
@@ -423,7 +424,7 @@ async def delete_user_mainline(
     db: Session = Depends(get_db)
 ):
     """从用户私有钓箱中删除主线"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_line = db.query(UserMainLine).filter(UserMainLine.id == line_id, UserMainLine.openid == openid).first()
     if not user_line:
@@ -439,7 +440,7 @@ async def list_user_mainlines(
     db: Session = Depends(get_db)
 ):
     """获取用户钓箱里现有的所有主线"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
         
     mainlines = db.query(UserMainLine).filter(UserMainLine.openid == openid).all()
     result = []
@@ -467,7 +468,7 @@ async def add_user_sublinehook(
     db: Session = Depends(get_db)
 ):
     """用户录入新的子线双钩到私有钓箱"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_sub = UserSubLineHook(
         openid=openid,
@@ -486,7 +487,7 @@ async def get_user_sublinehook(
     db: Session = Depends(get_db)
 ):
     """获取用户钓箱中单条子线双钩的详情"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_sub = db.query(UserSubLineHook).filter(UserSubLineHook.id == subline_id, UserSubLineHook.openid == openid).first()
     if not user_sub:
@@ -510,7 +511,7 @@ async def update_user_sublinehook(
     db: Session = Depends(get_db)
 ):
     """修改用户私有钓箱中的子线双钩"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_sub = db.query(UserSubLineHook).filter(UserSubLineHook.id == subline_id, UserSubLineHook.openid == openid).first()
     if not user_sub:
@@ -529,7 +530,7 @@ async def delete_user_sublinehook(
     db: Session = Depends(get_db)
 ):
     """从用户私有钓箱中删除子线双钩"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_sub = db.query(UserSubLineHook).filter(UserSubLineHook.id == subline_id, UserSubLineHook.openid == openid).first()
     if not user_sub:
@@ -545,7 +546,7 @@ async def list_user_sublinehooks(
     db: Session = Depends(get_db)
 ):
     """获取用户钓箱里现有的所有子线双钩"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
         
     sublines = db.query(UserSubLineHook).filter(UserSubLineHook.openid == openid).all()
     result = []
@@ -575,7 +576,7 @@ async def add_user_float(
     db: Session = Depends(get_db)
 ):
     """用户录入新的浮漂到私有钓箱"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     generated_name = f"{req.material} {req.shape} {req.tail_type}漂"
     user_float = UserFloat(
@@ -597,7 +598,7 @@ async def get_user_float(
     db: Session = Depends(get_db)
 ):
     """获取用户钓箱中单条浮漂的详情"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_float = db.query(UserFloat).filter(UserFloat.id == float_id, UserFloat.openid == openid).first()
     if not user_float:
@@ -623,7 +624,7 @@ async def update_user_float(
     db: Session = Depends(get_db)
 ):
     """修改用户私有钓箱中的浮漂"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_float = db.query(UserFloat).filter(UserFloat.id == float_id, UserFloat.openid == openid).first()
     if not user_float:
@@ -645,7 +646,7 @@ async def delete_user_float(
     db: Session = Depends(get_db)
 ):
     """从用户私有钓箱中删除浮漂"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_float = db.query(UserFloat).filter(UserFloat.id == float_id, UserFloat.openid == openid).first()
     if not user_float:
@@ -661,7 +662,7 @@ async def list_user_floats(
     db: Session = Depends(get_db)
 ):
     """获取用户钓箱里现有的所有浮漂"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
         
     floats = db.query(UserFloat).filter(UserFloat.openid == openid).all()
     result = []
@@ -694,7 +695,7 @@ async def add_user_bait(
     db: Session = Depends(get_db)
 ):
     """用户录入新的饵料到私有钓箱"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_bait = UserBait(
         openid=openid,
@@ -714,7 +715,7 @@ async def add_old_three_bait(
     db: Session = Depends(get_db)
 ):
     """一键添加老三样 (野战蓝鲫 + 九一八 + 速攻)"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     baits_to_add = [
         UserBait(openid=openid, category="商品饵", brand="龙王恨", name="野战蓝鲫", flavor="腥香", target_fish="综合"),
@@ -733,7 +734,7 @@ async def get_user_bait(
     db: Session = Depends(get_db)
 ):
     """获取用户钓箱中单款饵料的详情"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_bait = db.query(UserBait).filter(UserBait.id == bait_id, UserBait.openid == openid).first()
     if not user_bait:
@@ -759,7 +760,7 @@ async def update_user_bait(
     db: Session = Depends(get_db)
 ):
     """修改用户私有钓箱中的饵料"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_bait = db.query(UserBait).filter(UserBait.id == bait_id, UserBait.openid == openid).first()
     if not user_bait:
@@ -780,7 +781,7 @@ async def delete_user_bait(
     db: Session = Depends(get_db)
 ):
     """从用户私有钓箱中删除饵料"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
     
     user_bait = db.query(UserBait).filter(UserBait.id == bait_id, UserBait.openid == openid).first()
     if not user_bait:
@@ -821,7 +822,7 @@ async def list_user_baits(
     db: Session = Depends(get_db)
 ):
     """获取用户钓箱里现有的所有饵料"""
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    openid = _require_openid(x_openid)
         
     baits = db.query(UserBait).filter(UserBait.openid == openid).all()
     result = []
@@ -837,8 +838,26 @@ async def list_user_baits(
     return {"status": "ok", "data": result}
 
 
-def _get_user_inventory(db: Session, openid: str) -> dict:
+def _require_openid(x_openid: Optional[str]) -> str:
+    """强制要求有效的用户标识，缺失时返回 401。
+
+    用于装备库 / 会话日志等用户私有数据接口，避免匿名请求
+    被静默兜底到共享的测试账号，造成数据串号与越权读写。
+    """
+    if not x_openid or not x_openid.strip():
+        raise HTTPException(status_code=401, detail="未提供用户标识 (X-OpenID Header is empty)")
+    return x_openid.strip()
+
+
+def _optional_openid(x_openid: Optional[str]) -> Optional[str]:
+    """返回规范化的 openid，缺失时返回 None（用于允许匿名访问的接口）。"""
+    return x_openid.strip() if x_openid and x_openid.strip() else None
+
+
+def _get_user_inventory(db: Session, openid: Optional[str]) -> dict:
     """Helper to query all digital tackle box items for a user and format them."""
+    if not openid:
+        return {"rods": [], "mainLines": [], "subLineHooks": [], "floats": [], "baits": []}
     rods = db.query(UserRod).filter(UserRod.openid == openid).all()
     mainlines = db.query(UserMainLine).filter(UserMainLine.openid == openid).all()
     sublines = db.query(UserSubLineHook).filter(UserSubLineHook.openid == openid).all()
@@ -940,7 +959,8 @@ async def predict(
     readings = tuple(_to_reading(s) for s in req.sensors)
     series = SensorTimeSeries(readings=readings)
 
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    # 预测接口允许匿名访问：无登录态时不附带装备上下文，也不落库
+    openid = _optional_openid(x_openid)
     user_inventory = _get_user_inventory(db, openid)
 
     # 对目标鱼种循环跑分
@@ -1103,7 +1123,8 @@ async def predict_weather_only(
         )
     target_fishes = list(FISH_PROFILES.keys())
 
-    openid = x_openid.strip() if x_openid and x_openid.strip() else "test_openid_user_001"
+    # 纯天气预测允许匿名访问（出发前决策），无登录态时不附带装备上下文
+    openid = _optional_openid(x_openid)
     user_inventory = _get_user_inventory(db, openid)
 
     # 对目标鱼种循环跑分
@@ -1325,8 +1346,9 @@ class LoginRequest(BaseModel):
     code: str = Field(..., description="微信登录code")
 
 
-WX_APPID = "wx8766f98bf34482de"
-WX_APP_SECRET = "f330ef82a7b7be368834392466d5b699"
+# 微信小程序凭证从环境变量读取（请在 .env 中配置 WX_APPID / WX_APP_SECRET，切勿硬编码进源码）
+WX_APPID = os.getenv("WX_APPID", "")
+WX_APP_SECRET = os.getenv("WX_APP_SECRET", "")
 
 @app.post("/api/login", tags=["用户"])
 async def login(req: LoginRequest, db: Session = Depends(get_db)):
@@ -1337,6 +1359,8 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
     if req.code == "test":
         real_openid = "test_openid_user_001"
     else:
+        if not WX_APPID or not WX_APP_SECRET:
+            raise HTTPException(status_code=500, detail="服务端未配置微信小程序凭证 (WX_APPID/WX_APP_SECRET)")
         # 请求微信官方接口
         url = f"https://api.weixin.qq.com/sns/jscode2session?appid={WX_APPID}&secret={WX_APP_SECRET}&js_code={req.code}&grant_type=authorization_code"
         async with httpx.AsyncClient() as client:
