@@ -210,7 +210,8 @@ class BiteIndexConfig:
     pressure_drop_penalty: int = 10
     pressure_crash_threshold: float = -3.0
     pressure_crash_score: int = 5
-    do_danger_line: float = 4.0
+    # 危险线按“实际溶氧估算”（含高温缺氧折减）标定，使盛夏高温能真正触发缺氧判定
+    do_danger_line: float = 5.5
     do_bonus: int = 10
     do_penalty: int = 15
     weather_bonus_map: dict = field(default_factory=lambda: {
