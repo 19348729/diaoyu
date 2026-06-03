@@ -1,6 +1,21 @@
 # 10 大师知识库 RAG
 
-> 范围：将根目录 [`大师战术与配方百科全书.md`](file:///d:/diaoyu/diaoyu/%E5%A4%A7%E5%B8%88%E6%88%98%E6%9C%AF%E4%B8%8E%E9%85%8D%E6%96%B9%E7%99%BE%E7%A7%91%E5%85%A8%E4%B9%A6.md) 工程化为可被 LLM 救场接口稳定消费的检索增强（RAG）数据源。
+> 范围：将上游采集管线产出的结构化知识库工程化为可被 LLM 救场接口稳定消费的检索增强（RAG）数据源。
+
+> ⚠️ **v2 架构变更（数据源切换）**
+> 旧版（v1）由 `scripts/build_master_kb.py` **正则解析渲染后的 `大师战术与配方百科全书.md`**，走
+> JSON→Markdown→正则→JSONL 的有损往返，导致鱼种区 **72% 气压字段被渲染环节丢弃**、同一视频在
+> 鱼种区/季节区被**重复计数**（322 条含大量重复与空战术）。
+>
+> 新版（v2）`build_master_kb.py` **直读上游干净结构化 JSON**
+> [`data/master_kb_source.json`](file:///d:/cursor_code/diaoy/data/master_kb_source.json)
+> （= 上游 `diaoyu-paqu/fishing_knowledge/knowledge_base.json` 副本，已按 bv_id 去重），
+> 映射为 `data/master_kb.jsonl`。准入门槛改为「至少 1 个可执行战术 + 1 个可检索条件」（不再用 master 把关），
+> 自动剔除无战术的脏记录。
+>
+> **效果**：源 285 → 准入 **192 条**（视频 171 + 图文攻略 21），
+> **气压非空 28% → 98%**、鱼种非空 94%；新增 `source_type`(video/article) 字段区分来源。
+> 重建命令不变：`python scripts/build_master_kb.py`。下文 10.2~10.5 评分/注入逻辑仍适用。
 
 ## 10.1 设计目标
 
