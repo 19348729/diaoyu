@@ -421,8 +421,6 @@ class SolunarConfig:
 
     Attributes:
         phase_modifiers:     月相名称 → 开口分加减分
-        major_period_bonus:  处于大口期时的额外加分
-        minor_period_bonus:  处于小口期时的额外加分
     """
 
     phase_modifiers: Dict[str, int] = field(default_factory=lambda: {
@@ -435,8 +433,6 @@ class SolunarConfig:
         "last_quarter": -2,      # 下弦月：潮汐力最弱
         "waning_crescent": 2,
     })
-    major_period_bonus: int = 5   # 大口期（月中天/月对冲）额外加分
-    minor_period_bonus: int = 3   # 小口期（月出/月落）额外加分
 
 
 # ──────────────────────────────────────────────

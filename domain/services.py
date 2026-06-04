@@ -868,23 +868,23 @@ class FishingPredictionService:
             risks.append("水温正在快速下降，鱼类可能应激停口")
         if TacticalTag.WIND_SPEED_STRONG.value in tags:
             risks.append("风力过大，手竿作钓困难，注意安全")
-        if "PRESSURE_ABS_EXTREME_LOW" in tags:
+        if TacticalTag.PRESSURE_ABS_EXTREME_LOW.value in tags:
             risks.append("气压极低（<990 hPa），闷热缺氧，建议改日出钓")
-        elif "PRESSURE_ABS_LOW" in tags:
+        elif TacticalTag.PRESSURE_ABS_LOW.value in tags:
             risks.append("气压偏低（<1000 hPa），鱼口可能偏差")
-        if "WEATHER_STORM_APPROACHING" in tags:
+        if TacticalTag.WEATHER_STORM_APPROACHING.value in tags:
             risks.append("未来数小时有雷阵雨逼近，抓紧末日口但注意安全撤离")
         advice["risk"] = "；".join(risks) if risks else "当前无明显风险"
 
         # ── 利好信号 [P2 新增] ──
         highlights = []
-        if "WEATHER_POST_RAIN_CLEAR" in tags:
+        if TacticalTag.WEATHER_POST_RAIN_CLEAR.value in tags:
             highlights.append("🎉 雨后初晴，气压回升+溶氧充足+食物丰富，绝佳鱼情！")
-        if "WEATHER_LONG_RAIN_TO_CLEAR" in tags:
+        if TacticalTag.WEATHER_LONG_RAIN_TO_CLEAR.value in tags:
             highlights.append("🔥 连续阴雨后放晴，经典爆护天气！")
-        if "WEATHER_STORM_APPROACHING" in tags:
+        if TacticalTag.WEATHER_STORM_APPROACHING.value in tags:
             highlights.append("⚡ 雷阵雨前末日口，鱼口会异常凶猛，但务必注意安全")
-        if "PRESSURE_ABS_OPTIMAL" in tags:
+        if TacticalTag.PRESSURE_ABS_OPTIMAL.value in tags:
             highlights.append("✅ 气压处于最适范围（1005-1020 hPa），利好出钓")
         advice["highlight"] = "；".join(highlights) if highlights else ""
 
@@ -1310,16 +1310,16 @@ class FishingPredictionService:
         cfg = self.pressure_abs_config
 
         if p_local < cfg.extreme_low:
-            tags.append("PRESSURE_ABS_EXTREME_LOW")
+            tags.append(TacticalTag.PRESSURE_ABS_EXTREME_LOW.value)
             return -cfg.extreme_penalty
         elif p_local < cfg.low_threshold:
-            tags.append("PRESSURE_ABS_LOW")
+            tags.append(TacticalTag.PRESSURE_ABS_LOW.value)
             return -cfg.low_penalty
         elif cfg.optimal_range[0] <= p_local <= cfg.optimal_range[1]:
-            tags.append("PRESSURE_ABS_OPTIMAL")
+            tags.append(TacticalTag.PRESSURE_ABS_OPTIMAL.value)
             return cfg.optimal_bonus
         elif p_local > cfg.high_threshold:
-            tags.append("PRESSURE_ABS_HIGH")
+            tags.append(TacticalTag.PRESSURE_ABS_HIGH.value)
             return cfg.high_bonus
         else:
             return 0

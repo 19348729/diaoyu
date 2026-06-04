@@ -78,8 +78,6 @@ const TAG_MAP = {
   SOLUNAR_LAST_QUARTER: "🌗 下弦月",
   SOLUNAR_WAXING: "渐盈期",
   SOLUNAR_WANING: "渐亏期",
-  SOLUNAR_MAJOR_PERIOD: "大口期 (月中天/对冲)",
-  SOLUNAR_MINOR_PERIOD: "小口期 (月出/月落)",
 
   // ── 突变标签 ──
   PRESSURE_SHORT_DROP: "气压急降",

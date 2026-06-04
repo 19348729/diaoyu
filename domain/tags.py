@@ -93,8 +93,7 @@ class TacticalTag(str, Enum):
     SOLUNAR_LAST_QUARTER = "SOLUNAR_LAST_QUARTER"      # 下弦月（鱼口一般）
     SOLUNAR_WAXING = "SOLUNAR_WAXING"                  # 渐盈期
     SOLUNAR_WANING = "SOLUNAR_WANING"                  # 渐亏期
-    SOLUNAR_MAJOR_PERIOD = "SOLUNAR_MAJOR_PERIOD"      # 大口期（月中天/月对冲，约2h）
-    SOLUNAR_MINOR_PERIOD = "SOLUNAR_MINOR_PERIOD"      # 小口期（月出/月落，约1h）
+
 
     # ── 短期气压突变标签 ──
     PRESSURE_SHORT_DROP = "PRESSURE_SHORT_DROP"        # 15~30分钟内气压急降
@@ -130,3 +129,14 @@ class TacticalTag(str, Enum):
     WIND_SPEED_BREEZE = "WIND_SPEED_BREEZE"      # 微风（最适宜）
     WIND_SPEED_MODERATE = "WIND_SPEED_MODERATE"  # 中风（看漂受影响）
     WIND_SPEED_STRONG = "WIND_SPEED_STRONG"      # 强风/大风（建议取消）
+
+    # ── 气压绝对值标签 ──
+    PRESSURE_ABS_EXTREME_LOW = "PRESSURE_ABS_EXTREME_LOW"  # 极端低压（<990 hPa）
+    PRESSURE_ABS_LOW = "PRESSURE_ABS_LOW"                  # 低气压（<1000 hPa）
+    PRESSURE_ABS_OPTIMAL = "PRESSURE_ABS_OPTIMAL"          # 最适气压（1005-1020 hPa）
+    PRESSURE_ABS_HIGH = "PRESSURE_ABS_HIGH"                # 高气压（>1025 hPa）
+
+    # ── 天气转变标签 ──
+    WEATHER_POST_RAIN_CLEAR = "WEATHER_POST_RAIN_CLEAR"          # 雨后初晴（绝佳鱼情）
+    WEATHER_LONG_RAIN_TO_CLEAR = "WEATHER_LONG_RAIN_TO_CLEAR"    # 连续阴雨后放晴（爆护天气）
+    WEATHER_STORM_APPROACHING = "WEATHER_STORM_APPROACHING"      # 雷阵雨逼近（末日口）
