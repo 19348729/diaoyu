@@ -1,5 +1,6 @@
 __pycache__/
 .qoder/
+.claude/
 .pytest_cache/
 *.db
 
