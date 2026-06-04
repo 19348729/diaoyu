@@ -175,24 +175,6 @@ function getSensorRecords(limit = 1440) {
 }
 
 /**
- * 保存钓鱼会话摘要（一次出钓 = 一条记录）
- * @param {object} sessionData - 会话聚合数据
- * @returns {Promise<object>}
- */
-function saveSession(sessionData) {
-  return request('/session/save', 'POST', sessionData);
-}
-
-/**
- * 获取钓鱼会话日志列表
- * @param {number} limit - 返回条数
- * @returns {Promise<object>}
- */
-function getSessionList(limit = 20) {
-  return request(`/session/list?limit=${limit}`, 'GET');
-}
-
-/**
  * AI 鱼情救场 (V2)
  * @param {Array} sensors 
  * @param {Array} symptomTags 
@@ -238,15 +220,6 @@ function getUserInventoryAll() {
     floats: (flRes && flRes.data) || [],
     baits: (btRes && btRes.data) || [],
   }));
-}
-
-/**
- * 获取战报海报数据 (V2)
- * @param {number} sessionId 
- * @returns {Promise<object>}
- */
-function getPoster(sessionId) {
-  return request(`/v2/poster/${sessionId}`, 'GET');
 }
 
 /**
@@ -524,11 +497,8 @@ module.exports = {
   getForecastToday,
   getForecast3Day,
   getSensorRecords,
-  saveSession,
-  getSessionList,
   getAiRescue,
   getUserInventoryAll,
-  getPoster,
   getRodDatabase,
   addUserRod,
   getUserRods,

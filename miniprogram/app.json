@@ -2,12 +2,10 @@
   "pages": [
     "pages/setup/setup",
     "pages/rescue/rescue",
-    "pages/report/report",
     "pages/settings/settings",
     "pages/decision/decision",
     "pages/index/index",
     "pages/history/history",
-    "pages/logs/logs",
     "pages/privacy/privacy",
     "pages/inventory/inventory",
     "pages/add-rod/add-rod",
@@ -36,10 +34,6 @@
       {
         "pagePath": "pages/rescue/rescue",
         "text": "AI救场"
-      },
-      {
-        "pagePath": "pages/report/report",
-        "text": "战报"
       },
       {
         "pagePath": "pages/inventory/inventory",

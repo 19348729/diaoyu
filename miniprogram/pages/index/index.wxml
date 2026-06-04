@@ -17,6 +17,11 @@
     </view>
   </view>
 
+  <!-- 无设备（气象预测模式）提示条 -->
+  <view class="weather-mode-tip card-shadow" wx:if="{{!bleConnected}}" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 12rpx; padding: 20rpx 24rpx; margin-bottom: 20rpx;">
+    <text style="font-size: 26rpx; color: #1565c0;">🌤️ 未连接设备 · 当前基于实时气象 + 定位预测，连接 FishProbe 可叠加水温/气压实测更精准</text>
+  </view>
+
   <!-- 仅在连接时，展示细致的设备缓存与数据同步微面板 -->
   <view class="sync-mini-panel card-shadow" wx:if="{{bleConnected}}">
     <view class="sync-row">
@@ -34,8 +39,8 @@
     </view>
   </view>
 
-  <!-- 传感器数据卡片 -->
-  <view class="card">
+  <!-- 传感器数据卡片（仅连接设备时展示） -->
+  <view class="card" wx:if="{{bleConnected}}">
     <view class="sensor-header">
       <text class="card-title" style="margin-bottom: 0; padding-bottom: 0; border-bottom: none;">传感器数据</text>
       <view class="sensor-trend-btn" catchtap="goToHistory">📊 历史趋势</view>
@@ -188,7 +193,7 @@
         </view>
         <view style="display: flex; align-items: flex-start;">
           <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">🎣 作钓方式:</text>
-          <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.method || '台钓'}}</text>
+          <text style="font-size: 26rpx; color: #424242; flex: 1;">{{tacticalAdvice.method || selectedMethod || '台钓'}}</text>
         </view>
         <view style="display: flex; align-items: flex-start;">
           <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">📏 建议钓深:</text>

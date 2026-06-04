@@ -17,17 +17,75 @@
     </view>
 
     <view class="section card-shadow">
-      <view class="title">钓法</view>
+      <view class="title">钓法 <text class="title-hint">全部可选，⭐ 为推荐</text></view>
       <view class="grid">
-        <view class="tag {{method === item ? 'active' : ''}}" wx:for="{{methodOptions}}" wx:key="*this" bindtap="selectMethod" data-val="{{item}}">{{item}}</view>
+        <view class="tag {{method === item.name ? 'active' : ''}} {{item.recommended ? 'recommended' : ''}}" wx:for="{{methodList}}" wx:key="name" bindtap="selectMethod" data-val="{{item.name}}">{{item.recommended ? '⭐' : ''}}{{item.name}}</view>
       </view>
     </view>
 
     <view class="section card-shadow">
-      <view class="title">饵料</view>
+      <view class="title">饵料 <text class="title-hint">全部可选，⭐ 为推荐</text></view>
       <view class="grid">
-        <view class="tag {{bait === item ? 'active' : ''}}" wx:for="{{baitOptions}}" wx:key="*this" bindtap="selectBait" data-val="{{item}}">{{item}}</view>
+        <view class="tag {{bait === item.name ? 'active' : ''}} {{item.recommended ? 'recommended' : ''}}" wx:for="{{baitList}}" wx:key="name" bindtap="selectBait" data-val="{{item.name}}">{{item.recommended ? '⭐' : ''}}{{item.name}}</view>
       </view>
+    </view>
+
+    <!-- 本次出钓装备（默认全选，可勾掉没带的） -->
+    <view class="section card-shadow" wx:if="{{equipLoaded}}">
+      <view class="title" bindtap="toggleEquipPanel">
+        🎒 本次出钓装备
+        <text class="title-hint">{{showEquip ? '点击收起' : '点击展开勾选'}}</text>
+      </view>
+      <block wx:if="{{showEquip}}">
+        <view class="equip-actions">
+          <text class="equip-act-btn" data-checked="true" bindtap="toggleEquipAll">全选</text>
+          <text class="equip-act-btn" data-checked="false" bindtap="toggleEquipAll">全不选</text>
+        </view>
+
+        <view class="equip-group" wx:if="{{equip.rods.length}}">
+          <view class="equip-group-title">🎣 鱼竿</view>
+          <view class="equip-item" wx:for="{{equip.rods}}" wx:key="id" data-cat="rods" data-idx="{{index}}" bindtap="toggleEquipItem">
+            <icon type="{{item._checked ? 'success' : 'circle'}}" size="18" color="{{item._checked ? '#1a73e8' : '#ccc'}}"/>
+            <text class="equip-text">{{item.name || '鱼竿'}} {{item.length || ''}}{{item.length ? 'm' : ''}} {{item.action || ''}}</text>
+          </view>
+        </view>
+
+        <view class="equip-group" wx:if="{{equip.mainLines.length}}">
+          <view class="equip-group-title">🧵 主线</view>
+          <view class="equip-item" wx:for="{{equip.mainLines}}" wx:key="id" data-cat="mainLines" data-idx="{{index}}" bindtap="toggleEquipItem">
+            <icon type="{{item._checked ? 'success' : 'circle'}}" size="18" color="{{item._checked ? '#1a73e8' : '#ccc'}}"/>
+            <text class="equip-text">{{item.size}}号 {{item.length || ''}}{{item.length ? 'm' : ''}}</text>
+          </view>
+        </view>
+
+        <view class="equip-group" wx:if="{{equip.subLineHooks.length}}">
+          <view class="equip-group-title">🪝 子线双钩</view>
+          <view class="equip-item" wx:for="{{equip.subLineHooks}}" wx:key="id" data-cat="subLineHooks" data-idx="{{index}}" bindtap="toggleEquipItem">
+            <icon type="{{item._checked ? 'success' : 'circle'}}" size="18" color="{{item._checked ? '#1a73e8' : '#ccc'}}"/>
+            <text class="equip-text">{{item.lineSize}}号 {{item.hookType || ''}}{{item.hookSize || ''}} {{item.barb || ''}}</text>
+          </view>
+        </view>
+
+        <view class="equip-group" wx:if="{{equip.floats.length}}">
+          <view class="equip-group-title">🌶️ 浮漂</view>
+          <view class="equip-item" wx:for="{{equip.floats}}" wx:key="id" data-cat="floats" data-idx="{{index}}" bindtap="toggleEquipItem">
+            <icon type="{{item._checked ? 'success' : 'circle'}}" size="18" color="{{item._checked ? '#1a73e8' : '#ccc'}}"/>
+            <text class="equip-text">{{item.name || '浮漂'}} {{item.material || ''}} {{item.shape || ''}}</text>
+          </view>
+        </view>
+
+        <view class="equip-group" wx:if="{{equip.baits.length}}">
+          <view class="equip-group-title">🍚 饵料</view>
+          <view class="equip-item" wx:for="{{equip.baits}}" wx:key="id" data-cat="baits" data-idx="{{index}}" bindtap="toggleEquipItem">
+            <icon type="{{item._checked ? 'success' : 'circle'}}" size="18" color="{{item._checked ? '#1a73e8' : '#ccc'}}"/>
+            <text class="equip-text">{{item.brand || ''}} {{item.name || '饵料'}} {{item.flavor || ''}}</text>
+          </view>
+        </view>
+
+        <view class="equip-empty" wx:if="{{!equip.rods.length && !equip.mainLines.length && !equip.subLineHooks.length && !equip.floats.length && !equip.baits.length}}">
+          钓箱还没有装备，去「装备库」添加后可在此勾选
+        </view>
+      </block>
     </view>
   </block>
 
@@ -65,7 +123,9 @@
     <!-- 未连接状态 -->
     <block wx:if="{{!isConnected}}">
       <button class="btn-primary" bindtap="startSession" loading="{{isConnecting}}">开始作钓 (连接设备)</button>
-      <button class="btn-secondary" style="margin-top: 24rpx; width: 100%;" bindtap="goToDecision">出发前纯气象预测 🌤️</button>
+      <button class="btn-secondary" style="margin-top: 24rpx; width: 100%;" bindtap="goToWeatherMode">无设备？直接看气象预测 🌤️</button>
+      <button class="btn-secondary" style="margin-top: 16rpx; width: 100%;" bindtap="goToDecision">出发前出钓决策 (逐时/3日) 📅</button>
+      <view class="hint">没有 FishProbe 设备也能用：基于实时气象+定位给出开口指数与建议</view>
     </block>
 
     <!-- 已连接，正常查看状态 -->

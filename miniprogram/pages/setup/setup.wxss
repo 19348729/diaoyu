@@ -66,6 +66,70 @@
   transform: translateY(-2rpx);
 }
 
+/* 推荐项高亮（未选中时也提示这是推荐） */
+.tag.recommended {
+  border-color: #ffb300;
+  background: #fff8e1;
+  color: #e08600;
+}
+
+.tag.recommended.active {
+  background: #1a73e8;
+  color: #ffffff;
+  border-color: #1a73e8;
+}
+
+.title-hint {
+  font-size: 22rpx;
+  font-weight: 400;
+  color: #90a4ae;
+  margin-left: 12rpx;
+}
+
+/* 本次出钓装备勾选 */
+.equip-actions {
+  display: flex;
+  gap: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.equip-act-btn {
+  font-size: 24rpx;
+  color: #1a73e8;
+  background: #f1f7fe;
+  border-radius: 20rpx;
+  padding: 8rpx 24rpx;
+}
+
+.equip-group {
+  margin-bottom: 20rpx;
+}
+
+.equip-group-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #3c4257;
+  margin-bottom: 10rpx;
+}
+
+.equip-item {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 6rpx;
+  gap: 14rpx;
+}
+
+.equip-text {
+  font-size: 26rpx;
+  color: #4f5b66;
+}
+
+.equip-empty {
+  font-size: 24rpx;
+  color: #90a4ae;
+  padding: 16rpx 0;
+}
+
 /* 2. 精美摘要卡片样式 */
 .summary-card {
   background: linear-gradient(135deg, #ffffff 0%, #fdfdfd 100%);

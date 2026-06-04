@@ -1,16 +1,50 @@
 const app = getApp()
 const ble = require('../../utils/ble')
+const api = require('../../utils/api')
+
+// 全量钓法 / 饵料选项（始终全部可选，不再因鱼种收窄）
+const ALL_METHODS = ['底钓', '浮钓', '行程', '路亚']
+const ALL_BAITS = ['香腥', '本味', '活饵', '玉米/颗粒', '酸臭/发酵', '拟饵']
+
+// 各鱼种的「推荐」钓法/饵料与默认首选（仅作高亮与默认值，用户可自由改选）
+const FISH_RECO = {
+  '土鲮':   { methods: ['底钓'],               defMethod: '底钓', baits: ['香腥', '本味', '活饵'],        defBait: '香腥',
+              tip: '💡 土鲮喜腥甜、底栖掘泥，推荐「底钓」+腥香型饵料（仍可自由改选）' },
+  '鲤鱼':   { methods: ['底钓'],               defMethod: '底钓', baits: ['本味', '玉米/颗粒', '香腥'],   defBait: '本味',
+              tip: '💡 鲤鱼警惕、偏爱自然谷物，推荐「底钓」+「本味/谷物」颗粒饵' },
+  '塘鲺':   { methods: ['底钓'],               defMethod: '底钓', baits: ['活饵', '香腥'],                defBait: '活饵',
+              tip: '💡 塘鲺肉食底栖、喜大腥，推荐「底钓」+高活性「活饵」' },
+  '鲢鳙':   { methods: ['浮钓'],               defMethod: '浮钓', baits: ['酸臭/发酵', '香腥'],           defBait: '酸臭/发酵',
+              tip: '💡 鲢鳙滤食、喜温喜酸臭，推荐「浮钓」+「酸臭/发酵」雾化饵' },
+  '大口黑鲈': { methods: ['路亚'],             defMethod: '路亚', baits: ['拟饵'],                       defBait: '拟饵',
+              tip: '💡 黑鲈掠食性，推荐「路亚」+运动「拟饵」' },
+  '翘嘴':   { methods: ['路亚', '浮钓', '行程'], defMethod: '路亚', baits: ['拟饵', '活饵', '本味'],       defBait: '拟饵',
+              tip: '💡 翘嘴迅猛、中上层觅食，推荐「路亚/浮钓」+「拟饵/活饵」' },
+  '罗非鱼': { methods: ['底钓', '浮钓'],        defMethod: '底钓', baits: ['香腥', '本味', '活饵'],        defBait: '香腥',
+              tip: '💡 罗非喜温、抢食凶猛，推荐「底钓/浮钓」+「香腥/活饵」' },
+  '草鱼':   { methods: ['底钓', '浮钓'],        defMethod: '底钓', baits: ['玉米/颗粒', '本味'],          defBait: '玉米/颗粒',
+              tip: '💡 草鱼喜嫩草谷物，推荐「底钓/浮钓」+「玉米/颗粒」' },
+  '鲫鱼':   { methods: ['底钓', '浮钓', '行程'], defMethod: '底钓', baits: ['香腥', '本味', '活饵'],       defBait: '香腥',
+              tip: '💡 鲫鱼分布广、群集索食，推荐高灵敏「底/浮/行程」+「香腥/本味/活饵」' },
+}
 
 Page({
   data: {
     fishOptions: ['土鲮', '鲢鳙', '草鱼', '罗非鱼', '鲫鱼', '鲤鱼', '塘鲺', '大口黑鲈', '翘嘴'],
-    methodOptions: ['底钓'],
-    baitOptions: ['香腥', '本味', '活饵', '玉米/颗粒', '酸臭/发酵', '拟饵'],
-    
+
+    // 钓法 / 饵料：始终全量展示，recommended 标记仅用于高亮
+    methodList: ALL_METHODS.map(n => ({ name: n, recommended: n === '底钓' })),
+    baitList: ALL_BAITS.map(n => ({ name: n, recommended: n === '香腥' })),
+
     targetFish: '土鲮',
     method: '底钓',
     bait: '香腥',
-    recommendationTip: '💡 土鲮底栖掘泥，已自动为您锁定最适合的「底钓」与腥香饵料',
+    recommendationTip: '💡 土鲮底栖掘泥，已为你高亮推荐「底钓」与腥香饵料，可自由改选',
+
+    // 本次出钓装备（默认全选；钓友可勾掉没带的）
+    showEquip: false,
+    equipLoaded: false,
+    equip: { rods: [], mainLines: [], subLineHooks: [], floats: [], baits: [] },
 
     isConnecting: false,
     isConnected: false,
@@ -37,6 +71,9 @@ Page({
         bait: fishContext.bait || '香腥'
       })
     }
+
+    // 拉取数字钓箱，渲染「本次出钓装备」勾选列表（默认全选）
+    this._loadEquipment()
   },
 
   onShow() {
@@ -64,108 +101,133 @@ Page({
     }
   },
 
-  selectFish(e) { 
-    const fish = e.currentTarget.dataset.val;
-    let methods = ['底钓', '浮钓', '行程', '路亚'];
-    let baits = ['香腥', '本味', '活饵', '玉米/颗粒', '酸臭/发酵', '拟饵'];
-    let defaultMethod = this.data.method;
-    let defaultBait = this.data.bait;
-    let tip = '';
+  // ── 鱼种 / 钓法 / 饵料选择 ──────────────────────────────
 
-    // 逻辑纠错与智能推荐
-    if (fish === '土鲮' || fish === '鲤鱼' || fish === '塘鲺') {
-      methods = ['底钓'];
-      defaultMethod = '底钓';
-      if (fish === '土鲮') {
-        baits = ['香腥', '本味', '活饵'];
-        defaultBait = '香腥';
-        tip = '💡 土鲮喜腥甜、底栖掘泥，已自动锁定「底钓」并推荐腥香型饵料';
-      } else if (fish === '鲤鱼') {
-        baits = ['本味', '玉米/颗粒', '香腥'];
-        defaultBait = '本味';
-        tip = '💡 鲤鱼生性警惕、偏爱自然谷物，已锁定「底钓」并推荐原塘「本味/谷物」颗粒饵';
-      } else if (fish === '塘鲺') {
-        baits = ['活饵', '香腥'];
-        defaultBait = '活饵';
-        tip = '💡 塘鲺为肉食性底栖鱼，喜大腥，已锁定「底钓」与高活性「活饵」配置';
-      }
-    } else if (fish === '鲢鳙') {
-      methods = ['浮钓'];
-      defaultMethod = '浮钓';
-      baits = ['酸臭/发酵', '香腥'];
-      defaultBait = '酸臭/发酵';
-      tip = '💡 鲢鳙喜温喜酸臭，滤食性强，已推荐「浮钓」及主攻「酸臭/发酵」雾化饵';
-    } else if (fish === '大口黑鲈') {
-      methods = ['路亚'];
-      defaultMethod = '路亚';
-      baits = ['拟饵'];
-      defaultBait = '拟饵';
-      tip = '💡 黑鲈属于掠食性鱼类，已为您锁定「路亚」及最吸引它的运动「拟饵」';
-    } else if (fish === '翘嘴') {
-      methods = ['路亚', '浮钓', '行程'];
-      baits = ['拟饵', '活饵', '本味'];
-      if (defaultMethod === '底钓') defaultMethod = '路亚';
-      if (defaultBait === '酸臭/发酵' || defaultBait === '玉米/颗粒') defaultBait = '拟饵';
-      tip = '💡 翘嘴行动迅速、中上层觅食，已过滤底钓，推荐「路亚/浮钓」和「拟饵/活饵」';
-    } else if (fish === '罗非鱼' || fish === '草鱼') {
-      methods = ['底钓', '浮钓'];
-      if (defaultMethod === '行程' || defaultMethod === '路亚') defaultMethod = '底钓';
-      if (fish === '罗非鱼') {
-        baits = ['香腥', '本味', '活饵'];
-        defaultBait = '香腥';
-        tip = '💡 罗非喜温、抢食凶猛，已适配「底钓/浮钓」并推荐诱惑力强的「香腥/活饵」';
-      } else {
-        baits = ['玉米/颗粒', '本味'];
-        defaultBait = '玉米/颗粒';
-        tip = '💡 草鱼喜食嫩草与谷物，已匹配「底钓/浮钓」和原生态「玉米/颗粒」饵';
-      }
-    } else if (fish === '鲫鱼') {
-      methods = ['底钓', '浮钓', '行程'];
-      baits = ['香腥', '本味', '活饵'];
-      if (defaultMethod === '路亚') defaultMethod = '底钓';
-      if (defaultBait === '拟饵' || defaultBait === '酸臭/发酵') defaultBait = '香腥';
-      tip = '💡 鲫鱼分布广泛、群集索食，已匹配高灵敏「底/浮/行程」与「香腥/本味/活饵」';
-    }
+  selectFish(e) {
+    const fish = e.currentTarget.dataset.val
+    const reco = FISH_RECO[fish] || { methods: [], defMethod: this.data.method, baits: [], defBait: this.data.bait, tip: '' }
 
-    this.setData({ 
+    // 仅更新「推荐高亮」与默认首选，绝不收窄可选项
+    const methodList = ALL_METHODS.map(n => ({ name: n, recommended: reco.methods.includes(n) }))
+    const baitList = ALL_BAITS.map(n => ({ name: n, recommended: reco.baits.includes(n) }))
+
+    this.setData({
       targetFish: fish,
-      methodOptions: methods,
-      method: methods.includes(this.data.method) ? this.data.method : defaultMethod,
-      baitOptions: baits,
-      bait: baits.includes(this.data.bait) ? this.data.bait : defaultBait,
-      recommendationTip: tip
-    });
+      methodList,
+      baitList,
+      method: reco.defMethod || this.data.method,
+      bait: reco.defBait || this.data.bait,
+      recommendationTip: reco.tip ? reco.tip + '（可自由改选）' : ''
+    })
   },
+
   selectMethod(e) { this.setData({ method: e.currentTarget.dataset.val }) },
   selectBait(e) { this.setData({ bait: e.currentTarget.dataset.val }) },
+
+  // ── 本次出钓装备勾选 ────────────────────────────────────
+
+  /** 拉取全量钓箱并初始化为全选 */
+  _loadEquipment() {
+    api.getUserInventoryAll().then(inv => {
+      const mark = (arr) => (arr || []).map(it => Object.assign({}, it, { _checked: true }))
+      this.setData({
+        equipLoaded: true,
+        equip: {
+          rods: mark(inv.rods),
+          mainLines: mark(inv.mainLines),
+          subLineHooks: mark(inv.subLineHooks),
+          floats: mark(inv.floats),
+          baits: mark(inv.baits),
+        }
+      })
+    }).catch(err => {
+      console.warn('[Setup] 拉取装备库失败，跳过本次装备勾选:', err)
+      this.setData({ equipLoaded: true })
+    })
+  },
+
+  toggleEquipPanel() {
+    this.setData({ showEquip: !this.data.showEquip })
+  },
+
+  /** 勾选/取消单件装备 */
+  toggleEquipItem(e) {
+    const cat = e.currentTarget.dataset.cat
+    const idx = e.currentTarget.dataset.idx
+    const key = `equip.${cat}[${idx}]._checked`
+    const cur = this.data.equip[cat][idx]._checked
+    this.setData({ [key]: !cur })
+  },
+
+  /** 全选 / 全不选 */
+  toggleEquipAll(e) {
+    const checked = e.currentTarget.dataset.checked === 'true'
+    const equip = this.data.equip
+    const next = {}
+    Object.keys(equip).forEach(cat => {
+      next[cat] = equip[cat].map(it => Object.assign({}, it, { _checked: checked }))
+    })
+    this.setData({ equip: next })
+  },
+
+  /** 组装本次勾选的装备为后端 user_inventory 结构（剔除 _checked 标记） */
+  _buildTripEquipment() {
+    const equip = this.data.equip
+    const pick = (arr) => (arr || []).filter(it => it._checked).map(it => {
+      const o = Object.assign({}, it)
+      delete o._checked
+      return o
+    })
+    return {
+      rods: pick(equip.rods),
+      mainLines: pick(equip.mainLines),
+      subLineHooks: pick(equip.subLineHooks),
+      floats: pick(equip.floats),
+      baits: pick(equip.baits),
+    }
+  },
+
+  /** 保存出钓上下文（鱼种/钓法/饵料）与本次装备到全局 */
+  _saveContext() {
+    app.globalData.fishContext = {
+      target: this.data.targetFish,
+      method: this.data.method,
+      bait: this.data.bait
+    }
+    if (this.data.equipLoaded) {
+      app.globalData.tripEquipment = this._buildTripEquipment()
+    }
+  },
+
+  // ── 出钓动作 ───────────────────────────────────────────
 
   startSession() {
     this.setData({ isConnecting: true })
     const bleManager = ble.getBLEManager()
     bleManager.connectDevice().then(success => {
-      this.setData({ 
+      this.setData({
         isConnecting: false,
         isConnected: success,
         isModifying: false,
         savedContext: null
       })
       if (success) {
-        // Save to global context
-        app.globalData.fishContext = {
-          target: this.data.targetFish,
-          method: this.data.method,
-          bait: this.data.bait
-        }
+        this._saveContext()
         wx.showToast({ title: '设备已连接', icon: 'success' })
-        // We could also call POST /api/v2/session/start here
         setTimeout(() => {
-          this.goToDashboard();
-        }, 1500);
+          this.goToDashboard()
+        }, 1500)
       }
     }).catch(err => {
       this.setData({ isConnecting: false })
       wx.showToast({ title: '连接失败', icon: 'none' })
     })
+  },
+
+  /** 无设备：直接进入实时大屏（气象预测模式） */
+  goToWeatherMode() {
+    this._saveContext()
+    this.goToDashboard()
   },
 
   goToDashboard() {
@@ -175,6 +237,7 @@ Page({
   },
 
   goToDecision() {
+    this._saveContext()
     wx.navigateTo({
       url: '/pages/decision/decision',
     })
@@ -187,18 +250,14 @@ Page({
         targetFish: this.data.targetFish,
         method: this.data.method,
         bait: this.data.bait,
-        methodOptions: this.data.methodOptions,
-        baitOptions: this.data.baitOptions
+        methodList: this.data.methodList,
+        baitList: this.data.baitList
       }
     })
   },
 
   onTapSaveModification() {
-    app.globalData.fishContext = {
-      target: this.data.targetFish,
-      method: this.data.method,
-      bait: this.data.bait
-    }
+    this._saveContext()
     this.setData({
       isModifying: false,
       savedContext: null
@@ -208,13 +267,13 @@ Page({
 
   onTapCancelModification() {
     if (this.data.savedContext) {
-      const s = this.data.savedContext;
+      const s = this.data.savedContext
       this.setData({
         targetFish: s.targetFish,
         method: s.method,
         bait: s.bait,
-        methodOptions: s.methodOptions,
-        baitOptions: s.baitOptions,
+        methodList: s.methodList,
+        baitList: s.baitList,
         isModifying: false,
         savedContext: null
       })

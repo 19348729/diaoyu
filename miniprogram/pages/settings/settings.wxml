@@ -2,7 +2,6 @@
   <view class="list">
     <navigator url="/pages/decision/decision" class="item">出钓决策 (V1 保留)</navigator>
     <navigator url="/pages/history/history" class="item">趋势分析 (V1 保留)</navigator>
-    <navigator url="/pages/logs/logs" class="item">作钓日志 (V1 保留)</navigator>
     <navigator url="/pages/index/index" class="item">实时监测仪表盘 (V1 保留)</navigator>
   </view>
 </view>
