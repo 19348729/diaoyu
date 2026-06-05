@@ -19,3 +19,8 @@
 .presc-action { font-size: 32rpx; font-weight: bold; color: #333; margin-bottom: 10rpx; }
 .presc-reason { font-size: 28rpx; color: #666; }
 .note { font-size: 26rpx; color: #f0ad4e; background: #fcf8e3; padding: 15rpx; border-radius: 8rpx; }
+
+.sub-hint { font-size: 22rpx; font-weight: normal; color: #aaa; margin-left: 12rpx; }
+.chip-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
+.chip { padding: 12rpx 30rpx; border-radius: 30rpx; background: #f1f3f5; color: #5469d4; font-size: 28rpx; }
+.chip.active { background: #1a73e8; color: #fff; font-weight: bold; }

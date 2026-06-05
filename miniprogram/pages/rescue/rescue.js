@@ -14,9 +14,18 @@ Page({
       { label: '鱼口极轻，有动作打不到', val: 'SYM_WEAK_BITE', checked: false },
       { label: '鱼层明显上浮', val: 'SYM_FISH_UP', checked: false }
     ],
+    // 当前正在用的钓法 / 饵料（救场时填写，给 AI 针对性开方；可不填）
+    methodOptions: ['底钓', '浮钓', '行程', '路亚'],
+    baitOptions: ['香腥', '本味', '活饵', '玉米/颗粒', '酸臭/发酵', '拟饵'],
+    curMethod: '',
+    curBait: '',
+
     isRescuing: false,
     prescription: null
   },
+
+  selectMethod(e) { this.setData({ curMethod: e.currentTarget.dataset.val }) },
+  selectBait(e) { this.setData({ curBait: e.currentTarget.dataset.val }) },
 
   onShow() {
     // 仅在已连接且对表完成时尝试全量 Dump；无设备时直接跳过（气象模式照常可用）
@@ -53,7 +62,13 @@ Page({
         console.warn('[Rescue] 无设备或拉取传感器失败，降级为纯气象救场:', recErr)
       }
 
-      const context = app.globalData.fishContext || { target: '未知', method: '未知', bait: '未知' }
+      // 目标鱼种来自出钓上下文；钓法/饵料用救场时现填的（未填则「未知」）
+      const fc = app.globalData.fishContext || {}
+      const context = {
+        target: fc.target || 'auto',
+        method: this.data.curMethod || '未知',
+        bait: this.data.curBait || '未知',
+      }
 
       // 装备上下文：优先用本次出钓勾选的装备，未设置时回退全量钓箱
       let userInventory = app.globalData.tripEquipment || null

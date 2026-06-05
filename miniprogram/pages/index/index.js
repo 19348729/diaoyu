@@ -100,8 +100,9 @@ Page({
     // 获取用户在上一页选择的目标鱼种并更新
     const app = getApp();
     const fishCtx = app.globalData.fishContext || {};
+    // target='auto'（智能推荐）视作无指定鱼种，大屏改显示「最适宜作钓: 推荐鱼种」
     this.setData({
-      targetFish: fishCtx.target || '',
+      targetFish: (fishCtx.target && fishCtx.target !== 'auto') ? fishCtx.target : '',
       selectedMethod: fishCtx.method || '',
     });
 

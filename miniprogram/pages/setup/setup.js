@@ -2,44 +2,30 @@ const app = getApp()
 const ble = require('../../utils/ble')
 const api = require('../../utils/api')
 
-// 全量钓法 / 饵料选项（始终全部可选，不再因鱼种收窄）
-const ALL_METHODS = ['底钓', '浮钓', '行程', '路亚']
-const ALL_BAITS = ['香腥', '本味', '活饵', '玉米/颗粒', '酸臭/发酵', '拟饵']
+// 「智能推荐」对应后端 fish_type = 'auto'
+const AUTO_LABEL = '智能推荐'
 
-// 各鱼种的「推荐」钓法/饵料与默认首选（仅作高亮与默认值，用户可自由改选）
-const FISH_RECO = {
-  '土鲮':   { methods: ['底钓'],               defMethod: '底钓', baits: ['香腥', '本味', '活饵'],        defBait: '香腥',
-              tip: '💡 土鲮喜腥甜、底栖掘泥，推荐「底钓」+腥香型饵料（仍可自由改选）' },
-  '鲤鱼':   { methods: ['底钓'],               defMethod: '底钓', baits: ['本味', '玉米/颗粒', '香腥'],   defBait: '本味',
-              tip: '💡 鲤鱼警惕、偏爱自然谷物，推荐「底钓」+「本味/谷物」颗粒饵' },
-  '塘鲺':   { methods: ['底钓'],               defMethod: '底钓', baits: ['活饵', '香腥'],                defBait: '活饵',
-              tip: '💡 塘鲺肉食底栖、喜大腥，推荐「底钓」+高活性「活饵」' },
-  '鲢鳙':   { methods: ['浮钓'],               defMethod: '浮钓', baits: ['酸臭/发酵', '香腥'],           defBait: '酸臭/发酵',
-              tip: '💡 鲢鳙滤食、喜温喜酸臭，推荐「浮钓」+「酸臭/发酵」雾化饵' },
-  '大口黑鲈': { methods: ['路亚'],             defMethod: '路亚', baits: ['拟饵'],                       defBait: '拟饵',
-              tip: '💡 黑鲈掠食性，推荐「路亚」+运动「拟饵」' },
-  '翘嘴':   { methods: ['路亚', '浮钓', '行程'], defMethod: '路亚', baits: ['拟饵', '活饵', '本味'],       defBait: '拟饵',
-              tip: '💡 翘嘴迅猛、中上层觅食，推荐「路亚/浮钓」+「拟饵/活饵」' },
-  '罗非鱼': { methods: ['底钓', '浮钓'],        defMethod: '底钓', baits: ['香腥', '本味', '活饵'],        defBait: '香腥',
-              tip: '💡 罗非喜温、抢食凶猛，推荐「底钓/浮钓」+「香腥/活饵」' },
-  '草鱼':   { methods: ['底钓', '浮钓'],        defMethod: '底钓', baits: ['玉米/颗粒', '本味'],          defBait: '玉米/颗粒',
-              tip: '💡 草鱼喜嫩草谷物，推荐「底钓/浮钓」+「玉米/颗粒」' },
-  '鲫鱼':   { methods: ['底钓', '浮钓', '行程'], defMethod: '底钓', baits: ['香腥', '本味', '活饵'],       defBait: '香腥',
-              tip: '💡 鲫鱼分布广、群集索食，推荐高灵敏「底/浮/行程」+「香腥/本味/活饵」' },
+// 各鱼种的习性提示（仅信息展示；具体钓法/用饵由大屏的智能策略给出，开局不再让用户预选）
+const FISH_TIP = {
+  '智能推荐': '💡 系统会综合水温/气压/季节/月相，自动推荐当前最适宜的鱼种与策略',
+  '鲫鱼': '💡 鲫鱼分布广、群集索食，四季可钓，最适合新手与多数水域',
+  '鲤鱼': '💡 鲤鱼生性警惕、偏爱自然谷物，多在深水底层活动',
+  '罗非鱼': '💡 罗非喜温、抢食凶猛，水温高时鱼口好',
+  '鲢鳙': '💡 鲢鳙滤食、喜温喜酸臭，多在中上层水域',
+  '草鱼': '💡 草鱼喜嫩草谷物，体型大、冲击力强',
+  '翘嘴': '💡 翘嘴行动迅速、中上层掠食，多用路亚/浮钓',
+  '土鲮': '💡 土鲮喜腥甜、底栖掘泥，南方水域常见',
+  '塘鲺': '💡 塘鲺肉食底栖、喜大腥，耐低氧',
+  '大口黑鲈': '💡 黑鲈掠食性强，路亚对象鱼',
 }
 
 Page({
   data: {
-    fishOptions: ['土鲮', '鲢鳙', '草鱼', '罗非鱼', '鲫鱼', '鲤鱼', '塘鲺', '大口黑鲈', '翘嘴'],
+    // 第一项为「智能推荐」(auto)，其余为具体目标鱼种
+    fishOptions: [AUTO_LABEL, '鲫鱼', '鲤鱼', '罗非鱼', '鲢鳙', '草鱼', '翘嘴', '土鲮', '塘鲺', '大口黑鲈'],
 
-    // 钓法 / 饵料：始终全量展示，recommended 标记仅用于高亮
-    methodList: ALL_METHODS.map(n => ({ name: n, recommended: n === '底钓' })),
-    baitList: ALL_BAITS.map(n => ({ name: n, recommended: n === '香腥' })),
-
-    targetFish: '土鲮',
-    method: '底钓',
-    bait: '香腥',
-    recommendationTip: '💡 土鲮底栖掘泥，已为你高亮推荐「底钓」与腥香饵料，可自由改选',
+    targetFish: AUTO_LABEL,
+    recommendationTip: FISH_TIP[AUTO_LABEL],
 
     // 本次出钓装备（默认全选；钓友可勾掉没带的）
     showEquip: false,
@@ -61,14 +47,15 @@ Page({
       this._syncConnectionState(connected)
     })
 
-    // 首次进入：若已连接则恢复全局上下文
+    // 首次进入：若已连接则恢复全局上下文（'auto' 回显为「智能推荐」）
     if (bleManager.isConnected) {
       const fishContext = app.globalData.fishContext || {}
+      const tf = (!fishContext.target || fishContext.target === 'auto')
+        ? AUTO_LABEL : fishContext.target
       this.setData({
         isConnected: true,
-        targetFish: fishContext.target || '土鲮',
-        method: fishContext.method || '底钓',
-        bait: fishContext.bait || '香腥'
+        targetFish: tf,
+        recommendationTip: FISH_TIP[tf] || ''
       })
     }
 
@@ -101,28 +88,15 @@ Page({
     }
   },
 
-  // ── 鱼种 / 钓法 / 饵料选择 ──────────────────────────────
+  // ── 目标鱼种选择（开局只需声明目标鱼种或智能推荐） ──────────
 
   selectFish(e) {
     const fish = e.currentTarget.dataset.val
-    const reco = FISH_RECO[fish] || { methods: [], defMethod: this.data.method, baits: [], defBait: this.data.bait, tip: '' }
-
-    // 仅更新「推荐高亮」与默认首选，绝不收窄可选项
-    const methodList = ALL_METHODS.map(n => ({ name: n, recommended: reco.methods.includes(n) }))
-    const baitList = ALL_BAITS.map(n => ({ name: n, recommended: reco.baits.includes(n) }))
-
     this.setData({
       targetFish: fish,
-      methodList,
-      baitList,
-      method: reco.defMethod || this.data.method,
-      bait: reco.defBait || this.data.bait,
-      recommendationTip: reco.tip ? reco.tip + '（可自由改选）' : ''
+      recommendationTip: FISH_TIP[fish] || ''
     })
   },
-
-  selectMethod(e) { this.setData({ method: e.currentTarget.dataset.val }) },
-  selectBait(e) { this.setData({ bait: e.currentTarget.dataset.val }) },
 
   // ── 本次出钓装备勾选 ────────────────────────────────────
 
@@ -187,12 +161,10 @@ Page({
     }
   },
 
-  /** 保存出钓上下文（鱼种/钓法/饵料）与本次装备到全局 */
+  /** 保存出钓上下文（目标鱼种）与本次装备到全局 */
   _saveContext() {
     app.globalData.fishContext = {
-      target: this.data.targetFish,
-      method: this.data.method,
-      bait: this.data.bait
+      target: this.data.targetFish === AUTO_LABEL ? 'auto' : this.data.targetFish,
     }
     if (this.data.equipLoaded) {
       app.globalData.tripEquipment = this._buildTripEquipment()
@@ -241,11 +213,7 @@ Page({
     this.setData({
       isModifying: true,
       savedContext: {
-        targetFish: this.data.targetFish,
-        method: this.data.method,
-        bait: this.data.bait,
-        methodList: this.data.methodList,
-        baitList: this.data.baitList
+        targetFish: this.data.targetFish
       }
     })
   },
@@ -264,10 +232,7 @@ Page({
       const s = this.data.savedContext
       this.setData({
         targetFish: s.targetFish,
-        method: s.method,
-        bait: s.bait,
-        methodList: s.methodList,
-        baitList: s.baitList,
+        recommendationTip: FISH_TIP[s.targetFish] || '',
         isModifying: false,
         savedContext: null
       })

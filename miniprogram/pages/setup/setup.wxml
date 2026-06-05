@@ -6,7 +6,7 @@
   <!-- 1. 网格配置区（未连接 或 修改状态下 显示） -->
   <block wx:if="{{!isConnected || isModifying}}">
     <view class="section card-shadow">
-      <view class="title">目标鱼种</view>
+      <view class="title">目标鱼种 <text class="title-hint">选「智能推荐」由系统判断</text></view>
       <view class="grid">
         <view class="tag {{targetFish === item ? 'active' : ''}}" wx:for="{{fishOptions}}" wx:key="*this" bindtap="selectFish" data-val="{{item}}">{{item}}</view>
       </view>
@@ -14,19 +14,8 @@
       <view class="recommendation-tip" wx:if="{{recommendationTip}}">
         <text class="tip-text">{{recommendationTip}}</text>
       </view>
-    </view>
-
-    <view class="section card-shadow">
-      <view class="title">钓法 <text class="title-hint">全部可选，⭐ 为推荐</text></view>
-      <view class="grid">
-        <view class="tag {{method === item.name ? 'active' : ''}} {{item.recommended ? 'recommended' : ''}}" wx:for="{{methodList}}" wx:key="name" bindtap="selectMethod" data-val="{{item.name}}">{{item.recommended ? '⭐' : ''}}{{item.name}}</view>
-      </view>
-    </view>
-
-    <view class="section card-shadow">
-      <view class="title">饵料 <text class="title-hint">全部可选，⭐ 为推荐</text></view>
-      <view class="grid">
-        <view class="tag {{bait === item.name ? 'active' : ''}} {{item.recommended ? 'recommended' : ''}}" wx:for="{{baitList}}" wx:key="name" bindtap="selectBait" data-val="{{item.name}}">{{item.recommended ? '⭐' : ''}}{{item.name}}</view>
+      <view class="recommendation-tip" style="background: rgba(245,127,23,0.06); border-left-color: #f57f17;">
+        <text class="tip-text" style="color: #b26a00;">🎣 钓法与用饵无需在此预选——进入大屏后系统会按实时水情给出建议；作钓不顺时再去「AI救场」填写当前用的钓法/饵料即可</text>
       </view>
     </view>
 
@@ -104,16 +93,6 @@
       <view class="summary-item">
         <text class="summary-label">目标鱼种</text>
         <text class="summary-value">{{targetFish}}</text>
-      </view>
-      <view class="summary-divider"></view>
-      <view class="summary-item">
-        <text class="summary-label">钓法</text>
-        <text class="summary-value">{{method}}</text>
-      </view>
-      <view class="summary-divider"></view>
-      <view class="summary-item">
-        <text class="summary-label">饵料</text>
-        <text class="summary-value">{{bait}}</text>
       </view>
     </view>
   </view>

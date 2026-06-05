@@ -9,6 +9,18 @@
         <text class="check-text">{{item.label}}</text>
       </view>
     </view>
+
+    <!-- 当前用的钓法 / 饵料（选填，帮助 AI 更对症开方） -->
+    <view class="title mt">现在用的钓法 <text class="sub-hint">选填</text></view>
+    <view class="chip-grid">
+      <view class="chip {{curMethod === item ? 'active' : ''}}" wx:for="{{methodOptions}}" wx:key="*this" bindtap="selectMethod" data-val="{{item}}">{{item}}</view>
+    </view>
+
+    <view class="title mt">现在用的饵料 <text class="sub-hint">选填</text></view>
+    <view class="chip-grid">
+      <view class="chip {{curBait === item ? 'active' : ''}}" wx:for="{{baitOptions}}" wx:key="*this" bindtap="selectBait" data-val="{{item}}">{{item}}</view>
+    </view>
+
     <button class="btn-primary mt" bindtap="requestRescue" loading="{{isRescuing}}">请求 AI 开方</button>
   </view>
 
