@@ -17,7 +17,6 @@ PIN_DS18B20 = 32            # GPIO13: 水温（1-Wire 单总线）
 # BMP280 气压传感器 - I2C 软总线
 PIN_I2C_SDA = 2             # GPIO2:  I2C 数据线
 PIN_I2C_SCL = 15            # GPIO15: I2C 时钟线
-PIN_BUZZER = 25             # GPIO25: 声音蜂鸣器驱动引脚 (可配置)
 BMP280_I2C_ADDR = 0x76      # BMP280 默认 I2C 地址（SDO 接 GND 时为 0x76，接 VCC 时为 0x77）
 
 # ──────────────────────────────────────────────
@@ -58,4 +57,3 @@ CMD_PULL_HISTORY = 0x07     # 手动拉取一批历史（小程序 -> ESP32，�
 CMD_BULK_DUMP = 0x08        # 全量快闪拉取（小程序 -> ESP32）
 CMD_DUMP_COMPLETE = 0x09    # 全量快闪结束标记（ESP32 -> 小程序）
 CMD_ENTER_REALTIME = 0x0A   # 切换实时 Notify 模式（小程序 -> ESP32）
-CMD_SONAR_DATA = 0x0B       # 水下声呐数据帧（ESP32 -> 小程序，主动 Notify）

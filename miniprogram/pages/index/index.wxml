@@ -69,61 +69,6 @@
     </view>
   </view>
 
-  <!-- 水下探鱼卡片（来自 ESP32-B 超声波测距 + ESP-NOW 转发） -->
-  <view class="card sonar-card {{sonarFishEvent ? 'sonar-fish-active' : ''}}" wx:if="{{bleConnected && sonarHasData}}">
-    <view class="sonar-header">
-      <view class="sonar-title-row">
-        <text class="sonar-title">🐟 水下探鱼</text>
-        <view class="sonar-status-pill {{sonarStatusClass}}">
-          <view class="sonar-status-dot"></view>
-          <text>{{sonarStatusText}}</text>
-        </view>
-      </view>
-      <text class="sonar-sub">超声波实时探测水下动态</text>
-    </view>
-
-    <!-- 鱼经过强提示横幅 -->
-    <view class="sonar-fish-banner" wx:if="{{sonarFishEvent}}">
-      <text class="sonar-fish-emoji">🐟</text>
-      <text class="sonar-fish-text">检测到鱼经过！</text>
-      <view class="sonar-pulse-ring"></view>
-    </view>
-
-    <!-- 数据网格 -->
-    <view class="sonar-grid">
-      <view class="sonar-item primary">
-        <text class="sonar-value">{{sonarDistance}}</text>
-        <text class="sonar-unit">cm</text>
-        <text class="sonar-label">当前距离</text>
-      </view>
-      <view class="sonar-item">
-        <text class="sonar-value">{{sonarBaseline}}</text>
-        <text class="sonar-unit">cm</text>
-        <text class="sonar-label">基线（30秒）</text>
-      </view>
-      <view class="sonar-item">
-        <text class="sonar-value">{{sonarFishCount}}</text>
-        <text class="sonar-unit">次</text>
-        <text class="sonar-label">累计鱼经过</text>
-      </view>
-    </view>
-
-    <view class="sonar-footer">
-      <text class="sonar-tip">💡 距离突然变小说明可能有鱼游过探头下方</text>
-      <text class="sonar-time">{{sonarUpdateTime}}</text>
-    </view>
-  </view>
-
-  <!-- 声呐占位卡片（连接但还未收到声呐数据时） -->
-  <view class="card sonar-placeholder" wx:elif="{{bleConnected && !sonarHasData}}">
-    <text class="sonar-placeholder-emoji">🐟</text>
-    <view class="sonar-placeholder-text">
-      <text class="sonar-placeholder-title">水下探鱼待启动</text>
-      <text class="sonar-placeholder-sub">等待 ESP32-B 测距模块上线...</text>
-    </view>
-  </view>
-
-
   <!-- 天气情况展示 -->
   <view class="card" wx:if="{{weatherInfo}}" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);">
     <text class="card-title" style="color: #1565c0;">⛅ 实时天气 (基于GPS)</text>
@@ -152,6 +97,39 @@
           <text wx:else>⏳</text>
         </view>
       </view>
+    </view>
+
+    <!-- 渐进式分析阶段（随本次连接时长推进） -->
+    <view class="stage-card" wx:if="{{predictStage}}">
+      <view class="stage-top">
+        <text class="stage-top-label">📊 分析阶段 · {{predictStageText}}</text>
+        <view class="stage-conf">
+          <text class="stage-conf-num">{{predictConfidence}}%</text>
+          <text class="stage-conf-label">置信度</text>
+        </view>
+      </view>
+      <view class="stage-steps">
+        <view class="stage-step {{predictStageIndex >= 0 ? 'done' : ''}}">
+          <view class="stage-dot"></view>
+          <text class="stage-name">即时</text>
+        </view>
+        <view class="stage-line {{predictStageIndex >= 1 ? 'done' : ''}}"></view>
+        <view class="stage-step {{predictStageIndex >= 1 ? 'done' : ''}}">
+          <view class="stage-dot"></view>
+          <text class="stage-name">初步·5min</text>
+        </view>
+        <view class="stage-line {{predictStageIndex >= 2 ? 'done' : ''}}"></view>
+        <view class="stage-step {{predictStageIndex >= 2 ? 'done' : ''}}">
+          <view class="stage-dot"></view>
+          <text class="stage-name">标准·10min</text>
+        </view>
+        <view class="stage-line {{predictStageIndex >= 3 ? 'done' : ''}}"></view>
+        <view class="stage-step {{predictStageIndex >= 3 ? 'done' : ''}}">
+          <view class="stage-dot"></view>
+          <text class="stage-name">深度·30min</text>
+        </view>
+      </view>
+      <text class="stage-next">⏳ {{predictNextHint}}</text>
     </view>
 
     <view class="card-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-top: none; margin-top: 0; padding-top: 0;">

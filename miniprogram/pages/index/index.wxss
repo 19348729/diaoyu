@@ -461,237 +461,103 @@
 }
 
 /* ============================================ */
-/*  水下探鱼卡片样式                              */
+/*  渐进式分析阶段                                */
 /* ============================================ */
-
-.sonar-card {
-  background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
-  border-left: 8rpx solid #00897b;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
+.stage-card {
+  background: linear-gradient(135deg, #f3f8ff 0%, #eaf2ff 100%);
+  border: 1px solid #d6e4ff;
+  border-radius: 16rpx;
+  padding: 24rpx 24rpx 20rpx;
+  margin-bottom: 24rpx;
 }
 
-/* 鱼经过时的卡片高亮（绿色脉冲背景） */
-.sonar-card.sonar-fish-active {
-  background: linear-gradient(135deg, #c8e6c9 0%, #81c784 100%);
-  border-left-color: #2e7d32;
-  box-shadow: 0 0 24rpx rgba(46, 125, 50, 0.35);
-  animation: sonar-card-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes sonar-card-pulse {
-  0%, 100% { box-shadow: 0 0 16rpx rgba(46, 125, 50, 0.25); }
-  50%      { box-shadow: 0 0 36rpx rgba(46, 125, 50, 0.55); }
-}
-
-.sonar-header {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 20rpx;
-  padding-bottom: 16rpx;
-  border-bottom: 1rpx dashed rgba(0, 137, 123, 0.3);
-}
-
-.sonar-title-row {
+.stage-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 24rpx;
 }
 
-.sonar-title {
-  font-size: 32rpx;
+.stage-top-label {
+  font-size: 28rpx;
   font-weight: 700;
-  color: #00695c;
+  color: #1565c0;
 }
 
-.sonar-sub {
-  font-size: 22rpx;
-  color: #00897b;
-  margin-top: 6rpx;
-}
-
-/* 状态小球 */
-.sonar-status-pill {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  padding: 4rpx 16rpx;
-  border-radius: 20rpx;
-  font-size: 22rpx;
-  background: rgba(255, 255, 255, 0.6);
-}
-
-.sonar-status-pill.ok    { color: #2e7d32; }
-.sonar-status-pill.warn  { color: #ef6c00; }
-.sonar-status-pill.err   { color: #c62828; }
-.sonar-status-pill.idle  { color: #757575; }
-
-.sonar-status-dot {
-  width: 12rpx;
-  height: 12rpx;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.sonar-status-pill.ok .sonar-status-dot {
-  animation: sonar-dot-blink 1.5s ease-in-out infinite;
-}
-
-@keyframes sonar-dot-blink {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.3; }
-}
-
-/* 鱼经过提示横幅 */
-.sonar-fish-banner {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  padding: 16rpx 24rpx;
-  margin-bottom: 20rpx;
-  background: linear-gradient(90deg, #66bb6a 0%, #43a047 100%);
-  border-radius: 12rpx;
-  box-shadow: 0 4rpx 12rpx rgba(46, 125, 50, 0.25);
-  overflow: hidden;
-}
-
-.sonar-fish-emoji {
-  font-size: 40rpx;
-  animation: sonar-fish-swim 0.8s ease-in-out infinite alternate;
-}
-
-@keyframes sonar-fish-swim {
-  0%   { transform: translateX(0) scale(1); }
-  100% { transform: translateX(8rpx) scale(1.1); }
-}
-
-.sonar-fish-text {
-  flex: 1;
-  font-size: 30rpx;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 2rpx;
-}
-
-.sonar-pulse-ring {
-  position: absolute;
-  right: 24rpx;
-  width: 24rpx;
-  height: 24rpx;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
-  animation: sonar-ring 1.2s ease-out infinite;
-}
-
-@keyframes sonar-ring {
-  0%   { box-shadow: 0 0 0 0    rgba(255, 255, 255, 0.7); }
-  70%  { box-shadow: 0 0 0 24rpx rgba(255, 255, 255, 0); }
-  100% { box-shadow: 0 0 0 0    rgba(255, 255, 255, 0); }
-}
-
-/* 数据网格 */
-.sonar-grid {
-  display: flex;
-  justify-content: space-around;
-  text-align: center;
-  margin: 10rpx 0 16rpx;
-}
-
-.sonar-item {
-  flex: 1;
+.stage-conf {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 12rpx 0;
+  align-items: flex-end;
 }
 
-.sonar-value {
-  font-size: 44rpx;
-  font-weight: 700;
-  color: #004d40;
-  line-height: 1.1;
+.stage-conf-num {
+  font-size: 40rpx;
+  font-weight: 800;
+  color: #1a73e8;
+  line-height: 1;
 }
 
-.sonar-item.primary .sonar-value {
-  font-size: 56rpx;
-  color: #00695c;
-}
-
-.sonar-unit {
-  font-size: 22rpx;
-  color: #00796b;
+.stage-conf-label {
+  font-size: 20rpx;
+  color: #8aa3c4;
   margin-top: 4rpx;
 }
 
-.sonar-label {
-  font-size: 22rpx;
-  color: #00695c;
-  margin-top: 8rpx;
-  opacity: 0.85;
-}
-
-/* 鱼经过时 primary 数值闪动 */
-.sonar-card.sonar-fish-active .sonar-item.primary .sonar-value {
-  color: #1b5e20;
-  animation: sonar-value-flash 0.6s ease-in-out infinite alternate;
-}
-
-@keyframes sonar-value-flash {
-  0%   { transform: scale(1); }
-  100% { transform: scale(1.08); }
-}
-
-.sonar-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 14rpx;
-  border-top: 1rpx dashed rgba(0, 137, 123, 0.3);
-}
-
-.sonar-tip {
-  font-size: 22rpx;
-  color: #00695c;
-  flex: 1;
-}
-
-.sonar-time {
-  font-size: 22rpx;
-  color: #00897b;
-  margin-left: 12rpx;
-}
-
-/* 声呐占位卡片 */
-.sonar-placeholder {
+/* 四阶段步骤条 */
+.stage-steps {
   display: flex;
   align-items: center;
-  gap: 20rpx;
-  background: linear-gradient(135deg, #f5f5f5 0%, #eeeeee 100%);
-  border-left: 8rpx solid #bdbdbd;
+  margin-bottom: 16rpx;
 }
 
-.sonar-placeholder-emoji {
-  font-size: 56rpx;
-  opacity: 0.5;
-}
-
-.sonar-placeholder-text {
+.stage-step {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  align-items: center;
+  flex: 0 0 auto;
 }
 
-.sonar-placeholder-title {
-  font-size: 28rpx;
+.stage-dot {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50%;
+  background: #cfd8e3;
+  border: 4rpx solid #e8eef6;
+}
+
+.stage-step.done .stage-dot {
+  background: #1a73e8;
+  border-color: #bcd4ff;
+}
+
+.stage-name {
+  font-size: 20rpx;
+  color: #90a4b8;
+  margin-top: 8rpx;
+  white-space: nowrap;
+}
+
+.stage-step.done .stage-name {
+  color: #1565c0;
   font-weight: 600;
-  color: #616161;
 }
 
-.sonar-placeholder-sub {
+.stage-line {
+  flex: 1;
+  height: 6rpx;
+  border-radius: 4rpx;
+  background: #cfd8e3;
+  margin: 0 8rpx;
+  margin-bottom: 28rpx;  /* 与圆点对齐（抵消名称高度） */
+}
+
+.stage-line.done {
+  background: #1a73e8;
+}
+
+.stage-next {
+  display: block;
   font-size: 22rpx;
-  color: #9e9e9e;
-  margin-top: 6rpx;
+  color: #5b7aa3;
+  text-align: center;
 }

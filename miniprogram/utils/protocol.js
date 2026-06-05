@@ -19,15 +19,6 @@ const CMD = {
   BULK_DUMP: 0x08,      // 全量快闪拉取 (小程序 -> ESP32)
   DUMP_COMPLETE: 0x09,  // 全量快闪结束标记 (ESP32 -> 小程序)
   ENTER_REALTIME: 0x0A, // 切换实时 Notify 模式 (小程序 -> ESP32)
-  SONAR_DATA: 0x0B,     // 水下声呐数据帧 (ESP32 -> 小程序)
-};
-
-// ── 声呐状态码 ──
-const SONAR_STATUS = {
-  OK: 0,
-  OUT_OF_RANGE: 1,
-  TOO_NEAR: 2,
-  COMM_FAIL: 3,
 };
 
 // ── None 值占位符（与 ESP32 protocol.py 一致）──
@@ -159,9 +150,6 @@ function decodeIncoming(buffer) {
       case CMD.DUMP_COMPLETE:
         return { cmd: CMD.DUMP_COMPLETE };
 
-      case CMD.SONAR_DATA:
-        return decodeSonarData(view);
-
       default:
         return { cmd, error: `未知指令码: 0x${cmd.toString(16)}` };
     }
@@ -263,38 +251,8 @@ function decodeStatusReply(view) {
   };
 }
 
-/**
- * 解码水下声呐实时帧
- * 帧结构: CMD(1) + timestamp(4) + distance_cm(4 float) + baseline_cm(4 float) + status(1) + fish_event(1) = 15字节
- */
-function decodeSonarData(view) {
-  if (view.byteLength < 15) {
-    return { cmd: CMD.SONAR_DATA, error: '声呐帧长度不足' };
-  }
-
-  const timestamp = view.getUint32(1, true);
-  const distance = view.getFloat32(5, true);
-  const baseline = view.getFloat32(9, true);
-  const status = view.getUint8(13);
-  const fishEvent = view.getUint8(14) === 1;
-
-  // -999.0 作为无效占位符
-  const dist = distance <= -990 ? null : parseFloat(distance.toFixed(1));
-  const base = baseline <= -990 ? null : parseFloat(baseline.toFixed(1));
-
-  return {
-    cmd: CMD.SONAR_DATA,
-    timestamp,
-    distanceCm: dist,
-    baselineCm: base,
-    status,
-    fishEvent,
-  };
-}
-
 module.exports = {
   CMD,
-  SONAR_STATUS,
   encodeTimeSync,
   encodeSyncAck,
   encodeStatusQuery,

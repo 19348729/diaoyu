@@ -903,6 +903,20 @@ def _get_user_inventory(db: Session, openid: Optional[str]) -> dict:
     }
 
 
+def _resolve_inventory(req_inventory: Optional[Dict], db: Session, openid: Optional[str]) -> dict:
+    """解析预测时使用的装备上下文。
+
+    优先使用请求里携带的「本次出钓装备」（用户在小程序勾选的实际带出装备）；
+    仅当请求未携带或勾选为空时，才回退到该用户钓箱的全量装备。
+    这样主预测的装备建议只会在用户「本次带了的」范围内挑选，避免推荐没带的装备。
+    """
+    if req_inventory and any(
+        req_inventory.get(k) for k in ("rods", "mainLines", "subLineHooks", "floats", "baits")
+    ):
+        return req_inventory
+    return _get_user_inventory(db, openid)
+
+
 @app.post("/api/predict", response_model=PredictResponse, tags=["预测"])
 async def predict(
     req: PredictRequest,
@@ -960,8 +974,9 @@ async def predict(
     series = SensorTimeSeries(readings=readings)
 
     # 预测接口允许匿名访问：无登录态时不附带装备上下文，也不落库
+    # 装备上下文：优先用本次出钓勾选（req.user_inventory），未携带时回退钓箱全量
     openid = _optional_openid(x_openid)
-    user_inventory = _get_user_inventory(db, openid)
+    user_inventory = _resolve_inventory(req.user_inventory, db, openid)
 
     # 对目标鱼种循环跑分
     fish_results = []
@@ -1093,6 +1108,7 @@ class WeatherPredictRequest(BaseModel):
     fish_type: str = Field("auto", description="目标鱼种名称，传 'auto' 则全鱼种测算并推荐")
     lat: float = Field(..., description="纬度")
     lng: float = Field(..., description="经度")
+    user_inventory: Optional[Dict] = Field(None, description="本次出钓装备（不传则回退钓箱全量）")
 
 
 @app.post("/api/predict/weather", tags=["预测"])
@@ -1123,9 +1139,10 @@ async def predict_weather_only(
         )
     target_fishes = list(FISH_PROFILES.keys())
 
-    # 纯天气预测允许匿名访问（出发前决策），无登录态时不附带装备上下文
+    # 纯天气预测允许匿名访问（出发前决策）
+    # 装备上下文：优先用本次出钓勾选，未携带时回退钓箱全量
     openid = _optional_openid(x_openid)
-    user_inventory = _get_user_inventory(db, openid)
+    user_inventory = _resolve_inventory(req.user_inventory, db, openid)
 
     # 对目标鱼种循环跑分
     fish_results = []

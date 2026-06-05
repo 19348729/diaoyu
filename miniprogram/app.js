@@ -23,16 +23,6 @@ App({
       pLocal: null,    // 气压 hPa
     },
 
-    // 最新水下声呐数据（来自 ESP32-B 测距板 -> ESP-NOW -> ESP32-A -> BLE）
-    latestSonar: {
-      timestamp: 0,
-      distanceCm: null,   // 当前距离 cm
-      baselineCm: null,   // 近 N 秒滑动均值基线 cm
-      status: -1,         // 0=正常 1=超出量程 2=过近 3=通讯失败
-      fishEvent: false,
-    },
-    sonarFishEventCount: 0,
-
     // 历史数据缓存（用于趋势展示）
     historyData: [],
 

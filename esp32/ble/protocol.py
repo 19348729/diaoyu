@@ -21,7 +21,7 @@ import struct
 from config import (
     CMD_TIME_SYNC, CMD_REALTIME_DATA, CMD_HISTORY_DATA,
     CMD_SYNC_ACK, CMD_STATUS_QUERY, CMD_STATUS_REPLY, CMD_PULL_HISTORY,
-    CMD_BULK_DUMP, CMD_DUMP_COMPLETE, CMD_ENTER_REALTIME, CMD_SONAR_DATA,
+    CMD_BULK_DUMP, CMD_DUMP_COMPLETE, CMD_ENTER_REALTIME,
 )
 
 # ── 数据帧中 None 值的占位符 ──
@@ -117,36 +117,6 @@ def encode_dump_complete() -> bytes:
         CMD(1)
     """
     return struct.pack("<B", CMD_DUMP_COMPLETE)
-
-
-def encode_sonar_data(timestamp: int, distance_cm, baseline_cm,
-                     status: int, fish_event: bool,
-                     alarm_level: int = 0) -> bytes:
-    """编码水下声呐实时帧。
-
-    帧结构 (16 字节):
-        CMD(1) + timestamp(4) + distance_cm(4 float) + baseline_cm(4 float)
-        + status(1) + fish_event(1) + alarm_level(1)
-
-    Args:
-        timestamp:    Unix 秒时间戳
-        distance_cm:  当前距离（cm），可为 None
-        baseline_cm:  基准水深基线（cm），可为 None
-        status:       0=正常 1=超出量程 2=过近 3=通讯失败
-        fish_event:   True=检测到鱼讯
-        alarm_level:  0=无鱼 1=底层拱窝 2=中层截杀（由 ESP32-A 边缘端判定）
-    """
-    d = -999.0 if distance_cm is None else float(distance_cm)
-    b = -999.0 if baseline_cm is None else float(baseline_cm)
-    return struct.pack(
-        '<BIffBBB',
-        CMD_SONAR_DATA,
-        timestamp & 0xFFFFFFFF,
-        d, b,
-        status & 0xFF,
-        1 if fish_event else 0,
-        alarm_level & 0xFF,
-    )
 
 
 # ──────────────────────────────────────────────

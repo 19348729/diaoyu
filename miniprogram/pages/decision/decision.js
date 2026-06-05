@@ -66,9 +66,12 @@ Page({
       const lng = location.longitude;
       const fishType = this.data.fishTypes[this.data.selectedFishIndex];
 
+      // 本次出钓装备（从出钓准备页带过来）：让装备建议只在「带了的」范围内挑选
+      const tripEquipment = (getApp().globalData && getApp().globalData.tripEquipment) || null;
+
       // 并发请求 3 个接口
       const [weatherResult, forecastResult, calendarResult] = await Promise.all([
-        api.getWeatherPredict(lat, lng, fishType),
+        api.getWeatherPredict(lat, lng, fishType, tripEquipment),
         api.getForecastToday(lat, lng, fishType === 'auto' ? '鲫鱼' : fishType),
         api.getForecast3Day(lat, lng, fishType === 'auto' ? '鲫鱼' : fishType),
       ]);

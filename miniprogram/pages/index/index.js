@@ -24,17 +24,6 @@ Page({
     pLocal: '--',
     updateTime: '--',
 
-    // 水下声呐数据（来自 ESP32-B 测距板，通过 ESP-NOW -> ESP32-A -> BLE）
-    sonarHasData: false,
-    sonarDistance: '--',     // 当前距离 cm
-    sonarBaseline: '--',     // 基线（30秒滑动均值）cm
-    sonarStatus: -1,         // 0/1/2/3
-    sonarStatusText: '等待数据',
-    sonarStatusClass: 'idle',
-    sonarFishEvent: false,   // 当前帧是否检测到鱼经过
-    sonarFishCount: 0,       // 累计鱼经过次数
-    sonarUpdateTime: '--',
-
     // 设备状态
     bufferUnsent: 0,
     bufferCount: 0,
@@ -64,6 +53,13 @@ Page({
     biteRatingText: '',        // "🔥 爆护信号" / "👍 适合出钓" / ...
     biteRatingColor: '',       // 颜色值
     biteRatingBg: '',          // 背景色
+
+    // 渐进式分析阶段（随本次连接时长推进：instant→brief→standard→full）
+    predictStage: '',          // 后端阶段名
+    predictStageIndex: -1,     // 0~3，用于步骤条高亮
+    predictStageText: '',      // 阶段中文名
+    predictConfidence: 0,      // 置信度 %（阶梯值 30/55/75/90）
+    predictNextHint: '',       // 解锁下一阶段的提示
   },
 
   onLoad() {
@@ -217,52 +213,7 @@ Page({
           bufferCount: data.count,
         });
         break;
-
-      case protocol.CMD.SONAR_DATA:
-        this._updateSonarDisplay(data);
-        break;
     }
-  },
-
-  /**
-   * 更新水下声呐显示
-   * @param {object} data - 解码后的声呐帧 {timestamp, distanceCm, baselineCm, status, fishEvent}
-   */
-  _updateSonarDisplay(data) {
-    const app = getApp();
-    const fmt = (v) => (v !== null && v !== undefined) ? v.toFixed(1) : '--';
-
-    // 状态码 -> 文案 + 样式 class
-    const statusMap = {
-      0: { text: '正常', cls: 'ok' },
-      1: { text: '超出量程', cls: 'warn' },
-      2: { text: '距离过近', cls: 'warn' },
-      3: { text: '通讯失败', cls: 'err' },
-    };
-    const st = statusMap[data.status] || { text: '未知', cls: 'idle' };
-
-    let timeStr = '--';
-    if (data.timestamp) {
-      const d = new Date(data.timestamp * 1000);
-      timeStr = `${this._pad(d.getHours())}:${this._pad(d.getMinutes())}:${this._pad(d.getSeconds())}`;
-    }
-
-    // 检测到鱼经过：震动提醒（钓友盯漂时无需盯屏）
-    if (data.fishEvent && !this.data.sonarFishEvent) {
-      wx.vibrateShort({ type: 'medium' });
-    }
-
-    this.setData({
-      sonarHasData: true,
-      sonarDistance: fmt(data.distanceCm),
-      sonarBaseline: fmt(data.baselineCm),
-      sonarStatus: data.status,
-      sonarStatusText: st.text,
-      sonarStatusClass: st.cls,
-      sonarFishEvent: !!data.fishEvent,
-      sonarFishCount: app.globalData.sonarFishEventCount || 0,
-      sonarUpdateTime: timeStr,
-    });
   },
 
   /**
@@ -295,11 +246,6 @@ Page({
     const latest = app.globalData.latestData;
     if (latest && latest.timestamp > 0) {
       this._updateRealtimeDisplay(latest);
-    }
-    // 恢复声呐显示
-    const sonar = app.globalData.latestSonar;
-    if (sonar && sonar.timestamp > 0) {
-      this._updateSonarDisplay(sonar);
     }
   },
 
@@ -337,11 +283,22 @@ Page({
     app.getLocationWithCache().then(async (loc) => {
       try {
         const fishType = (app.globalData.fishContext && app.globalData.fishContext.target) || 'auto';
-        const sensors = historyData.length > 0 ? historyData : [app.globalData.latestData];
-        const prediction = await api.getPrediction(sensors, loc.lat, loc.lng, fishType);
+        // 只用「本次连接(对表)后」的数据，使后端阶段时长=本次已测时长，
+        // 这样分析阶段才会真正 instant→brief→standard→full 随时间推进。
+        const sessionStartTs = app.globalData.sessionStartTs || 0;
+        const sessionData = sessionStartTs
+          ? historyData.filter(r => r && r.timestamp >= sessionStartTs)
+          : historyData;
+        const sensors = sessionData.length > 0
+          ? sessionData
+          : [app.globalData.latestData];
+        // 本次出钓装备：让主预测的装备建议只在「带了的」范围内挑选（无则后端回退钓箱全量）
+        const tripEquipment = app.globalData.tripEquipment || null;
+        const prediction = await api.getPrediction(sensors, loc.lat, loc.lng, fishType, tripEquipment);
 
         const predictTime = Date.now();
         const biteRating = this._calcBiteRating(prediction.bite_index);
+        const stage = this._calcStageDisplay(prediction.report_stage, prediction.confidence);
         this.setData({
           lastPredictTime: predictTime,
           biteIndex: prediction.bite_index !== undefined ? prediction.bite_index : '--',
@@ -353,6 +310,11 @@ Page({
           fishRanking: prediction.recommended_fishes || [],
           weatherInfo: prediction.weather_info || null,
           tacticalAdvice: prediction.tactical_advice || null,
+          predictStage: stage.stage,
+          predictStageIndex: stage.index,
+          predictStageText: stage.text,
+          predictConfidence: stage.confidence,
+          predictNextHint: stage.nextHint,
           predicting: false,
         });
         // 更新新鲜度显示并启动定时刷新
@@ -414,6 +376,29 @@ Page({
     }
 
     this.setData({ predictTimeText: timeText, predictFreshness: freshness, predictStatusText: statusText });
+  },
+
+  /**
+   * 根据后端报告阶段 + 置信度，计算分阶段展示信息
+   * @param {string} stage - instant / brief / standard / full
+   * @param {number} confidence - 置信度 %（阶梯值 30/55/75/90）
+   * @returns {{stage, index, text, confidence, nextHint}}
+   */
+  _calcStageDisplay(stage, confidence) {
+    const map = {
+      instant:  { index: 0, text: '即时快照', next: '继续作钓满 5 分钟 → 初步分析' },
+      brief:    { index: 1, text: '初步分析', next: '继续作钓满 10 分钟 → 标准分析' },
+      standard: { index: 2, text: '标准分析', next: '继续作钓满 30 分钟 → 深度分析' },
+      full:     { index: 3, text: '深度分析', next: '已达最高分析等级 ✓' },
+    };
+    const m = map[stage] || map.instant;
+    return {
+      stage: stage || 'instant',
+      index: m.index,
+      text: m.text,
+      confidence: (confidence !== undefined && confidence !== null) ? confidence : 30,
+      nextHint: m.next,
+    };
   },
 
   /**

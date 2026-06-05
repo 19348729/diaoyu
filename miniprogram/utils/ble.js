@@ -500,23 +500,6 @@ class BLEManager {
       case protocol.CMD.STATUS_REPLY:
         console.log('[BLE] 设备状态:', data);
         break;
-
-      case protocol.CMD.SONAR_DATA: {
-        // 水下声呐数据：不入历史/不上报后端，仅更新全局供页面 onShow 恢复
-        const appS = getApp();
-        appS.globalData.latestSonar = {
-          timestamp: data.timestamp,
-          distanceCm: data.distanceCm,
-          baselineCm: data.baselineCm,
-          status: data.status,
-          fishEvent: data.fishEvent,
-        };
-        // fish_event 上升沿计数器（可选，供页面展示计数）
-        if (data.fishEvent) {
-          appS.globalData.sonarFishEventCount = (appS.globalData.sonarFishEventCount || 0) + 1;
-        }
-        break;
-      }
     }
 
     // 触发数据回调

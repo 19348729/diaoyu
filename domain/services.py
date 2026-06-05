@@ -23,7 +23,8 @@ from .analyzers import TimeSeriesAnalyzer
 from .solunar import calc_moon_phase, calc_solunar_rating
 from .time_utils import (
     get_time_period, get_season, get_report_stage,
-    get_confidence, get_stage_features, build_session_context,
+    get_confidence_staged, get_stage_features,
+    build_session_context,
 )
 
 
@@ -305,8 +306,10 @@ class FishingPredictionService:
             )
 
         # ── 确定报告阶段和启用特征 ──
+        # 置信度采用阶梯版（30/55/75/90），与 report_stage 阶段名严格一致，
+        # 避免"阶段=brief 但置信度=48%"这类阶段名与数字对不上的问题。
         report_stage = session.report_stage
-        confidence = get_confidence(session.duration_seconds, self.stage_config)
+        confidence = get_confidence_staged(session.duration_seconds, self.stage_config)
         features = get_stage_features(session.duration_seconds, self.stage_config)
 
         # 添加阶段标签
