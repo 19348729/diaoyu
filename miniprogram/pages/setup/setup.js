@@ -224,12 +224,6 @@ Page({
     })
   },
 
-  /** 无设备：直接进入实时大屏（气象预测模式） */
-  goToWeatherMode() {
-    this._saveContext()
-    this.goToDashboard()
-  },
-
   goToDashboard() {
     wx.navigateTo({
       url: '/pages/index/index',

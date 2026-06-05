@@ -96,7 +96,7 @@ class QWeatherService:
         location_str = f"{round(lng, 3)},{round(lat, 3)}" # 和风要求 lon,lat
         
         # 直接拼接 URL，防止 httpx 默认将逗号编码为 %2C 导致某些服务商 403
-        url = f"{self.NOW_URL}?location={location_str}&key={self.api_key}"
+        url = f"{self.NOW_URL}?location={location_str}&key={self.api_key}&lang=zh"
         
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
@@ -183,7 +183,7 @@ class QWeatherService:
                 return cached["data"]
 
         location_str = f"{round(lng, 3)},{round(lat, 3)}"
-        url = f"{self.HOURLY_URL}?location={location_str}&key={self.api_key}"
+        url = f"{self.HOURLY_URL}?location={location_str}&key={self.api_key}&lang=zh"
 
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
@@ -270,7 +270,7 @@ class QWeatherService:
                 return cached["data"]
 
         location_str = f"{round(lng, 3)},{round(lat, 3)}"
-        url = f"{self.DAILY_URL}?location={location_str}&key={self.api_key}"
+        url = f"{self.DAILY_URL}?location={location_str}&key={self.api_key}&lang=zh"
 
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:

@@ -114,11 +114,6 @@ Page({
       this._updatePredictFreshness();
       this._startPredictAgeTimer();
     }
-
-    // 无设备（气象预测模式）：进入页面即触发一次气象预测，无需 BLE 数据
-    if (!this._ble.isConnected) {
-      this._tryTriggerPrediction();
-    }
   },
 
   /**
@@ -331,8 +326,10 @@ Page({
     const historyData = app.globalData.historyData || [];
     const hasSensor = historyData.length > 0 ||
       (app.globalData.latestData && app.globalData.latestData.timestamp);
-    // 已连接且有传感器数据 → 传感器预测；否则（无设备）→ 纯气象预测
-    const useSensor = this._ble.isConnected && hasSensor;
+    // 实时大屏的预测依赖设备传感器；无设备请前往「出钓决策」看纯气象预测
+    if (!this._ble.isConnected || !hasSensor) {
+      return;
+    }
 
     this.setData({ predicting: true, predictStatusText: '正在获取预测...' });
 
@@ -340,13 +337,8 @@ Page({
     app.getLocationWithCache().then(async (loc) => {
       try {
         const fishType = (app.globalData.fishContext && app.globalData.fishContext.target) || 'auto';
-        let prediction;
-        if (useSensor) {
-          const sensors = historyData.length > 0 ? historyData : [app.globalData.latestData];
-          prediction = await api.getPrediction(sensors, loc.lat, loc.lng, fishType);
-        } else {
-          prediction = await api.getWeatherPredict(loc.lat, loc.lng, fishType);
-        }
+        const sensors = historyData.length > 0 ? historyData : [app.globalData.latestData];
+        const prediction = await api.getPrediction(sensors, loc.lat, loc.lng, fishType);
 
         const predictTime = Date.now();
         const biteRating = this._calcBiteRating(prediction.bite_index);
@@ -445,8 +437,19 @@ Page({
       wx.showToast({ title: '正在预测中...', icon: 'none' });
       return;
     }
-    // 无设备（气象模式）无需传感器数据也可刷新
+    const app = getApp();
+    if (!this._ble.isConnected || !app.globalData.latestData.timestamp) {
+      wx.showToast({ title: '请先连接设备', icon: 'none' });
+      return;
+    }
     this._tryTriggerPrediction(true);
+  },
+
+  /** 跳转到「出钓决策」纯气象预测页（无设备用户的预测主场） */
+  goToDecision() {
+    wx.navigateTo({
+      url: '/pages/decision/decision',
+    });
   },
 
   /**

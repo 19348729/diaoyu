@@ -123,9 +123,8 @@
     <!-- 未连接状态 -->
     <block wx:if="{{!isConnected}}">
       <button class="btn-primary" bindtap="startSession" loading="{{isConnecting}}">开始作钓 (连接设备)</button>
-      <button class="btn-secondary" style="margin-top: 24rpx; width: 100%;" bindtap="goToWeatherMode">无设备？直接看气象预测 🌤️</button>
-      <button class="btn-secondary" style="margin-top: 16rpx; width: 100%;" bindtap="goToDecision">出发前出钓决策 (逐时/3日) 📅</button>
-      <view class="hint">没有 FishProbe 设备也能用：基于实时气象+定位给出开口指数与建议</view>
+      <button class="btn-secondary" style="margin-top: 24rpx; width: 100%;" bindtap="goToDecision">无设备 / 出发前：查看出钓决策 🌤️</button>
+      <view class="hint">没有 FishProbe 设备也能用：出钓决策基于实时气象+定位，给出开口指数、逐时窗口与 3 日预报</view>
     </block>
 
     <!-- 已连接，正常查看状态 -->

@@ -17,9 +17,13 @@
     </view>
   </view>
 
-  <!-- 无设备（气象预测模式）提示条 -->
-  <view class="weather-mode-tip card-shadow" wx:if="{{!bleConnected}}" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 12rpx; padding: 20rpx 24rpx; margin-bottom: 20rpx;">
-    <text style="font-size: 26rpx; color: #1565c0;">🌤️ 未连接设备 · 当前基于实时气象 + 定位预测，连接 FishProbe 可叠加水温/气压实测更精准</text>
+  <!-- 未连接设备：实时监测需连接设备；纯气象预测请走「出钓决策」 -->
+  <view class="no-device-guide card-shadow" wx:if="{{!bleConnected}}" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 12rpx; padding: 24rpx; margin-bottom: 20rpx;">
+    <text style="font-size: 26rpx; color: #1565c0; display: block; margin-bottom: 16rpx;">📡 实时监测需连接 FishProbe 设备。没有设备？看「出钓决策」即可获取基于气象+定位的开口指数与建议。</text>
+    <view style="display: flex; gap: 20rpx;">
+      <text style="flex: 1; text-align: center; font-size: 26rpx; color: #fff; background: #1a73e8; border-radius: 30rpx; padding: 14rpx 0;" bindtap="onTapConnect">🔗 去连接设备</text>
+      <text style="flex: 1; text-align: center; font-size: 26rpx; color: #1a73e8; background: #fff; border: 1px solid #1a73e8; border-radius: 30rpx; padding: 14rpx 0;" bindtap="goToDecision">🌤️ 看出钓决策</text>
+    </view>
   </view>
 
   <!-- 仅在连接时，展示细致的设备缓存与数据同步微面板 -->
