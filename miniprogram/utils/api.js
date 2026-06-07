@@ -197,6 +197,15 @@ function getCatchLogs(limit = 30) {
 }
 
 /**
+ * 提交「预测准不准」轻反馈（仅质量信号，不参与预测）
+ * @param {object} data - { is_accurate, source, bite_index, 环境快照... }
+ * @returns {Promise<object>}
+ */
+function savePredictionFeedback(data) {
+  return request('/predict/feedback', 'POST', data);
+}
+
+/**
  * AI 鱼情救场 (V2)
  * @param {Array} sensors 
  * @param {Array} symptomTags 
@@ -521,6 +530,7 @@ module.exports = {
   getSensorRecords,
   saveCatchLog,
   getCatchLogs,
+  savePredictionFeedback,
   getAiRescue,
   getUserInventoryAll,
   getRodDatabase,

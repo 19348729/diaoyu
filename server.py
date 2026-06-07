@@ -29,7 +29,7 @@ from domain.poster import PosterGenerator
 from domain.master_kb import MasterKBRetriever
 from domain.verification import RodVerificationService
 from infrastructure.database import engine, Base, get_db
-from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook, UserFloat, UserBait, PublicBait, CatchLog
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook, UserFloat, UserBait, PublicBait, CatchLog, PredictionFeedback
 
 # 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
 Base.metadata.create_all(bind=engine)
@@ -141,8 +141,25 @@ class CatchLogRequest(BaseModel):
     target_fish: Optional[str] = None
     bite_index: Optional[int] = None
     t_water: Optional[float] = None
+    t_air: Optional[float] = None
+    p_local: Optional[float] = None
+    humidity: Optional[float] = None
+    weather_text: Optional[str] = None
+    wind_desc: Optional[str] = None
+
+
+class PredictionFeedbackRequest(BaseModel):
+    """预测准不准 轻反馈请求"""
+    is_accurate: bool = Field(..., description="True=准 False=不准")
+    source: Optional[str] = Field(None, description="来源页面 dashboard/decision")
+    target_fish: Optional[str] = None
+    bite_index: Optional[int] = None
+    t_water: Optional[float] = None
+    t_air: Optional[float] = None
     p_local: Optional[float] = None
     weather_text: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 # ══════════════════════════════════════════════
 #  API 路由
@@ -1696,8 +1713,11 @@ async def log_catch(
         target_fish=req.target_fish,
         bite_index=req.bite_index,
         t_water=req.t_water,
+        t_air=req.t_air,
         p_local=req.p_local,
+        humidity=req.humidity,
         weather_text=req.weather_text,
+        wind_desc=req.wind_desc,
     )
     db.add(row)
     db.commit()
@@ -1735,10 +1755,45 @@ async def list_catch(
         "target_fish": r.target_fish,
         "bite_index": r.bite_index,
         "t_water": r.t_water,
+        "t_air": r.t_air,
         "p_local": r.p_local,
+        "humidity": r.humidity,
         "weather_text": r.weather_text,
+        "wind_desc": r.wind_desc,
     } for r in rows]
     return {"status": "ok", "data": data}
+
+
+@app.post("/api/predict/feedback", tags=["渔获反馈"])
+async def submit_prediction_feedback(
+    req: PredictionFeedbackRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db),
+):
+    """
+    👍/👎 预测准不准 轻反馈
+
+    用户对某次预测评价准/不准，连同当时开口指数+环境快照存档。
+    **仅作预测质量信号，不参与任何预测计算。**
+    """
+    openid = _require_openid(x_openid)
+    row = PredictionFeedback(
+        openid=openid,
+        is_accurate=1 if req.is_accurate else 0,
+        source=req.source,
+        target_fish=req.target_fish,
+        bite_index=req.bite_index,
+        t_water=req.t_water,
+        t_air=req.t_air,
+        p_local=req.p_local,
+        weather_text=req.weather_text,
+        lat=req.lat,
+        lng=req.lng,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {"status": "ok", "id": row.id}
 
 
 @app.get("/api/v2/poster/{session_id}", tags=["V2 智能救场"])

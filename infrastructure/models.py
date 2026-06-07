@@ -257,8 +257,38 @@ class CatchLog(Base):
     target_fish = Column(String(32), nullable=True, comment="出钓目标鱼种")
     bite_index = Column(Integer, nullable=True, comment="记录时的预测开口指数")
     t_water = Column(Float, nullable=True, comment="记录时水温")
-    p_local = Column(Float, nullable=True, comment="记录时气压")
-    weather_text = Column(String(32), nullable=True, comment="记录时天气")
+    t_air = Column(Float, nullable=True, comment="记录时气温")
+    p_local = Column(Float, nullable=True, comment="记录时气压 hPa")
+    humidity = Column(Float, nullable=True, comment="记录时相对湿度 %")
+    weather_text = Column(String(32), nullable=True, comment="记录时天气（如：多云/小雨）")
+    wind_desc = Column(String(64), nullable=True, comment="记录时风况（如：南风 3m/s）")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+
+
+class PredictionFeedback(Base):
+    """
+    预测准不准 轻反馈（Phase 2 反馈闭环）
+    用户对某次预测点「准/不准」，连同当时开口指数与环境快照存档。
+    用途：度量预测质量信号（开口指数 ↔ 用户主观准确性），不参与预测计算。
+    """
+    __tablename__ = "prediction_feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    openid = Column(String(64), index=True, nullable=False, comment="所属用户")
+
+    is_accurate = Column(Integer, nullable=False, comment="1=准 0=不准")
+    source = Column(String(16), nullable=True, comment="来源页面：dashboard/decision")
+
+    # 当时预测/环境快照
+    target_fish = Column(String(32), nullable=True, comment="目标鱼种")
+    bite_index = Column(Integer, nullable=True, comment="被评价的预测开口指数")
+    t_water = Column(Float, nullable=True, comment="水温")
+    t_air = Column(Float, nullable=True, comment="气温")
+    p_local = Column(Float, nullable=True, comment="气压 hPa")
+    weather_text = Column(String(32), nullable=True, comment="天气")
+    lat = Column(Float, nullable=True, comment="纬度")
+    lng = Column(Float, nullable=True, comment="经度")
 
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
 

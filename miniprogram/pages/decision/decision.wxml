@@ -198,6 +198,18 @@
       </view>
     </view>
 
+    <!-- 预测准不准 轻反馈 -->
+    <view class="card" wx:if="{{hasResult}}" style="padding: 20rpx 24rpx;">
+      <view wx:if="{{!predictFeedbackGiven}}" style="display: flex; align-items: center; gap: 16rpx;">
+        <text style="font-size: 26rpx; color: #666; flex: 1;">这次预测准吗？</text>
+        <text style="font-size: 26rpx; color: #2e7d32; background: #e8f5e9; padding: 10rpx 28rpx; border-radius: 30rpx; font-weight: 600;" data-accurate="true" catchtap="onTapPredictFeedback">👍 准</text>
+        <text style="font-size: 26rpx; color: #c62828; background: #fdecea; padding: 10rpx 28rpx; border-radius: 30rpx; font-weight: 600;" data-accurate="false" catchtap="onTapPredictFeedback">👎 不准</text>
+      </view>
+      <view wx:else style="text-align: center;">
+        <text style="font-size: 24rpx; color: #9aa6b2;">✓ 已反馈，谢谢你帮我们改进预测</text>
+      </view>
+    </view>
+
   </block>
 
   <!-- 记录渔获入口 -->

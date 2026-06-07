@@ -54,6 +54,9 @@ Page({
     biteRatingColor: '',       // 颜色值
     biteRatingBg: '',          // 背景色
 
+    // 预测准不准 轻反馈
+    predictFeedbackGiven: false,
+
     // 渐进式分析阶段（随本次连接时长推进：instant→brief→standard→full）
     predictStage: '',          // 后端阶段名
     predictStageIndex: -1,     // 0~3，用于步骤条高亮
@@ -319,12 +322,17 @@ Page({
           predictConfidence: stage.confidence,
           predictNextHint: stage.nextHint,
           predicting: false,
+          predictFeedbackGiven: false,  // 新预测出来，重置反馈
         });
-        // 存一份预测快照，供「记录渔获」做校准锚点
+        // 存一份预测快照，供「记录渔获」做校准锚点 + 预测反馈带环境
+        const wi = prediction.weather_info || {};
         app.globalData.lastPrediction = {
           bite_index: prediction.bite_index,
           recommended_fish: prediction.recommended_fish || '',
-          weather_text: (prediction.weather_info && prediction.weather_info.text) || '',
+          weather_text: wi.text || '',
+          air_temp: (wi.air_temp !== undefined && wi.air_temp !== null) ? wi.air_temp : null,
+          humidity: (wi.humidity !== undefined && wi.humidity !== null) ? wi.humidity : null,
+          wind_desc: wi.wind_dir ? `${wi.wind_dir} ${wi.wind_speed || ''}m/s` : '',
         };
         // 更新新鲜度显示并启动定时刷新
         this._updatePredictFreshness();
@@ -450,6 +458,34 @@ Page({
   goToCatchLog() {
     wx.navigateTo({
       url: '/pages/catch-log/catch-log',
+    });
+  },
+
+  /** 预测准不准 轻反馈 */
+  onTapPredictFeedback(e) {
+    if (this.data.predictFeedbackGiven) return;
+    const accurate = e.currentTarget.dataset.accurate === 'true';
+    const app = getApp();
+    const lp = app.globalData.lastPrediction || {};
+    const latest = app.globalData.latestData || {};
+    const fc = app.globalData.fishContext || {};
+    const loc = app.globalData.cachedLocation || {};
+    this.setData({ predictFeedbackGiven: true });  // 乐观置位，避免重复提交
+    api.savePredictionFeedback({
+      is_accurate: accurate,
+      source: 'dashboard',
+      target_fish: (fc.target && fc.target !== 'auto') ? fc.target : (lp.recommended_fish || null),
+      bite_index: (lp.bite_index !== undefined && lp.bite_index !== null) ? lp.bite_index : (this.data.biteIndex !== '--' ? this.data.biteIndex : null),
+      t_water: (latest.tWater !== undefined && latest.tWater !== null) ? latest.tWater : null,
+      t_air: (latest.tAir !== undefined && latest.tAir !== null) ? latest.tAir : (lp.air_temp != null ? lp.air_temp : null),
+      p_local: (latest.pLocal !== undefined && latest.pLocal !== null) ? latest.pLocal : null,
+      weather_text: lp.weather_text || null,
+      lat: loc.lat, lng: loc.lng,
+    }).then(() => {
+      wx.showToast({ title: accurate ? '谢谢反馈 👍' : '已记录，会改进 🙏', icon: 'none' });
+    }).catch(() => {
+      this.setData({ predictFeedbackGiven: false });
+      wx.showToast({ title: '提交失败，请重试', icon: 'none' });
     });
   },
 

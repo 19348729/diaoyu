@@ -217,6 +217,16 @@
         </view>
       </view>
     </view>
+
+    <!-- 预测准不准 轻反馈 -->
+    <view class="predict-fb" wx:if="{{!predictFeedbackGiven}}">
+      <text class="predict-fb-q">这次预测准吗？</text>
+      <text class="predict-fb-btn good" data-accurate="true" catchtap="onTapPredictFeedback">👍 准</text>
+      <text class="predict-fb-btn bad" data-accurate="false" catchtap="onTapPredictFeedback">👎 不准</text>
+    </view>
+    <view class="predict-fb done" wx:else>
+      <text>✓ 已反馈，谢谢你帮我们改进预测</text>
+    </view>
   </view>
 
   <!-- 更新时间 -->

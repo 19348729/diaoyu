@@ -58,9 +58,13 @@ Page({
         lat: loc.lat, lng: loc.lng,
         target_fish: (fc.target && fc.target !== 'auto') ? fc.target : (lastPred.recommended_fish || null),
         bite_index: (lastPred.bite_index !== undefined && lastPred.bite_index !== null) ? lastPred.bite_index : null,
+        // 当时环境快照（气压/天气/温度/风），回看渔获时可对照
         t_water: (latest.tWater !== undefined && latest.tWater !== null) ? latest.tWater : null,
+        t_air: (latest.tAir !== undefined && latest.tAir !== null) ? latest.tAir : (lastPred.air_temp != null ? lastPred.air_temp : null),
         p_local: (latest.pLocal !== undefined && latest.pLocal !== null) ? latest.pLocal : null,
+        humidity: (lastPred.humidity != null) ? lastPred.humidity : null,
         weather_text: lastPred.weather_text || null,
+        wind_desc: lastPred.wind_desc || null,
       }
 
       const res = await api.saveCatchLog(payload)
@@ -101,6 +105,13 @@ Page({
       dateStr = `${d.getMonth() + 1}月${d.getDate()}日 ${p(d.getHours())}:${p(d.getMinutes())}`
     }
     const skunked = !r.catch_count
+    // 当时环境：天气 / 气温 / 水温 / 气压 / 风
+    const env = []
+    if (r.weather_text) env.push(r.weather_text)
+    if (r.t_air !== null && r.t_air !== undefined) env.push(`气温${r.t_air}℃`)
+    if (r.t_water !== null && r.t_water !== undefined) env.push(`水温${r.t_water}℃`)
+    if (r.p_local !== null && r.p_local !== undefined) env.push(`气压${r.p_local}hPa`)
+    if (r.wind_desc) env.push(r.wind_desc)
     return {
       id: r.id,
       dateStr,
@@ -110,6 +121,7 @@ Page({
       spot: [r.spot_type, r.spot_density, r.water_clarity].filter(Boolean).join(' · '),
       location: r.location_name || '',
       biteIndex: (r.bite_index !== null && r.bite_index !== undefined) ? r.bite_index : null,
+      env: env.join(' · '),
       note: r.note || '',
     }
   },

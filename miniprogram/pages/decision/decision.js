@@ -40,6 +40,9 @@ Page({
     fishTypes: ['auto', '鲫鱼', '鲤鱼', '罗非鱼', '鲢鳙', '草鱼', '翘嘴', '土鲮', '塘鲺', '大口黑鲈'],
     fishTypeNames: ['智能推荐', '鲫鱼', '鲤鱼', '罗非鱼', '鲢鳙', '草鱼', '翘嘴', '土鲮', '塘鲺', '大口黑鲈'],
     selectedFishIndex: 0,
+
+    // 预测准不准 轻反馈
+    predictFeedbackGiven: false,
   },
 
   onLoad() {
@@ -59,6 +62,28 @@ Page({
 
   goToCatchLog() {
     wx.navigateTo({ url: '/pages/catch-log/catch-log' });
+  },
+
+  onTapPredictFeedback(e) {
+    if (this.data.predictFeedbackGiven) return;
+    const accurate = e.currentTarget.dataset.accurate === 'true';
+    const lp = (getApp().globalData && getApp().globalData.lastPrediction) || {};
+    const loc = (getApp().globalData && getApp().globalData.cachedLocation) || {};
+    this.setData({ predictFeedbackGiven: true });
+    api.savePredictionFeedback({
+      is_accurate: accurate,
+      source: 'decision',
+      target_fish: lp.recommended_fish || null,
+      bite_index: (lp.bite_index !== undefined && lp.bite_index !== null) ? lp.bite_index : this.data.biteIndex,
+      t_air: lp.air_temp != null ? lp.air_temp : null,
+      weather_text: lp.weather_text || null,
+      lat: loc.lat, lng: loc.lng,
+    }).then(() => {
+      wx.showToast({ title: accurate ? '谢谢反馈 👍' : '已记录，会改进 🙏', icon: 'none' });
+    }).catch(() => {
+      this.setData({ predictFeedbackGiven: false });
+      wx.showToast({ title: '提交失败，请重试', icon: 'none' });
+    });
   },
 
   async fetchDecision() {
@@ -116,12 +141,17 @@ Page({
         hourlyScores: forecastResult.hourly_scores || [],
       });
 
-      // 存预测快照，供「记录渔获」做校准锚点
+      // 存预测快照，供「记录渔获」做校准锚点 + 预测反馈带环境
+      const wi = weatherResult.weather_info || {};
       getApp().globalData.lastPrediction = {
         bite_index: weatherResult.bite_index || 0,
         recommended_fish: weatherResult.recommended_fish || '',
-        weather_text: (weatherResult.weather_info && weatherResult.weather_info.text) || '',
+        weather_text: wi.text || '',
+        air_temp: (wi.air_temp !== undefined && wi.air_temp !== null) ? wi.air_temp : null,
+        humidity: (wi.humidity !== undefined && wi.humidity !== null) ? wi.humidity : null,
+        wind_desc: wi.wind_dir ? `${wi.wind_dir} ${wi.wind_speed || ''}m/s` : '',
       };
+      this.setData({ predictFeedbackGiven: false });
     } catch (e) {
       console.error('[Decision] 获取决策数据失败:', e);
       wx.showToast({ title: '获取失败，请重试', icon: 'none' });

@@ -16,10 +16,10 @@
     "pages/add-bait/add-bait"
   ],
   "window": {
-    "navigationBarBackgroundColor": "#1a73e8",
+    "navigationBarBackgroundColor": "#1557b0",
     "navigationBarTitleText": "钓鱼助手",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#f5f5f5",
+    "backgroundColor": "#f2f4f8",
     "backgroundTextStyle": "dark"
   },
   "tabBar": {

@@ -6,11 +6,8 @@
 .check-item { display: flex; align-items: center; }
 .check-text { font-size: 30rpx; color: #333; margin-left: 20rpx; }
 .mt { margin-top: 40rpx; }
-.btn-primary { background: #1a73e8; color: #fff; border-radius: 40rpx; font-size: 34rpx; }
-.btn-outline { background: #fff; color: #1a73e8; border: 2rpx solid #1a73e8; border-radius: 40rpx; font-size: 34rpx; }
-
-.card { background: #fff; border-radius: 16rpx; padding: 40rpx; box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.05); }
-.card-title { font-size: 36rpx; font-weight: bold; color: #1a73e8; margin-bottom: 30rpx; border-bottom: 2rpx solid #eee; padding-bottom: 20rpx; }
+.btn-outline { background: #fff; color: #1a73e8; border: 2rpx solid #1a73e8; border-radius: 999rpx; font-size: 34rpx; }
+/* .btn-primary / .card / .card-title 继承全局设计系统（app.wxss） */
 .diag-section { margin-bottom: 30rpx; }
 .diag-label { font-size: 28rpx; color: #999; margin-bottom: 10rpx; }
 .diag-text { font-size: 30rpx; color: #333; line-height: 1.5; }
@@ -22,5 +19,4 @@
 
 .sub-hint { font-size: 22rpx; font-weight: normal; color: #aaa; margin-left: 12rpx; }
 .chip-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
-.chip { padding: 12rpx 30rpx; border-radius: 30rpx; background: #f1f3f5; color: #5469d4; font-size: 28rpx; }
-.chip.active { background: #1a73e8; color: #fff; font-weight: bold; }
+/* .chip / .chip.active 继承全局设计系统（app.wxss） */

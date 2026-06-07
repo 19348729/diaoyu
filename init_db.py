@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from infrastructure.database import engine, Base
 # 显式导入所有 Model 确保它们在 SQLAlchemy Registry (Metadata) 中全部注册
-from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, CatchLog
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, CatchLog, PredictionFeedback
 
 def init_database():
     print("====== AI Diaoyu System - Database Initialization Script ======")

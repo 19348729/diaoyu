@@ -47,24 +47,7 @@
   gap: 20rpx;
 }
 
-.tag {
-  padding: 12rpx 36rpx;
-  border-radius: 30rpx;
-  background: #f5f6f8;
-  color: #5469d4;
-  font-size: 28rpx;
-  font-weight: 500;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid transparent;
-}
-
-.tag.active {
-  background: #1a73e8;
-  color: #ffffff;
-  font-weight: bold;
-  box-shadow: 0 6rpx 15rpx rgba(26, 115, 232, 0.25);
-  transform: translateY(-2rpx);
-}
+/* .tag / .tag.active 继承全局设计系统（app.wxss） */
 
 /* 推荐项高亮（未选中时也提示这是推荐） */
 .tag.recommended {
@@ -239,41 +222,9 @@
   padding: 0 10rpx;
 }
 
-.btn-primary {
-  background: linear-gradient(180deg, #1a73e8 0%, #1557b0 100%);
-  color: #ffffff;
-  border-radius: 40rpx;
-  font-size: 34rpx;
-  font-weight: 700;
-  padding: 22rpx 0;
-  box-shadow: 0 8rpx 20rpx rgba(26, 115, 232, 0.25);
-  border: none;
-  transition: all 0.2s ease;
-}
-
-.btn-primary.button-hover {
-  transform: translateY(2rpx);
-  box-shadow: 0 4rpx 10rpx rgba(26, 115, 232, 0.15);
-}
-
+/* .btn-primary / .btn-secondary 继承全局设计系统（app.wxss） */
 .btn-space {
   margin-bottom: 30rpx;
-}
-
-.btn-secondary {
-  background: #ffffff;
-  color: #1a73e8;
-  border: 2rpx solid #1a73e8;
-  border-radius: 40rpx;
-  font-size: 32rpx;
-  font-weight: 600;
-  padding: 18rpx 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.02);
-}
-
-.btn-secondary.button-hover {
-  background: #f1f7fe;
 }
 
 .hint {

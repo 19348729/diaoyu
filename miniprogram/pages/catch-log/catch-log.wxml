@@ -41,6 +41,7 @@
     <view class="log-meta" wx:if="{{item.weight}}">{{item.weight}}</view>
     <view class="log-meta" wx:if="{{item.spot}}">📍 {{item.spot}}{{item.location ? ' · ' + item.location : ''}}</view>
     <view class="log-meta" wx:elif="{{item.location}}">📍 {{item.location}}</view>
+    <view class="log-env" wx:if="{{item.env}}">🌤️ {{item.env}}</view>
     <view class="log-meta" wx:if="{{item.biteIndex !== null}}">当时预测开口指数：<text class="bi">{{item.biteIndex}}</text></view>
     <view class="log-note" wx:if="{{item.note}}">{{item.note}}</view>
   </view>
