@@ -224,8 +224,9 @@
     <text>最后更新: {{updateTime}}</text>
   </view>
 
-  <!-- 查看趋势图按钮 -->
+  <!-- 记录渔获 + 查看趋势图按钮 -->
   <view style="margin: 30rpx; padding-bottom: 50rpx;">
+    <button class="btn-primary" bindtap="goToCatchLog" style="background: #2e7d32; color: #fff; width: 100%; border-radius: 8rpx; margin-bottom: 20rpx;">🎣 记录今日渔获</button>
     <button class="btn-primary" bindtap="goToHistory" style="background: #1976d2; color: #fff; width: 100%; border-radius: 8rpx;">📊 查看实时趋势图 (折线图)</button>
   </view>
 

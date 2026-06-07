@@ -29,7 +29,7 @@ from domain.poster import PosterGenerator
 from domain.master_kb import MasterKBRetriever
 from domain.verification import RodVerificationService
 from infrastructure.database import engine, Base, get_db
-from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook, UserFloat, UserBait, PublicBait
+from infrastructure.models import User, SensorRecord, PredictionHistory, FishingSession, UserRod, PublicRod, UserMainLine, UserSubLineHook, UserFloat, UserBait, PublicBait, CatchLog
 
 # 启动时自动建表（生产环境建议使用 Alembic 迁移工具）
 Base.metadata.create_all(bind=engine)
@@ -122,6 +122,27 @@ class RescueRequest(BaseModel):
     user_inventory: Optional[Dict] = Field(None, description="用户装备库数据")
     lat: float = 0.0
     lng: float = 0.0
+
+
+class CatchLogRequest(BaseModel):
+    """渔获记录请求（Phase 2 反馈闭环，仅记录、不参与预测）"""
+    fish_species: Optional[str] = Field(None, description="主要鱼种")
+    catch_count: int = Field(0, ge=0, description="渔获数量（0=空军）")
+    total_weight: Optional[float] = Field(None, ge=0, description="大致总重（斤，选填）")
+    note: Optional[str] = Field(None, description="备注")
+    # 钓点情况（来自出钓上下文）
+    spot_type: Optional[str] = None
+    spot_density: Optional[str] = None
+    water_clarity: Optional[str] = None
+    # 位置
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    # 校准锚点：记录时的预测/环境快照
+    target_fish: Optional[str] = None
+    bite_index: Optional[int] = None
+    t_water: Optional[float] = None
+    p_local: Optional[float] = None
+    weather_text: Optional[str] = None
 
 # ══════════════════════════════════════════════
 #  API 路由
@@ -1637,6 +1658,87 @@ async def ai_rescue(req: RescueRequest):
         "engine_tags": engine_result["tags"],
         "prescription": prescription
     }
+
+
+@app.post("/api/catch/log", tags=["渔获反馈"])
+async def log_catch(
+    req: CatchLogRequest,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db),
+):
+    """
+    🎣 记录真实渔获（反馈闭环）
+
+    用户记录"实际钓到了什么"，连同当时的预测/环境快照一起存档。
+    **仅作校准样本，不参与任何预测计算。**
+    """
+    openid = _require_openid(x_openid)
+
+    location_name = None
+    if req.lat and req.lng:
+        try:
+            location_name = await TencentLBSService.reverse_geocode(req.lat, req.lng)
+        except Exception:
+            location_name = None
+
+    row = CatchLog(
+        openid=openid,
+        fish_species=req.fish_species,
+        catch_count=req.catch_count,
+        total_weight=req.total_weight,
+        note=req.note,
+        spot_type=req.spot_type,
+        spot_density=req.spot_density,
+        water_clarity=req.water_clarity,
+        lat=req.lat,
+        lng=req.lng,
+        location_name=location_name,
+        target_fish=req.target_fish,
+        bite_index=req.bite_index,
+        t_water=req.t_water,
+        p_local=req.p_local,
+        weather_text=req.weather_text,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {"status": "ok", "id": row.id}
+
+
+@app.get("/api/catch/list", tags=["渔获反馈"])
+async def list_catch(
+    limit: int = 30,
+    x_openid: Optional[str] = Header(None, alias="X-OpenID"),
+    db: Session = Depends(get_db),
+):
+    """获取当前用户的渔获记录列表（按时间倒序）。"""
+    openid = _require_openid(x_openid)
+    limit = max(1, min(limit, 100))
+    rows = (
+        db.query(CatchLog)
+        .filter(CatchLog.openid == openid)
+        .order_by(CatchLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    data = [{
+        "id": r.id,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+        "fish_species": r.fish_species,
+        "catch_count": r.catch_count,
+        "total_weight": r.total_weight,
+        "note": r.note,
+        "spot_type": r.spot_type,
+        "spot_density": r.spot_density,
+        "water_clarity": r.water_clarity,
+        "location_name": r.location_name,
+        "target_fish": r.target_fish,
+        "bite_index": r.bite_index,
+        "t_water": r.t_water,
+        "p_local": r.p_local,
+        "weather_text": r.weather_text,
+    } for r in rows]
+    return {"status": "ok", "data": data}
 
 
 @app.get("/api/v2/poster/{session_id}", tags=["V2 智能救场"])

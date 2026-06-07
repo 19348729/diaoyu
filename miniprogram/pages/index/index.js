@@ -320,6 +320,12 @@ Page({
           predictNextHint: stage.nextHint,
           predicting: false,
         });
+        // 存一份预测快照，供「记录渔获」做校准锚点
+        app.globalData.lastPrediction = {
+          bite_index: prediction.bite_index,
+          recommended_fish: prediction.recommended_fish || '',
+          weather_text: (prediction.weather_info && prediction.weather_info.text) || '',
+        };
         // 更新新鲜度显示并启动定时刷新
         this._updatePredictFreshness();
         this._startPredictAgeTimer();
@@ -437,6 +443,13 @@ Page({
   goToDecision() {
     wx.navigateTo({
       url: '/pages/decision/decision',
+    });
+  },
+
+  /** 跳转到「记录渔获」页 */
+  goToCatchLog() {
+    wx.navigateTo({
+      url: '/pages/catch-log/catch-log',
     });
   },
 

@@ -1,0 +1,47 @@
+<view class="container">
+  <!-- 记录表单 -->
+  <view class="card">
+    <view class="card-title">🎣 记录本次渔获</view>
+    <view class="hint-line">真实渔获只用于校准预测、积累你的钓鱼档案，不影响开口指数</view>
+
+    <view class="field-label">主要鱼种 <text class="opt">空军可不选</text></view>
+    <view class="chip-grid">
+      <view class="chip {{fishSpecies === item ? 'active' : ''}}" wx:for="{{fishOptions}}" wx:key="*this" bindtap="selectFish" data-val="{{item}}">{{item}}</view>
+    </view>
+
+    <view class="field-label">数量</view>
+    <view class="count-row">
+      <view class="count-btn" bindtap="countMinus">−</view>
+      <input class="count-input" type="number" value="{{catchCount}}" bindinput="onCountInput" />
+      <view class="count-btn" bindtap="countPlus">＋</view>
+      <text class="count-unit">条（0 = 空军）</text>
+    </view>
+
+    <view class="field-label">大致总重 <text class="opt">选填</text></view>
+    <view class="weight-row">
+      <input class="weight-input" type="digit" value="{{totalWeight}}" placeholder="如 3.5" bindinput="onWeightInput" />
+      <text class="count-unit">斤</text>
+    </view>
+
+    <view class="field-label">备注 <text class="opt">选填</text></view>
+    <input class="note-input" value="{{note}}" placeholder="如：午后起风后开口、用红虫拉饵" bindinput="onNoteInput" />
+
+    <button class="btn-primary mt" bindtap="submit" loading="{{submitting}}">保存记录</button>
+  </view>
+
+  <!-- 历史列表 -->
+  <view class="list-header">我的渔获记录</view>
+  <view class="empty" wx:if="{{!loading && logs.length === 0}}">还没有记录，钓完随手记一笔吧</view>
+
+  <view class="log-card" wx:for="{{logs}}" wx:key="id">
+    <view class="log-top">
+      <text class="log-title {{item.skunked ? 'skunked' : ''}}">{{item.title}}</text>
+      <text class="log-date">{{item.dateStr}}</text>
+    </view>
+    <view class="log-meta" wx:if="{{item.weight}}">{{item.weight}}</view>
+    <view class="log-meta" wx:if="{{item.spot}}">📍 {{item.spot}}{{item.location ? ' · ' + item.location : ''}}</view>
+    <view class="log-meta" wx:elif="{{item.location}}">📍 {{item.location}}</view>
+    <view class="log-meta" wx:if="{{item.biteIndex !== null}}">当时预测开口指数：<text class="bi">{{item.biteIndex}}</text></view>
+    <view class="log-note" wx:if="{{item.note}}">{{item.note}}</view>
+  </view>
+</view>

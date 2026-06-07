@@ -5,6 +5,7 @@
     "pages/settings/settings",
     "pages/decision/decision",
     "pages/index/index",
+    "pages/catch-log/catch-log",
     "pages/history/history",
     "pages/privacy/privacy",
     "pages/inventory/inventory",

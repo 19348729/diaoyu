@@ -179,6 +179,24 @@ function getSensorRecords(limit = 1440) {
 }
 
 /**
+ * 记录真实渔获（反馈闭环，仅记录、不参与预测）
+ * @param {object} data - 渔获 + 钓点 + 预测/环境快照
+ * @returns {Promise<object>}
+ */
+function saveCatchLog(data) {
+  return request('/catch/log', 'POST', data);
+}
+
+/**
+ * 获取当前用户的渔获记录列表
+ * @param {number} limit
+ * @returns {Promise<object>}
+ */
+function getCatchLogs(limit = 30) {
+  return request(`/catch/list?limit=${limit}`, 'GET');
+}
+
+/**
  * AI 鱼情救场 (V2)
  * @param {Array} sensors 
  * @param {Array} symptomTags 
@@ -501,6 +519,8 @@ module.exports = {
   getForecastToday,
   getForecast3Day,
   getSensorRecords,
+  saveCatchLog,
+  getCatchLogs,
   getAiRescue,
   getUserInventoryAll,
   getRodDatabase,

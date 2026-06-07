@@ -57,6 +57,10 @@ Page({
     this.fetchDecision();
   },
 
+  goToCatchLog() {
+    wx.navigateTo({ url: '/pages/catch-log/catch-log' });
+  },
+
   async fetchDecision() {
     this.setData({ loading: true });
 
@@ -111,6 +115,13 @@ Page({
         // 逐时评分
         hourlyScores: forecastResult.hourly_scores || [],
       });
+
+      // 存预测快照，供「记录渔获」做校准锚点
+      getApp().globalData.lastPrediction = {
+        bite_index: weatherResult.bite_index || 0,
+        recommended_fish: weatherResult.recommended_fish || '',
+        weather_text: (weatherResult.weather_info && weatherResult.weather_info.text) || '',
+      };
     } catch (e) {
       console.error('[Decision] 获取决策数据失败:', e);
       wx.showToast({ title: '获取失败，请重试', icon: 'none' });

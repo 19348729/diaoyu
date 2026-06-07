@@ -225,3 +225,40 @@ class PublicBait(Base):
 
     created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
 
+
+class CatchLog(Base):
+    """
+    真实渔获记录（Phase 2 反馈闭环）
+    用户主动记录"实际钓到了什么"，并连同当时的预测/环境快照一起存档。
+    用途：作为校准样本（预测开口指数 ↔ 真实渔获），不参与任何预测计算。
+    """
+    __tablename__ = "catch_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    openid = Column(String(64), index=True, nullable=False, comment="所属用户")
+
+    # ── 实际渔获（用户填写）──
+    fish_species = Column(String(32), nullable=True, comment="主要鱼种")
+    catch_count = Column(Integer, default=0, comment="渔获数量（0=空军）")
+    total_weight = Column(Float, nullable=True, comment="大致总重（斤，选填）")
+    note = Column(String(255), nullable=True, comment="备注（选填）")
+
+    # ── 钓点情况（来自出钓上下文 spotContext）──
+    spot_type = Column(String(16), nullable=True, comment="钓点类型")
+    spot_density = Column(String(16), nullable=True, comment="鱼密度")
+    water_clarity = Column(String(16), nullable=True, comment="水色")
+
+    # ── 位置 ──
+    lat = Column(Float, nullable=True, comment="钓点纬度")
+    lng = Column(Float, nullable=True, comment="钓点经度")
+    location_name = Column(String(128), nullable=True, comment="钓点名称")
+
+    # ── 校准锚点：记录时的预测/环境快照 ──
+    target_fish = Column(String(32), nullable=True, comment="出钓目标鱼种")
+    bite_index = Column(Integer, nullable=True, comment="记录时的预测开口指数")
+    t_water = Column(Float, nullable=True, comment="记录时水温")
+    p_local = Column(Float, nullable=True, comment="记录时气压")
+    weather_text = Column(String(32), nullable=True, comment="记录时天气")
+
+    created_at = Column(DateTime(timezone=True), default=datetime.now, server_default=func.now())
+
