@@ -80,6 +80,11 @@
           <text style="font-size: 26rpx; color: #2e7d32; font-weight: bold;">{{tacticalAdvice.highlight}}</text>
         </view>
 
+        <!-- 钓点策略 -->
+        <view wx:if="{{tacticalAdvice.spot_strategy}}" style="background: #f1f8e9; border: 1px solid #c5e1a5; border-radius: 8rpx; padding: 14rpx 16rpx; margin-bottom: 16rpx;">
+          <text style="font-size: 24rpx; color: #558b2f;">📍 钓点策略：{{tacticalAdvice.spot_strategy}}</text>
+        </view>
+
         <view style="display: flex; flex-direction: column; gap: 10rpx;">
           <view style="display: flex;"><text style="font-size: 24rpx; color: #f57f17; min-width: 110rpx; font-weight: bold;">🌊 水层:</text><text style="font-size: 24rpx; color: #424242; flex: 1;">{{tacticalAdvice.layer}}</text></view>
           <view style="display: flex;"><text style="font-size: 24rpx; color: #f57f17; min-width: 110rpx; font-weight: bold;">🍤 用饵:</text><text style="font-size: 24rpx; color: #424242; flex: 1;">{{tacticalAdvice.bait}}</text></view>

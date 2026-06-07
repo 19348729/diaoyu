@@ -68,6 +68,7 @@ Page({
         target: fc.target || 'auto',
         method: this.data.curMethod || '未知',
         bait: this.data.curBait || '未知',
+        spot: app.globalData.spotContext || null,  // 钓点情况，供 AI 对症
       }
 
       // 装备上下文：优先用本次出钓勾选的装备，未设置时回退全量钓箱

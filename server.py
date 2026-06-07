@@ -79,6 +79,7 @@ class PredictRequest(BaseModel):
     lng: float = Field(0.0, description="经度")
     altitude: float = Field(0.0, ge=0, description="海拔 米")
     user_inventory: Optional[Dict] = Field(None, description="用户装备库数据")
+    spot_context: Optional[Dict] = Field(None, description="钓点情况 {type,density,clarity}（仅影响建议，不改开口指数）")
 
 
 class PredictResponse(BaseModel):
@@ -983,7 +984,7 @@ async def predict(
     for f_name in target_fishes:
         profile = FISH_PROFILES[f_name]
         service = FishingPredictionService(fish_profile=profile)
-        res = service.predict_from_series(series=series, api=api_data, user_inventory=user_inventory)
+        res = service.predict_from_series(series=series, api=api_data, user_inventory=user_inventory, spot_context=req.spot_context)
         fish_results.append({
             "name": f_name,
             "result": res,
@@ -1109,6 +1110,7 @@ class WeatherPredictRequest(BaseModel):
     lat: float = Field(..., description="纬度")
     lng: float = Field(..., description="经度")
     user_inventory: Optional[Dict] = Field(None, description="本次出钓装备（不传则回退钓箱全量）")
+    spot_context: Optional[Dict] = Field(None, description="钓点情况 {type,density,clarity}（仅影响建议，不改开口指数）")
 
 
 @app.post("/api/predict/weather", tags=["预测"])
@@ -1152,6 +1154,7 @@ async def predict_weather_only(
         res = service.predict_weather_only(
             api=api_data, air_temp=air_temp, lat=req.lat, lng=req.lng,
             hourly_forecast=hourly, user_inventory=user_inventory,
+            spot_context=req.spot_context,
         )
         fish_results.append({
             "name": f_name,

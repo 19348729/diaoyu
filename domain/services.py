@@ -277,6 +277,7 @@ class FishingPredictionService:
         api: ApiData,
         session: SessionContext = None,
         user_inventory: Optional[dict] = None,
+        spot_context: Optional[dict] = None,
     ) -> PredictionResult:
         """基于时序数据的完整预测流程。
 
@@ -460,7 +461,8 @@ class FishingPredictionService:
 
         # ── 19. 生成结构化战术建议 ──
         tactical_advice = self._generate_tactical_advice(
-            final_score, tags, session, latest, api=api, user_inventory=user_inventory
+            final_score, tags, session, latest, api=api,
+            user_inventory=user_inventory, spot_context=spot_context,
         )
 
         return PredictionResult(
@@ -808,6 +810,7 @@ class FishingPredictionService:
         session: SessionContext, latest: SensorReading = None,
         api: ApiData = None,
         user_inventory: Optional[dict] = None,
+        spot_context: Optional[dict] = None,
     ) -> dict:
         """生成结构化战术建议（与鱼种绑定 + 动态数据引用）。"""
         advice = {}
@@ -891,6 +894,17 @@ class FishingPredictionService:
             highlights.append("✅ 气压处于最适范围（1005-1020 hPa），利好出钓")
         advice["highlight"] = "；".join(highlights) if highlights else ""
 
+        # ── 钓点策略 [P3 新增]：按钓点类型/鱼密度/水色给针对性打法 ──
+        # 注意：仅生成"建议"，不参与开口指数评分（鱼密度属渔获预期，另一维度）
+        spot_strategy, density_note = self._generate_spot_strategy(spot_context)
+        advice["spot_strategy"] = spot_strategy
+        if density_note:
+            base_risk = advice.get("risk") or ""
+            if base_risk and base_risk != "当前无明显风险":
+                advice["risk"] = base_risk + "；" + density_note
+            else:
+                advice["risk"] = density_note
+
         # ── 关联查询用户的数字钓箱设备并做个性化匹配 ──
         advice["equipment_advice"] = self._generate_equipment_advice(
             target_fish=profile.name,
@@ -902,6 +916,56 @@ class FishingPredictionService:
         )
 
         return advice
+
+    def _generate_spot_strategy(self, spot_context: Optional[dict]):
+        """根据钓点类型/鱼密度/水色生成针对性打法建议。
+
+        纯建议层，不参与开口指数评分。
+
+        Args:
+            spot_context: {type, density, clarity}，任意字段可缺省
+
+        Returns:
+            (spot_strategy: str, density_note: str)
+            spot_strategy: 钓点打法文案（空串表示用户未提供钓点信息）
+            density_note:  鱼少/资源差时的渔获预期提示（追加到 risk）
+        """
+        if not spot_context:
+            return "", ""
+
+        spot_type = (spot_context.get("type") or "").strip()
+        density = (spot_context.get("density") or "").strip()
+        clarity = (spot_context.get("clarity") or "").strip()
+
+        parts = []
+
+        # ── 钓点类型 ──
+        if spot_type == "黑坑":
+            parts.append("黑坑抢鱼：开钓抓第一波快鱼、加快抛竿频率，注意正钓/偷驴时段差异")
+        elif spot_type == "野河":
+            parts.append("野河资源散：重打窝聚鱼，守钓深浅交界、回湾、桦尖等鱼道")
+        elif spot_type == "水库":
+            parts.append("水库水广鱼稀：选铧尖/进出水口/淹没树丛，提前重窝、放长线守大鱼")
+        elif spot_type == "江河":
+            parts.append("江河多走水：用跑铅/双铅钓法稳住饵，找回水湾、桥墩等缓流挡口")
+        elif spot_type == "池塘":
+            parts.append("小塘鱼集中：钓位选下风口/进水口，轻窝勤补避免死窝")
+
+        # ── 鱼密度 ──
+        density_note = ""
+        if density in ("鱼多", "新放", "资源好"):
+            parts.append("鱼密度高：可主动诱钓、大味型快频聚鱼")
+        elif density in ("鱼少", "稀少"):
+            parts.append("鱼密度低：广撒窝、拉长守钓时间，宁可走钓多探几个点")
+            density_note = "钓点鱼少/资源一般，渔获预期需放低，重在找鱼"
+
+        # ── 水色 ──
+        if clarity == "浑浊":
+            parts.append("水浑：加大饵料味型与目标、钓近钓浅，鱼靠味觉找饵")
+        elif clarity == "清":
+            parts.append("水清鱼警惕：小钩细线、淡味型、钓远钓深、减少走动")
+
+        return "；".join(parts), density_note
 
     def _generate_equipment_advice(
         self,
@@ -1400,6 +1464,7 @@ class FishingPredictionService:
         lng: float = 0.0,
         hourly_forecast: Optional[List[dict]] = None,
         user_inventory: Optional[dict] = None,
+        spot_context: Optional[dict] = None,
     ) -> PredictionResult:
         """纯天气模式预测（无需传感器数据）。
 
@@ -1486,7 +1551,8 @@ class FishingPredictionService:
 
         # ── 战术建议 ──
         tactical_advice = self._generate_tactical_advice(
-            final_score, tags, session, api=api, user_inventory=user_inventory
+            final_score, tags, session, api=api,
+            user_inventory=user_inventory, spot_context=spot_context,
         )
         tactical_advice["estimated_water_temp"] = f"{t_water_est:.1f}℃（根据气温{air_temp:.0f}℃推算）"
 

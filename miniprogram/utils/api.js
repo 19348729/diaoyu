@@ -91,7 +91,7 @@ function reportHistoryBatch(records, location = null) {
  * @param {string} fishType - 目标鱼种名称
  * @returns {Promise<object>} 预测结果
  */
-function getPrediction(sensors, lat, lng, fishType = 'auto', userInventory = null) {
+function getPrediction(sensors, lat, lng, fishType = 'auto', userInventory = null, spotContext = null) {
   const formattedSensors = sensors.map(s => ({
     timestamp: s.timestamp,
     t_water: s.tWater !== undefined ? s.tWater : null,
@@ -105,7 +105,8 @@ function getPrediction(sensors, lat, lng, fishType = 'auto', userInventory = nul
     lat: lat,
     lng: lng,
     altitude: 0,
-    user_inventory: userInventory || null
+    user_inventory: userInventory || null,
+    spot_context: spotContext || null
   });
 }
 
@@ -136,12 +137,13 @@ function getPredictionLogs(limit = 20) {
  * @param {string} fishType - 目标鱼种（'auto' 全鱼种排行）
  * @returns {Promise<object>} 预测结果
  */
-function getWeatherPredict(lat, lng, fishType = 'auto', userInventory = null) {
+function getWeatherPredict(lat, lng, fishType = 'auto', userInventory = null, spotContext = null) {
   return request('/predict/weather', 'POST', {
     lat,
     lng,
     fish_type: fishType,
     user_inventory: userInventory || null,
+    spot_context: spotContext || null,
   });
 }
 

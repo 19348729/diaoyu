@@ -68,10 +68,12 @@ Page({
 
       // 本次出钓装备（从出钓准备页带过来）：让装备建议只在「带了的」范围内挑选
       const tripEquipment = (getApp().globalData && getApp().globalData.tripEquipment) || null;
+      // 钓点情况：影响战术建议（不改开口指数）
+      const spotContext = (getApp().globalData && getApp().globalData.spotContext) || null;
 
       // 并发请求 3 个接口
       const [weatherResult, forecastResult, calendarResult] = await Promise.all([
-        api.getWeatherPredict(lat, lng, fishType, tripEquipment),
+        api.getWeatherPredict(lat, lng, fishType, tripEquipment, spotContext),
         api.getForecastToday(lat, lng, fishType === 'auto' ? '鲫鱼' : fishType),
         api.getForecast3Day(lat, lng, fishType === 'auto' ? '鲫鱼' : fishType),
       ]);

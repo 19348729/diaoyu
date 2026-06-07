@@ -59,6 +59,19 @@ def build_user_prompt(
     prompt = f"【目标鱼种】: {fish_context.get('target', '未知')}\n"
     prompt += f"【当前钓法】: {fish_context.get('method', '未知')}\n"
     prompt += f"【使用饵料】: {fish_context.get('bait', '未知')}\n"
+
+    # 钓点情况（类型/鱼密度/水色）——影响打法与渔获预期
+    spot = fish_context.get('spot') or {}
+    spot_bits = []
+    if spot.get('type'):
+        spot_bits.append(f"类型={spot['type']}")
+    if spot.get('density'):
+        spot_bits.append(f"鱼密度={spot['density']}")
+    if spot.get('clarity'):
+        spot_bits.append(f"水色={spot['clarity']}")
+    if spot_bits:
+        prompt += f"【钓点情况】: {' / '.join(spot_bits)}\n"
+
     prompt += f"【物理环境指标】: {metrics}\n"
     prompt += f"【系统评估物理标签】: {', '.join(physical_tags)}\n"
     prompt += f"【钓友反馈水面症状】: {', '.join(symptom_tags)}\n\n"

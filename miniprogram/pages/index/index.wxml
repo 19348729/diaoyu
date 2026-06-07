@@ -164,6 +164,11 @@
         <text style="font-size: 24rpx; color: #1565c0;">🐟 {{tacticalAdvice.fish_activity}}</text>
       </view>
 
+      <!-- 钓点策略（按钓点类型/鱼密度/水色） -->
+      <view wx:if="{{tacticalAdvice.spot_strategy}}" style="background: #f1f8e9; border: 1px solid #c5e1a5; border-radius: 6rpx; padding: 12rpx 16rpx; margin-bottom: 16rpx;">
+        <text style="font-size: 24rpx; color: #558b2f;">📍 钓点策略：{{tacticalAdvice.spot_strategy}}</text>
+      </view>
+
       <view style="display: flex; flex-direction: column; gap: 12rpx;">
         <view style="display: flex; align-items: flex-start;">
           <text style="font-size: 26rpx; color: #f57f17; min-width: 120rpx; font-weight: bold;">🌊 建议水层:</text>

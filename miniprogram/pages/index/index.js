@@ -295,7 +295,9 @@ Page({
           : [app.globalData.latestData];
         // 本次出钓装备：让主预测的装备建议只在「带了的」范围内挑选（无则后端回退钓箱全量）
         const tripEquipment = app.globalData.tripEquipment || null;
-        const prediction = await api.getPrediction(sensors, loc.lat, loc.lng, fishType, tripEquipment);
+        // 钓点情况：影响战术建议（不改开口指数）
+        const spotContext = app.globalData.spotContext || null;
+        const prediction = await api.getPrediction(sensors, loc.lat, loc.lng, fishType, tripEquipment, spotContext);
 
         const predictTime = Date.now();
         const biteRating = this._calcBiteRating(prediction.bite_index);

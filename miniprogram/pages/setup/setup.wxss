@@ -86,6 +86,12 @@
   margin-left: 12rpx;
 }
 
+.spot-row-label {
+  font-size: 26rpx;
+  color: #5a6473;
+  margin: 18rpx 0 12rpx;
+}
+
 /* 本次出钓装备勾选 */
 .equip-actions {
   display: flex;

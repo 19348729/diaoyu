@@ -27,6 +27,14 @@ Page({
     targetFish: AUTO_LABEL,
     recommendationTip: FISH_TIP[AUTO_LABEL],
 
+    // 钓点情况（仅影响战术建议，不改开口指数）。默认值=不确定/正常 视为未填
+    spotTypeOptions: ['不确定', '黑坑', '野河', '水库', '江河', '池塘'],
+    spotDensityOptions: ['不确定', '鱼多', '一般', '鱼少'],
+    spotClarityOptions: ['正常', '清', '浑浊'],
+    spotType: '不确定',
+    spotDensity: '不确定',
+    spotClarity: '正常',
+
     // 本次出钓装备（默认全选；钓友可勾掉没带的）
     showEquip: false,
     equipLoaded: false,
@@ -98,6 +106,10 @@ Page({
     })
   },
 
+  selectSpotType(e) { this.setData({ spotType: e.currentTarget.dataset.val }) },
+  selectSpotDensity(e) { this.setData({ spotDensity: e.currentTarget.dataset.val }) },
+  selectSpotClarity(e) { this.setData({ spotClarity: e.currentTarget.dataset.val }) },
+
   // ── 本次出钓装备勾选 ────────────────────────────────────
 
   /** 拉取全量钓箱并初始化为全选 */
@@ -161,10 +173,16 @@ Page({
     }
   },
 
-  /** 保存出钓上下文（目标鱼种）与本次装备到全局 */
+  /** 保存出钓上下文（目标鱼种 + 钓点情况）与本次装备到全局 */
   _saveContext() {
     app.globalData.fishContext = {
       target: this.data.targetFish === AUTO_LABEL ? 'auto' : this.data.targetFish,
+    }
+    // 钓点情况：默认项（不确定/正常）视为未填，置空
+    app.globalData.spotContext = {
+      type: this.data.spotType === '不确定' ? '' : this.data.spotType,
+      density: this.data.spotDensity === '不确定' ? '' : this.data.spotDensity,
+      clarity: this.data.spotClarity === '正常' ? '' : this.data.spotClarity,
     }
     if (this.data.equipLoaded) {
       app.globalData.tripEquipment = this._buildTripEquipment()

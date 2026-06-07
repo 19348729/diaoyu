@@ -19,6 +19,23 @@
       </view>
     </view>
 
+    <!-- 钓点情况（影响打法建议，不改开口指数；选填） -->
+    <view class="section card-shadow">
+      <view class="title">📍 钓点情况 <text class="title-hint">影响打法建议，选填</text></view>
+      <view class="spot-row-label">钓点类型</view>
+      <view class="grid">
+        <view class="tag {{spotType === item ? 'active' : ''}}" wx:for="{{spotTypeOptions}}" wx:key="*this" bindtap="selectSpotType" data-val="{{item}}">{{item}}</view>
+      </view>
+      <view class="spot-row-label">鱼密度</view>
+      <view class="grid">
+        <view class="tag {{spotDensity === item ? 'active' : ''}}" wx:for="{{spotDensityOptions}}" wx:key="*this" bindtap="selectSpotDensity" data-val="{{item}}">{{item}}</view>
+      </view>
+      <view class="spot-row-label">水色</view>
+      <view class="grid">
+        <view class="tag {{spotClarity === item ? 'active' : ''}}" wx:for="{{spotClarityOptions}}" wx:key="*this" bindtap="selectSpotClarity" data-val="{{item}}">{{item}}</view>
+      </view>
+    </view>
+
     <!-- 本次出钓装备（默认全选，可勾掉没带的） -->
     <view class="section card-shadow" wx:if="{{equipLoaded}}">
       <view class="title" bindtap="toggleEquipPanel">
