@@ -880,6 +880,10 @@ class FishingPredictionService:
             risks.append("气压偏低（<1000 hPa），鱼口可能偏差")
         if TacticalTag.WEATHER_STORM_APPROACHING.value in tags:
             risks.append("未来数小时有雷阵雨逼近，抓紧末日口但注意安全撤离")
+        if TacticalTag.WEATHER_COOLING_STRONG.value in tags:
+            risks.append("未来强降温/寒潮，鱼会应激停口，建议钓深水避寒或改日出钓")
+        elif TacticalTag.WEATHER_COOLING.value in tags:
+            risks.append("未来降温，鱼口可能转差，抓紧降温前的窗口")
         advice["risk"] = "；".join(risks) if risks else "当前无明显风险"
 
         # ── 利好信号 [P2 新增] ──
@@ -892,6 +896,10 @@ class FishingPredictionService:
             highlights.append("⚡ 雷阵雨前末日口，鱼口会异常凶猛，但务必注意安全")
         if TacticalTag.PRESSURE_ABS_OPTIMAL.value in tags:
             highlights.append("✅ 气压处于最适范围（1005-1020 hPa），利好出钓")
+        if TacticalTag.WEATHER_WARMING.value in tags:
+            highlights.append("🌤️ 未来回暖，连续低温后鱼活性回升，是难得的好窗口")
+        if TacticalTag.WEATHER_RAIN_RISING.value in tags:
+            highlights.append("🌧️ 未来持续降雨/涨水，找进水口、流水挡口的觅食带；注意浑水加大味型与安全")
         advice["highlight"] = "；".join(highlights) if highlights else ""
 
         # ── 钓点策略 [P3 新增]：按钓点类型/鱼密度/水色给针对性打法 ──
@@ -1452,6 +1460,55 @@ class FishingPredictionService:
 
         return modifier
 
+    def _calc_forecast_trend_modifier(
+        self, hourly_forecast: Optional[List[dict]], tags: List[str]
+    ) -> int:
+        """预报趋势检测（降温/回暖/涨水）。[P3 新增]
+
+        用逐时预报（无传感器也可用）近似"近期天气历史/涨退水"维度：
+          - 未来强降温/寒潮：鱼应激停口（强扣分）
+          - 未来降温：鱼口转差（扣分）
+          - 连续低温后回暖：活性回升（加分）
+          - 未来持续降雨/涨水：找进水口/流水带觅食（仅提示，不大改分，避免与雨后效应重复计权）
+
+        Args:
+            hourly_forecast: 逐小时天气预报（来自 get_hourly_forecast）
+            tags: 标签列表（会追加新标签）
+
+        Returns:
+            加减分值
+        """
+        if not hourly_forecast or len(hourly_forecast) < 6:
+            return 0
+
+        modifier = 0
+
+        # ── 温度趋势：当前 vs 未来约 12 小时 ──
+        temps = [h.get("temp") for h in hourly_forecast[:12] if h.get("temp") is not None]
+        if len(temps) >= 6:
+            cur = temps[0]
+            drop = cur - min(temps)   # 未来最大降温幅度
+            rise = max(temps) - cur   # 未来最大升温幅度
+            if drop >= 6:
+                tags.append(TacticalTag.WEATHER_COOLING_STRONG.value)
+                modifier -= 8
+            elif drop >= 3:
+                tags.append(TacticalTag.WEATHER_COOLING.value)
+                modifier -= 4
+            elif rise >= 4:
+                # 仅在无明显降温时认定回暖
+                tags.append(TacticalTag.WEATHER_WARMING.value)
+                modifier += 4
+
+        # ── 未来持续降雨/涨水：未来 12h 内雨时数较多 ──
+        trends = [h.get("weather_trend", "sunny") for h in hourly_forecast[:12]]
+        rain_hours = sum(1 for t in trends if t in ("rainy", "stormy"))
+        if rain_hours >= 4:
+            tags.append(TacticalTag.WEATHER_RAIN_RISING.value)
+            # 涨水觅食利好但浑水，净影响很小，主要靠 tactical_advice 提示
+
+        return modifier
+
     # ================================================================
     #  纯天气预测模式（P0 新增）
     # ================================================================
@@ -1526,11 +1583,17 @@ class FishingPredictionService:
             hourly_forecast, tags
         )
 
+        # ── 10.5 预报趋势检测（降温/回暖/涨水） ── [P3 新增]
+        forecast_trend_modifier = self._calc_forecast_trend_modifier(
+            hourly_forecast, tags
+        )
+
         # ── 11. 汇总（乘性归一模型；纯天气模式无传感器气压维度） ──
         env_scores = [
             weather_modifier, period_modifier, season_modifier,
             solunar_modifier, wind_dir_modifier, humidity_modifier,
             wind_speed_modifier, do_modifier, weather_transition_modifier,
+            forecast_trend_modifier,
         ]
         final_score = self._combine_score(base01, env_scores, pressure_sum=0.0, veto=False)
         self._add_rating_tag(final_score, tags)

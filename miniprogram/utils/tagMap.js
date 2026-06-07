@@ -115,6 +115,10 @@ const TAG_MAP = {
   WEATHER_POST_RAIN_CLEAR: "🎉 雨后初晴",
   WEATHER_LONG_RAIN_TO_CLEAR: "🔥 久雨放晴",
   WEATHER_STORM_APPROACHING: "⚡ 雷暴逼近",
+  WEATHER_COOLING: "🌡️ 未来降温",
+  WEATHER_COOLING_STRONG: "❄️ 强降温/寒潮",
+  WEATHER_WARMING: "🌤️ 未来回暖",
+  WEATHER_RAIN_RISING: "🌧️ 持续降雨/涨水",
 
   // ── 温跃层单探头 ──
   THERMOCLINE_SINGLE_SENSOR: "单水温探头模式",

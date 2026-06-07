@@ -140,3 +140,9 @@ class TacticalTag(str, Enum):
     WEATHER_POST_RAIN_CLEAR = "WEATHER_POST_RAIN_CLEAR"          # 雨后初晴（绝佳鱼情）
     WEATHER_LONG_RAIN_TO_CLEAR = "WEATHER_LONG_RAIN_TO_CLEAR"    # 连续阴雨后放晴（爆护天气）
     WEATHER_STORM_APPROACHING = "WEATHER_STORM_APPROACHING"      # 雷阵雨逼近（末日口）
+
+    # ── 预报趋势标签（逐时预报推导，无传感器也可用）── [P3 新增]
+    WEATHER_COOLING = "WEATHER_COOLING"                # 未来降温（鱼口转差）
+    WEATHER_COOLING_STRONG = "WEATHER_COOLING_STRONG"  # 未来强降温/寒潮（应激停口）
+    WEATHER_WARMING = "WEATHER_WARMING"                # 未来回暖（活性回升）
+    WEATHER_RAIN_RISING = "WEATHER_RAIN_RISING"        # 未来持续降雨/涨水
