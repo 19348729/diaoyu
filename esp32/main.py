@@ -17,11 +17,11 @@ ESP32 钓鱼传感器主程序 (Main Entry)
   6. 历史数据采用手动拉取模式：由小程序下发 CMD_PULL_HISTORY
      主动拉取，每次回发一批（最多 BLE_BATCH_SIZE 条）。
 
-充电宝保活（ESP-NOW 之前已实测可靠的纯软件机制）：
-  启动时 _disable_wifi() 把 WiFi 置为关闭基准，随后 keepalive_sleep 替代
-  time.sleep_ms：长睡眠期间周期性产生 CPU 脉冲，并每 ~30s 短暂开启 WiFi
-  扫描一次（~180~250mA 射频脉冲），维持充电宝检测到的平均电流不被小电流
-  保护断电。此机制不依赖 ESP-NOW，是 5/18 版本实测可长期供电的方案。
+充电宝保活（激进软件方案：WiFi 近乎常开）：
+  keepalive_sleep 替代 time.sleep_ms：长睡眠切片，每 ~2s 触发一次 WiFi
+  全信道扫描（阻塞 ~2s、射频满功率）且扫完不关射频，使 WiFi 近乎常开，
+  叠加 CPU 脉冲，平均电流冲到 ~120~180mA，稳定压住充电宝小电流保护阈值。
+  代价是更费电、芯片发热。若此方案在该充电宝上仍不稳，最终需硬件假负载电阻。
 """
 
 import time
@@ -94,7 +94,7 @@ def main():
         ble_service.process_fast_dump()
 
     print("\n[系统] 启动完成！开始采集循环 (间隔: {}秒)".format(SAMPLE_INTERVAL_SEC))
-    print("[系统] 充电宝保活：CPU 脉冲 + 周期 WiFi 扫描踢脚（间隔 2 秒 / 踢脚 ~30 秒）")
+    print("[系统] 充电宝保活：激进模式 WiFi 近乎常开（每 ~2 秒扫描一次，射频常驻）")
     print("[系统] 等待小程序连接并对表...\n")
 
     # ── 2. 主循环 ──

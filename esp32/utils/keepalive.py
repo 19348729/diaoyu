@@ -7,24 +7,29 @@
 ESP32 在低功耗模式下（BLE 广播 + 深度休眠），平均电流仅
 ~20~30mA，触发充电宝断电保护。
 
-本模块通过以下策略维持足够电流：
-  1. 将长睡眠（如60秒）切割为短片段（如2秒）
-  2. 每个片段间隔执行一次 CPU 忙循环（"脉冲"），持续约 50ms
-  3. 脉冲期间 CPU 全速运行，拉高瞬时电流至 ~80~120mA
-  4. 周期性开关 WiFi 扫描产生额外电流消耗（可选）
+本模块采用「激进保活」策略，让平均电流稳定压住充电宝阈值：
+  1. 将长睡眠（如60秒）切割为短片段（默认2秒）
+  2. 每个片段结束执行一次 CPU 忙循环（"脉冲"），拉高瞬时电流作底
+  3. ★核心★ 每个片段都触发一次 WiFi 全信道扫描（_WIFI_KICK_INTERVAL=1）：
+     扫描本身阻塞约 1.5~2.5s、射频满功率 ~150~250mA，且扫完不关射频
+     （_WIFI_KEEP_RADIO_ON），使 WiFi 近乎常开 → 平均电流冲到 ~120~180mA。
 
-这样充电宝检测到的平均电流足以维持供电。
+说明：空闲（仅 BLE 广播）时整机电流仅 ~20~30mA，远低于充电宝小电流保护
+阈值（50~100mA）。靠每 30s 一次的稀疏脉冲摊到平均后几乎为 0，压不住；
+唯有让射频近乎常开、持续高电流，才能稳定维持充电宝供电（代价是更费电、
+芯片发热）。若此软件方案在你的充电宝上仍不稳，最终方案是硬件加假负载电阻。
 """
 
 import time
 import machine
 
 
-# ── 保活参数 ──
-_PULSE_INTERVAL_MS = 2000      # 每隔多久执行一次脉冲（毫秒）
-_PULSE_DURATION_MS = 60        # 每次脉冲持续时间（毫秒）
-_WIFI_KICK_INTERVAL = 15       # 每隔多少次脉冲执行一次 WiFi 扫描踢脚（次数）
-_WIFI_KICK_ENABLED = True      # 是否启用 WiFi 扫描踢脚（更强力的保活手段）
+# ── 保活参数（激进模式：WiFi 近乎常开）──
+_PULSE_INTERVAL_MS = 2000      # CPU 脉冲间隔（毫秒），同时作为切片睡眠粒度
+_PULSE_DURATION_MS = 150       # 每次 CPU 脉冲持续时间（毫秒），加大以抬高底电流
+_WIFI_KICK_INTERVAL = 1        # 激进：每次脉冲(~2s)都扫描一次，射频近乎常开
+_WIFI_KICK_ENABLED = True      # 启用 WiFi 扫描踢脚（最有效的保活手段）
+_WIFI_KEEP_RADIO_ON = True     # 激进：扫描后不关闭 STA 射频，保持常驻拉高平均电流
 
 # 用于保活脉冲的 GPIO（选一个未使用的 GPIO 配置为输出）
 # GPIO12 通常是可用的通用 IO，设为输出并反复翻转产生额外电流
@@ -69,24 +74,27 @@ def _cpu_busy_pulse(duration_ms):
 
 
 def _wifi_kick():
-    """短暂开启 WiFi 扫描然后关闭，产生一次较大的电流脉冲。
+    """触发一次 WiFi 全信道扫描产生大电流脉冲（激进保活核心）。
 
-    WiFi 射频开启瞬间电流可达 ~180~250mA，是最有效的保活手段。
-    扫描完成后立即关闭，不影响正常 BLE 运行。
+    sta.scan() 为阻塞调用，全信道扫描期间（~1.5~2.5s）射频满功率运行，
+    电流可达 ~150~250mA。激进模式下每 ~2s 调用一次且扫完不关射频
+    （_WIFI_KEEP_RADIO_ON=True），使 WiFi 近乎常开，平均电流持续高位。
+    与 BLE 广播/连接共存（射频时分复用，不影响功能）。
     """
     try:
         import network
         sta = network.WLAN(network.STA_IF)
-        sta.active(True)
-        # 短暂延时让射频启动消耗电流
-        time.sleep_ms(100)
-        # 尝试执行一次扫描（会自动超时）
+        if not sta.active():
+            sta.active(True)
+            time.sleep_ms(50)  # 让射频启动
+        # 阻塞式全信道扫描：射频满功率，是平均电流的主要来源
         try:
             sta.scan()
         except Exception:
             pass
-        # 关闭 WiFi
-        sta.active(False)
+        # 激进模式：保持射频常驻；非激进时扫完关闭以省电
+        if not _WIFI_KEEP_RADIO_ON:
+            sta.active(False)
     except Exception as e:
         print("[保活] WiFi 踢脚失败: {}".format(e))
 
