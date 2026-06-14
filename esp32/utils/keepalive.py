@@ -8,12 +8,12 @@ ESP32 在低功耗模式下（BLE 广播 + 深度休眠），平均电流仅
 ~20~30mA，触发充电宝断电保护。
 
 本模块通过以下策略维持足够电流：
-  1. 将长睡眠（如60秒）切割为短片段（如2秒）
-  2. 每个片段间隔执行一次 CPU 忙循环（"脉冲"），持续约 50ms
-  3. 脉冲期间 CPU 全速运行，拉高瞬时电流至 ~80~120mA
-  4. 周期性开关 WiFi 扫描产生额外电流消耗（可选）
-
-这样充电宝检测到的平均电流足以维持供电。
+  【方案B - 主手段】WiFi 射频常开：启动时开启 STA 射频并关闭省电模式，
+      射频持续工作让整机电流稳定在 ~80~120mA。充电宝的小电流保护判的是
+      一段时间窗口内的「平均电流」，唯有持续高电流才能稳定压住阈值，
+      靠偶发尖峰（如周期性扫描）摊到平均后几乎为 0，并不可靠。
+  【辅助】CPU 忙循环脉冲：长睡眠切片，片段间隙满载跑一小段，叠加余量。
+  【兜底】若射频常开初始化失败，自动退回「周期性 WiFi 扫描踢脚」。
 """
 
 import time
@@ -21,10 +21,12 @@ import machine
 
 
 # ── 保活参数 ──
-_PULSE_INTERVAL_MS = 2000      # 每隔多久执行一次脉冲（毫秒）
-_PULSE_DURATION_MS = 60        # 每次脉冲持续时间（毫秒）
-_WIFI_KICK_INTERVAL = 15       # 每隔多少次脉冲执行一次 WiFi 扫描踢脚（次数）
-_WIFI_KICK_ENABLED = True      # 是否启用 WiFi 扫描踢脚（更强力的保活手段）
+_PULSE_INTERVAL_MS = 2000      # CPU 脉冲间隔（毫秒），同时作为切片睡眠粒度
+_PULSE_DURATION_MS = 60        # 每次 CPU 脉冲持续时间（毫秒）
+
+# WiFi 保活（方案B：射频常开为主，扫描踢脚为兜底）
+_WIFI_KICK_INTERVAL = 15       # 兜底模式：每隔多少次 CPU 脉冲踢一次脚
+_wifi_persistent_ok = False    # enable_persistent_wifi() 成功后置 True（射频已常开）
 
 # 用于保活脉冲的 GPIO（选一个未使用的 GPIO 配置为输出）
 # GPIO12 通常是可用的通用 IO，设为输出并反复翻转产生额外电流
@@ -91,6 +93,50 @@ def _wifi_kick():
         print("[保活] WiFi 踢脚失败: {}".format(e))
 
 
+def enable_persistent_wifi():
+    """方案B：开启 STA WiFi 射频并常驻（不连接任何 AP），关闭省电模式。
+
+    WiFi 射频持续工作时整机电流稳定在 ~80~120mA，足以让充电宝检测到的
+    「平均电流」高于小电流保护阈值，从而不断电。不连接 AP、不收发业务数据，
+    与 BLE 主链路共存（ESP32 BLE/WiFi 射频时分复用，互不影响功能）。
+
+    关键：必须关闭 WiFi 省电模式（PM_NONE），否则射频会自动 modem-sleep
+    把电流降回 20~30mA，保活失效。
+
+    成功返回 True 并置位 _wifi_persistent_ok；失败返回 False，
+    主循环会自动退回周期性 WiFi 扫描踢脚兜底。
+    """
+    global _wifi_persistent_ok
+    try:
+        import network
+        sta = network.WLAN(network.STA_IF)
+        ap = network.WLAN(network.AP_IF)
+        if not sta.active():
+            sta.active(True)
+        # 关闭 AP，避免多余开销
+        try:
+            if ap.active():
+                ap.active(False)
+        except Exception:
+            pass
+        # 关闭省电模式 → 射频保持全功率（保活成败的关键）
+        try:
+            sta.config(pm=sta.PM_NONE)
+        except Exception:
+            # 个别固件无 PM_NONE 常量，退而尝试数值 0（禁用省电）
+            try:
+                sta.config(pm=0)
+            except Exception:
+                pass
+        _wifi_persistent_ok = True
+        print("[保活] WiFi 射频常开已启用（方案B），已关闭省电模式")
+        return True
+    except Exception as e:
+        _wifi_persistent_ok = False
+        print("[保活] WiFi 射频常开启用失败，退回周期性踢脚: {}".format(e))
+        return False
+
+
 def keepalive_sleep(total_ms, tick_callback=None):
     """替代 time.sleep_ms() 的保活版本。
 
@@ -129,6 +175,6 @@ def keepalive_sleep(total_ms, tick_callback=None):
             _cpu_busy_pulse(_PULSE_DURATION_MS)
             pulse_count += 1
 
-            # 周期性 WiFi 踢脚（更强力的保活）
-            if _WIFI_KICK_ENABLED and (pulse_count % _WIFI_KICK_INTERVAL == 0):
+            # WiFi 踢脚仅作兜底：射频常开未生效时才周期性扫描拉电流
+            if (not _wifi_persistent_ok) and (pulse_count % _WIFI_KICK_INTERVAL == 0):
                 _wifi_kick()

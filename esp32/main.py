@@ -17,9 +17,11 @@ ESP32 钓鱼传感器主程序 (Main Entry)
   6. 历史数据采用手动拉取模式：由小程序下发 CMD_PULL_HISTORY
      主动拉取，每次回发一批（最多 BLE_BATCH_SIZE 条）。
 
-充电宝保活：
-  采用 keepalive_sleep 替代 time.sleep_ms，在长睡眠期间
-  周期性产生 CPU 脉冲和 WiFi 射频脉冲，维持充电宝供电。
+充电宝保活（方案B：WiFi 射频常开）：
+  启动时调用 enable_persistent_wifi() 开启 STA 射频并关闭省电模式，
+  整机电流稳定在 ~80~120mA，让充电宝检测到的平均电流高于小电流保护
+  阈值，从而不断电。睡眠仍用 keepalive_sleep（CPU 脉冲叠加余量；
+  若射频常开失败则自动退回周期性 WiFi 扫描踢脚兜底）。
 """
 
 import time
@@ -30,7 +32,7 @@ from sensors.temperature import TemperatureSensor
 from sensors.pressure import PressureSensor
 from storage.ring_buffer import RingBuffer
 from utils.time_sync import TimeSync
-from utils.keepalive import keepalive_sleep
+from utils.keepalive import keepalive_sleep, enable_persistent_wifi
 from ble.service import BLEService
 
 
@@ -63,12 +65,16 @@ def main():
     print("\n[系统] 初始化 BLE...")
     ble_service.init()
 
+    # ── 充电宝保活（方案B）：开启 WiFi 射频常开，拉高平均电流防断电 ──
+    print("\n[系统] 启用充电宝保活（WiFi 射频常开）...")
+    enable_persistent_wifi()
+
     # ── 主循环 tick: 处理 BLE 快闪 Dump ──
     def tick_callback():
         ble_service.process_fast_dump()
 
     print("\n[系统] 启动完成！开始采集循环 (间隔: {}秒)".format(SAMPLE_INTERVAL_SEC))
-    print("[系统] 充电宝保活模式已启用（脉冲间隔 2 秒）")
+    print("[系统] 充电宝保活：WiFi 射频常开 + CPU 脉冲（间隔 2 秒）")
     print("[系统] 等待小程序连接并对表...\n")
 
     # ── 2. 主循环 ──
