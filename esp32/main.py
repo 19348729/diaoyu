@@ -17,11 +17,11 @@ ESP32 钓鱼传感器主程序 (Main Entry)
   6. 历史数据采用手动拉取模式：由小程序下发 CMD_PULL_HISTORY
      主动拉取，每次回发一批（最多 BLE_BATCH_SIZE 条）。
 
-充电宝保活（方案B：WiFi 射频常开）：
-  启动时调用 enable_persistent_wifi() 开启 STA 射频并关闭省电模式，
-  整机电流稳定在 ~80~120mA，让充电宝检测到的平均电流高于小电流保护
-  阈值，从而不断电。睡眠仍用 keepalive_sleep（CPU 脉冲叠加余量；
-  若射频常开失败则自动退回周期性 WiFi 扫描踢脚兜底）。
+充电宝保活（ESP-NOW 之前已实测可靠的纯软件机制）：
+  启动时 _disable_wifi() 把 WiFi 置为关闭基准，随后 keepalive_sleep 替代
+  time.sleep_ms：长睡眠期间周期性产生 CPU 脉冲，并每 ~30s 短暂开启 WiFi
+  扫描一次（~180~250mA 射频脉冲），维持充电宝检测到的平均电流不被小电流
+  保护断电。此机制不依赖 ESP-NOW，是 5/18 版本实测可长期供电的方案。
 """
 
 import time
@@ -32,14 +32,38 @@ from sensors.temperature import TemperatureSensor
 from sensors.pressure import PressureSensor
 from storage.ring_buffer import RingBuffer
 from utils.time_sync import TimeSync
-from utils.keepalive import keepalive_sleep, enable_persistent_wifi
+from utils.keepalive import keepalive_sleep
 from ble.service import BLEService
+
+
+def _disable_wifi():
+    """初始关闭 WiFi 射频，建立基准。
+
+    MicroPython 启动时 WiFi STA 模式默认处于 active 状态。
+    先关闭 WiFi 建立基准，保活模块（_wifi_kick）会在需要时短暂开启
+    WiFi 扫描产生电流脉冲以维持充电宝供电。
+    """
+    try:
+        import network
+        sta = network.WLAN(network.STA_IF)
+        ap = network.WLAN(network.AP_IF)
+        if sta.active():
+            sta.active(False)
+            print("[系统] WiFi STA 已关闭（初始状态）")
+        if ap.active():
+            ap.active(False)
+            print("[系统] WiFi AP 已关闭（初始状态）")
+    except Exception as e:
+        print("[系统] 关闭 WiFi 失败（可忽略）: {}".format(e))
 
 
 def main():
     print("=" * 40)
     print("FishProbe ESP32 传感器系统 (v2)")
     print("=" * 40)
+
+    # ── 0. 关闭 WiFi 建立基准（保活踢脚会按需短暂拉起）──
+    _disable_wifi()
 
     # ── 1. 初始化各模块 ──
     time_sync = TimeSync()
@@ -65,16 +89,12 @@ def main():
     print("\n[系统] 初始化 BLE...")
     ble_service.init()
 
-    # ── 充电宝保活（方案B）：开启 WiFi 射频常开，拉高平均电流防断电 ──
-    print("\n[系统] 启用充电宝保活（WiFi 射频常开）...")
-    enable_persistent_wifi()
-
     # ── 主循环 tick: 处理 BLE 快闪 Dump ──
     def tick_callback():
         ble_service.process_fast_dump()
 
     print("\n[系统] 启动完成！开始采集循环 (间隔: {}秒)".format(SAMPLE_INTERVAL_SEC))
-    print("[系统] 充电宝保活：WiFi 射频常开 + CPU 脉冲（间隔 2 秒）")
+    print("[系统] 充电宝保活：CPU 脉冲 + 周期 WiFi 扫描踢脚（间隔 2 秒 / 踢脚 ~30 秒）")
     print("[系统] 等待小程序连接并对表...\n")
 
     # ── 2. 主循环 ──
