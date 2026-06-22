@@ -287,8 +287,10 @@ Page({
     app.getLocationWithCache().then(async (loc) => {
       try {
         const fishType = (app.globalData.fishContext && app.globalData.fishContext.target) || 'auto';
-        // 只用「本次连接(对表)后」的数据，使后端阶段时长=本次已测时长，
-        // 这样分析阶段才会真正 instant→brief→standard→full 随时间推进。
+        // 用「本次出钓(首次对表)后」的全部数据；该锚点跨蓝牙重连不清零
+        // （见 ble.js _sendTimeSync / setup.js startSession），
+        // 使后端阶段时长=整场已测时长，分析阶段才会随时间真正
+        // instant→brief→standard→full 推进，不会因频繁重连卡在 <5min。
         const sessionStartTs = app.globalData.sessionStartTs || 0;
         const sessionData = sessionStartTs
           ? historyData.filter(r => r && r.timestamp >= sessionStartTs)

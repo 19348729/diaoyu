@@ -387,10 +387,15 @@ class BLEManager {
     const now = Math.floor(Date.now() / 1000); // 当前 Unix 时间戳（秒）
     const buffer = protocol.encodeTimeSync(now);
     await this._writeToDevice(buffer);
-    // 记录本次会话起点，供战报页等跨页面精确界定"本次出钓"数据范围
+    // 记录本次「出钓」起点，供战报页等跨页面精确界定"本次出钓"数据范围。
+    // ★关键★ 仅在尚未锚定时设置，蓝牙重连重新对表时不覆盖——否则频繁重连会把
+    // 已测时长反复清零，导致后端报告阶段永远停留在 instant/brief。
+    // 新一场出钓由 setup 页 startSession() 主动清空锚点后重新锚定。
     try {
       const app = getApp();
-      if (app && app.globalData) app.globalData.sessionStartTs = now;
+      if (app && app.globalData && !app.globalData.sessionStartTs) {
+        app.globalData.sessionStartTs = now;
+      }
     } catch (e) { /* getApp 不可用时忽略 */ }
     console.log('[BLE] 对表指令已发送, timestamp:', now);
   }
