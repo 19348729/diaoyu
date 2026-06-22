@@ -1,35 +1,39 @@
 """
-充电宝保活模块 (Power Bank Keep-Alive)
-=======================================
-普通充电宝有「小电流保护」机制：当负载电流长时间低于阈值
-（通常 50~100mA）时，充电宝会自动断电。
+充电宝保活模块（高功耗模式 Power Bank Keep-Alive）
+=====================================================
+普通充电宝有「小电流保护」机制：负载电流长期低于阈值
+（通常 50~100mA）时会自动断电。BLE 广播只能提供 ~25~30mA，必然被断。
 
-ESP32 在低功耗模式下（BLE 广播 + 深度休眠），平均电流仅
-~20~30mA，触发充电宝断电保护。
+本模块为经实测验证可用的旧固件保活逻辑，与 main.py / config.py 配合实现多重保活：
+  1. main.py 启动时拉升 CPU 主频到 240MHz（+~20mA 基线）
+  2. main.py 启动时 WiFi STA 常驻 active（+~50~70mA 基线，最有效的软件手段）
+  3. 本模块在长睡眠中用纯 CPU 忙循环（全程不调 time.sleep_ms，避免进入
+     light-sleep），让 CPU 持续跑满 240MHz，电流 ~80~100mA，稳住充电宝
+  4. 周期性 WiFi 扫描踢脚，产生瞬态 ~200mA 电流尖峰
 
-本模块采用「激进保活」策略，让平均电流稳定压住充电宝阈值：
-  1. 将长睡眠（如60秒）切割为短片段（默认2秒）
-  2. 每个片段结束执行一次 CPU 忙循环（"脉冲"），拉高瞬时电流作底
-  3. ★核心★ 每个片段都触发一次 WiFi 全信道扫描（_WIFI_KICK_INTERVAL=1）：
-     扫描本身阻塞约 1.5~2.5s、射频满功率 ~150~250mA，且扫完不关射频
-     （_WIFI_KEEP_RADIO_ON），使 WiFi 近乎常开 → 平均电流冲到 ~120~180mA。
+与现固件快闪 Dump 兼容：忙循环中按节流周期回调 tick_callback，
+驱动 BLE 后台任务（process_fast_dump），不影响离线数据同步。
 
-说明：空闲（仅 BLE 广播）时整机电流仅 ~20~30mA，远低于充电宝小电流保护
-阈值（50~100mA）。靠每 30s 一次的稀疏脉冲摊到平均后几乎为 0，压不住；
-唯有让射频近乎常开、持续高电流，才能稳定维持充电宝供电（代价是更费电、
-芯片发热）。若此软件方案在你的充电宝上仍不稳，最终方案是硬件加假负载电阻。
+所有可调参数集中在 config.py 的 KEEPALIVE_* 字段。
 """
 
 import time
 import machine
 
+from config import (
+    KEEPALIVE_PULSE_INTERVAL_MS,
+    KEEPALIVE_PULSE_DURATION_MS,
+    KEEPALIVE_WIFI_KICK_INTERVAL,
+    KEEPALIVE_WIFI_KICK_ENABLED,
+    KEEPALIVE_WIFI_ALWAYS_ON,
+    KEEPALIVE_BUSY_LOOP_MODE,
+    KEEPALIVE_WIFI_KICK_INTERVAL_MS,
+)
 
-# ── 保活参数（激进模式：WiFi 近乎常开）──
-_PULSE_INTERVAL_MS = 2000      # CPU 脉冲间隔（毫秒），同时作为切片睡眠粒度
-_PULSE_DURATION_MS = 150       # 每次 CPU 脉冲持续时间（毫秒），加大以抬高底电流
-_WIFI_KICK_INTERVAL = 1        # 激进：每次脉冲(~2s)都扫描一次，射频近乎常开
-_WIFI_KICK_ENABLED = True      # 启用 WiFi 扫描踢脚（最有效的保活手段）
-_WIFI_KEEP_RADIO_ON = True     # 激进：扫描后不关闭 STA 射频，保持常驻拉高平均电流
+
+# 忙循环中回调 tick_callback 的最小间隔（毫秒）：
+# 既能及时驱动快闪 Dump，又不至于淹没 BLE notify 队列。
+_TICK_INTERVAL_MS = 20
 
 # 用于保活脉冲的 GPIO（选一个未使用的 GPIO 配置为输出）
 # GPIO12 通常是可用的通用 IO，设为输出并反复翻转产生额外电流
@@ -42,7 +46,7 @@ def _get_keepalive_pin():
     if _KEEPALIVE_PIN is None:
         try:
             # 使用 GPIO12 作为保活引脚（确保未被传感器占用）
-            # config.py 中使用了 GPIO13(DS18B20), GPIO2(SDA), GPIO15(SCL)
+            # config.py 中使用了 GPIO32(DS18B20), GPIO2(SDA), GPIO15(SCL)
             _KEEPALIVE_PIN = machine.Pin(12, machine.Pin.OUT)
             _KEEPALIVE_PIN.value(0)
         except Exception as e:
@@ -74,26 +78,26 @@ def _cpu_busy_pulse(duration_ms):
 
 
 def _wifi_kick():
-    """触发一次 WiFi 全信道扫描产生大电流脉冲（激进保活核心）。
+    """在 WiFi STA 已常驻的前提下，执行一次扫描产生额外电流尖峰。
 
-    sta.scan() 为阻塞调用，全信道扫描期间（~1.5~2.5s）射频满功率运行，
-    电流可达 ~150~250mA。激进模式下每 ~2s 调用一次且扫完不关射频
-    （_WIFI_KEEP_RADIO_ON=True），使 WiFi 近乎常开，平均电流持续高位。
-    与 BLE 广播/连接共存（射频时分复用，不影响功能）。
+    扫描期间 WiFi 射频会从空闲态 ~50~70mA 瞬间提升到 ~180~250mA，
+    产生明显电流尖峰。若 WiFi 未常驻（低功耗模式）则需先 active，
+    扫描后再关闭。
     """
     try:
         import network
         sta = network.WLAN(network.STA_IF)
+        opened_temporarily = False
         if not sta.active():
             sta.active(True)
-            time.sleep_ms(50)  # 让射频启动
-        # 阻塞式全信道扫描：射频满功率，是平均电流的主要来源
+            opened_temporarily = True
+            time.sleep_ms(100)
         try:
             sta.scan()
         except Exception:
             pass
-        # 激进模式：保持射频常驻；非激进时扫完关闭以省电
-        if not _WIFI_KEEP_RADIO_ON:
+        # 仅在原本未开启的情况下才关闭，避免破坏常驻状态
+        if opened_temporarily:
             sta.active(False)
     except Exception as e:
         print("[保活] WiFi 踢脚失败: {}".format(e))
@@ -102,41 +106,93 @@ def _wifi_kick():
 def keepalive_sleep(total_ms, tick_callback=None):
     """替代 time.sleep_ms() 的保活版本。
 
-    将长睡眠拆分为短片段，每个片段之间插入电流脉冲，
-    确保充电宝检测到足够的平均电流不会断电。
+    根据 KEEPALIVE_BUSY_LOOP_MODE 选择两种策略：
+      - True  ：纯 CPU 忙循环 + 周期性 WiFi 踢脚，全程不调 time.sleep_ms，
+               避免进入 light-sleep，CPU 持续跑在 240MHz，电流 ~80~100mA，
+               能稳住充电宝（推荐，已实测可用）。
+      - False ：原高占空比脉冲模式（节电，但可能仍被断电）。
 
     Args:
         total_ms: 总休眠时间（毫秒），与 time.sleep_ms() 语义相同
-        tick_callback: 短片段间隙调用的回调函数（常用于驱动后台任务）
+        tick_callback: 睡眠期间周期性调用的回调（用于驱动 BLE 快闪 Dump 等后台任务）
     """
     if total_ms <= 0:
         return
 
+    if KEEPALIVE_BUSY_LOOP_MODE:
+        _busy_loop_keepalive(total_ms, tick_callback)
+    else:
+        _pulse_keepalive(total_ms, tick_callback)
+
+
+def _busy_loop_keepalive(total_ms, tick_callback=None):
+    """纯 CPU 忙循环保活。
+
+    不调 time.sleep_ms，仅用 ticks_diff 轮询计时，让 ESP32 始终维持
+    CPU 高负载状态。BLE 交互基于中断，不受影响；快闪 Dump 这类需主循环
+    驱动的后台任务，通过按节流回调 tick_callback 推进。
+    """
+    pin = _get_keepalive_pin()
+    start = time.ticks_ms()
+    last_kick = start
+    last_tick = start
+    counter = 0
+
+    while time.ticks_diff(time.ticks_ms(), start) < total_ms:
+        # 纯 CPU 计算（让 240MHz 主频跑满）
+        for _ in range(2000):
+            counter += 1
+            x = counter * 7 + 13
+            x = x ^ (x >> 3)
+            x = (x * 31) & 0xFFFF
+
+        # GPIO 翻转（额外小电流）
+        if pin:
+            pin.value(counter & 1)
+
+        now = time.ticks_ms()
+
+        # 驱动 BLE 后台任务（快闪 Dump），按节流避免淹没 notify 队列
+        if tick_callback and time.ticks_diff(now, last_tick) >= _TICK_INTERVAL_MS:
+            tick_callback()
+            last_tick = now
+
+        # 周期性 WiFi 踢脚（仅在 WiFi 常驻模式下生效）
+        if (
+            KEEPALIVE_WIFI_KICK_ENABLED
+            and KEEPALIVE_WIFI_ALWAYS_ON
+            and time.ticks_diff(now, last_kick) >= KEEPALIVE_WIFI_KICK_INTERVAL_MS
+        ):
+            _wifi_kick()
+            last_kick = time.ticks_ms()
+
+
+def _pulse_keepalive(total_ms, tick_callback=None):
+    """原脉冲保活（节电模式，保留作为备选）。"""
     remaining = total_ms
     pulse_count = 0
 
     while remaining > 0:
-        # 睡眠一个片段
-        sleep_chunk = min(remaining, _PULSE_INTERVAL_MS)
-        
+        sleep_chunk = min(remaining, KEEPALIVE_PULSE_INTERVAL_MS)
         if tick_callback:
             # 细分睡眠以快速响应回调（如 BLE 快闪）
             chunk_remaining = sleep_chunk
             while chunk_remaining > 0:
-                step = min(chunk_remaining, 50)
+                step = min(chunk_remaining, _TICK_INTERVAL_MS)
                 time.sleep_ms(step)
                 tick_callback()
                 chunk_remaining -= step
         else:
             time.sleep_ms(sleep_chunk)
-            
         remaining -= sleep_chunk
 
-        # 如果还有剩余时间，执行保活脉冲
         if remaining > 0:
-            _cpu_busy_pulse(_PULSE_DURATION_MS)
+            _cpu_busy_pulse(KEEPALIVE_PULSE_DURATION_MS)
             pulse_count += 1
 
-            # 周期性 WiFi 踢脚（更强力的保活）
-            if _WIFI_KICK_ENABLED and (pulse_count % _WIFI_KICK_INTERVAL == 0):
+            if (
+                KEEPALIVE_WIFI_KICK_ENABLED
+                and KEEPALIVE_WIFI_ALWAYS_ON
+                and (pulse_count % KEEPALIVE_WIFI_KICK_INTERVAL == 0)
+            ):
                 _wifi_kick()

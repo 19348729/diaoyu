@@ -17,17 +17,24 @@ ESP32 钓鱼传感器主程序 (Main Entry)
   6. 历史数据采用手动拉取模式：由小程序下发 CMD_PULL_HISTORY
      主动拉取，每次回发一批（最多 BLE_BATCH_SIZE 条）。
 
-充电宝保活（激进软件方案：WiFi 近乎常开）：
-  keepalive_sleep 替代 time.sleep_ms：长睡眠切片，每 ~2s 触发一次 WiFi
-  全信道扫描（阻塞 ~2s、射频满功率）且扫完不关射频，使 WiFi 近乎常开，
-  叠加 CPU 脉冲，平均电流冲到 ~120~180mA，稳定压住充电宝小电流保护阈值。
-  代价是更费电、芯片发热。若此方案在该充电宝上仍不稳，最终需硬件假负载电阻。
+充电宝保活（高功耗模式，已实测可用）：
+  1. 启动时拉升 CPU 主频到 240MHz（基线电流 +~20mA）
+  2. 启动时 WiFi STA 常驻 active（不连接 AP，仅射频，+~50~70mA，最有效）
+  3. keepalive_sleep 用纯 CPU 忙循环替代 time.sleep_ms，全程不进 light-sleep，
+     CPU 持续高负载 ~80~100mA，并周期性 WiFi 扫描踢脚产生 ~200mA 尖峰，
+     稳定压住充电宝小电流保护阈值。参数集中在 config.py 的 KEEPALIVE_* 字段。
 """
 
 import time
 import gc
+import machine
 
-from config import SAMPLE_INTERVAL_SEC
+from config import (
+    SAMPLE_INTERVAL_SEC,
+    KEEPALIVE_CPU_FREQ_HZ,
+    KEEPALIVE_WIFI_ALWAYS_ON,
+    KEEPALIVE_BUSY_LOOP_MODE,
+)
 from sensors.temperature import TemperatureSensor
 from sensors.pressure import PressureSensor
 from storage.ring_buffer import RingBuffer
@@ -36,25 +43,45 @@ from utils.keepalive import keepalive_sleep
 from ble.service import BLEService
 
 
-def _disable_wifi():
-    """初始关闭 WiFi 射频，建立基准。
+def _boost_cpu_freq():
+    """将 CPU 主频拉到高档（默认 240MHz）。
 
-    MicroPython 启动时 WiFi STA 模式默认处于 active 状态。
-    先关闭 WiFi 建立基准，保活模块（_wifi_kick）会在需要时短暂开启
-    WiFi 扫描产生电流脉冲以维持充电宝供电。
+    ESP32 默认主频 160MHz，拉高到 240MHz 后基线电流约提升 20mA，
+    同时让 CPU 忙循环产生的脉冲负载更高。
+    """
+    try:
+        machine.freq(KEEPALIVE_CPU_FREQ_HZ)
+        print("[系统] CPU 主频已设为 {} MHz".format(KEEPALIVE_CPU_FREQ_HZ // 1_000_000))
+    except Exception as e:
+        print("[系统] 设置 CPU 主频失败（可忽略）: {}".format(e))
+
+
+def _setup_wifi_keepalive():
+    """WiFi 保活设置：STA 常驻 active（不连接 AP）。
+
+    充电宝保活的核心诉求是平均电流。WiFi STA 一旦 active，
+    即使不连接 AP，射频也会持续消耗 ~50~70mA，是最有效的
+    软件保活手段。AP 模式则保持关闭以避免多余辐射。
     """
     try:
         import network
         sta = network.WLAN(network.STA_IF)
         ap = network.WLAN(network.AP_IF)
-        if sta.active():
-            sta.active(False)
-            print("[系统] WiFi STA 已关闭（初始状态）")
+        # AP 必关
         if ap.active():
             ap.active(False)
-            print("[系统] WiFi AP 已关闭（初始状态）")
+            print("[系统] WiFi AP 已关闭")
+        # STA 根据配置决定是否常驻 active
+        if KEEPALIVE_WIFI_ALWAYS_ON:
+            if not sta.active():
+                sta.active(True)
+            print("[系统] WiFi STA 已常驻开启（仅射频，不连接 AP）")
+        else:
+            if sta.active():
+                sta.active(False)
+            print("[系统] WiFi STA 已关闭（低功耗模式）")
     except Exception as e:
-        print("[系统] 关闭 WiFi 失败（可忽略）: {}".format(e))
+        print("[系统] WiFi 保活初始化失败（可忽略）: {}".format(e))
 
 
 def main():
@@ -62,8 +89,9 @@ def main():
     print("FishProbe ESP32 传感器系统 (v2)")
     print("=" * 40)
 
-    # ── 0. 关闭 WiFi 建立基准（保活踢脚会按需短暂拉起）──
-    _disable_wifi()
+    # ── 0. 高功耗保活初始化：CPU 拉频 + WiFi 常驻 ──
+    _boost_cpu_freq()
+    _setup_wifi_keepalive()
 
     # ── 1. 初始化各模块 ──
     time_sync = TimeSync()
@@ -94,7 +122,12 @@ def main():
         ble_service.process_fast_dump()
 
     print("\n[系统] 启动完成！开始采集循环 (间隔: {}秒)".format(SAMPLE_INTERVAL_SEC))
-    print("[系统] 充电宝保活：激进模式 WiFi 近乎常开（每 ~2 秒扫描一次，射频常驻）")
+    mode_desc = "纯 CPU 忙循环模式（高耗电，防断电）" if KEEPALIVE_BUSY_LOOP_MODE else "高占空比脉冲模式（节电）"
+    print("[系统] 充电宝保活：CPU {}MHz + WiFi {} + {}".format(
+        KEEPALIVE_CPU_FREQ_HZ // 1_000_000,
+        "常驻" if KEEPALIVE_WIFI_ALWAYS_ON else "关闭",
+        mode_desc,
+    ))
     print("[系统] 等待小程序连接并对表...\n")
 
     # ── 2. 主循环 ──
