@@ -193,10 +193,6 @@ Page({
 
   startSession() {
     this.setData({ isConnecting: true })
-    // 新一场出钓：清空上一场的计时锚点，由本次首次对表(_sendTimeSync)重新锚定。
-    // 此后蓝牙重连不再覆盖该锚点，使后端报告阶段时长=整场已测时长，
-    // 分析阶段才能随时间真正 instant→brief→standard→full 推进。
-    app.globalData.sessionStartTs = null
     const bleManager = ble.getBLEManager()
     bleManager.connectDevice().then(success => {
       this.setData({

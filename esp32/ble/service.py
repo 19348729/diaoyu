@@ -231,6 +231,21 @@ class BLEService:
         frame = encode_realtime_data(timestamp, t_water, t_air, p_local)
         return self._send(frame)
 
+    # 小于此阈值（约 2001-09）视为「开机相对秒」，需按校准映射换算成真实 Unix。
+    # 对表前采集的历史数据时间戳是开机相对秒，必须转换后再下发，
+    # 否则小程序拿到的是 0~N 这种小数，无法落到真实时间轴（分析阶段会一直停在"即时"）。
+    _TS_UNIX_THRESHOLD = 1_000_000_000
+
+    def _records_to_unix(self, records):
+        """把记录里属于「开机相对秒」的时间戳换算成真实 Unix（对表后已采集的保持不变）。"""
+        out = []
+        for r in records:
+            ts = r[0]
+            if ts < self._TS_UNIX_THRESHOLD:
+                ts = self._time_sync.boot_relative_to_unix(ts)
+            out.append((ts, r[1], r[2], r[3]))
+        return out
+
     def send_history_batch(self) -> bool:
         """发送一批历史缓存数据（手动拉取模式）。"""
         if not self._connected or not self._time_synced:
@@ -240,7 +255,7 @@ class BLEService:
         if not unsent:
             return False
 
-        frame = encode_history_batch(unsent)
+        frame = encode_history_batch(self._records_to_unix(unsent))
         return self._send(frame)
 
     def process_fast_dump(self):
@@ -255,7 +270,7 @@ class BLEService:
             print("[BLE] 快闪 Dump 结束，等待统一 ACK")
             return
 
-        frame = encode_history_batch(unsent)
+        frame = encode_history_batch(self._records_to_unix(unsent))
         if self._send(frame):
             self._dump_offset += len(unsent)
         else:

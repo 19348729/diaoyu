@@ -258,6 +258,26 @@ Page({
   },
 
   /**
+   * 取最近一段连续监测数据（按相邻时间间隔分割出钓场次）。
+   * @param {Array} records 按 timestamp 升序的历史数据
+   * @returns {Array} 最后一段连续数据（相邻间隔 > GAP_SEC 视为新场次分界）
+   */
+  _latestContiguousRun(records) {
+    if (!records || records.length === 0) return [];
+    const GAP_SEC = 30 * 60; // 30 分钟无数据视为新的一场出钓（设备每 60s 采样，远小于此）
+    let start = 0;
+    for (let i = records.length - 1; i > 0; i--) {
+      const a = records[i] && records[i].timestamp;
+      const b = records[i - 1] && records[i - 1].timestamp;
+      if (a != null && b != null && (a - b) > GAP_SEC) {
+        start = i;
+        break;
+      }
+    }
+    return records.slice(start);
+  },
+
+  /**
    * 尝试触发后端预测请求（带 5 分钟防抖限流）
    * @param {boolean} force - 是否强制触发（跳过冷却限制）
    */
@@ -287,14 +307,13 @@ Page({
     app.getLocationWithCache().then(async (loc) => {
       try {
         const fishType = (app.globalData.fishContext && app.globalData.fishContext.target) || 'auto';
-        // 用「本次出钓(首次对表)后」的全部数据；该锚点跨蓝牙重连不清零
-        // （见 ble.js _sendTimeSync / setup.js startSession），
-        // 使后端阶段时长=整场已测时长，分析阶段才会随时间真正
-        // instant→brief→standard→full 推进，不会因频繁重连卡在 <5min。
-        const sessionStartTs = app.globalData.sessionStartTs || 0;
-        const sessionData = sessionStartTs
-          ? historyData.filter(r => r && r.timestamp >= sessionStartTs)
-          : historyData;
+        // 取「最近一段连续监测数据」作为本次出钓样本：相邻样本间隔过大视为不同
+        // 场次的分界（如隔夜停采），只保留最后一段连续数据。这样：
+        //   - 纳入连接前设备已自采的历史（开机先跑一段再连手机也能算时长）；
+        //   - 抗蓝牙重连（设备持续每 60s 采样，重连不产生数据间隔）；
+        //   - 排除上一场遗留的陈旧数据。
+        // 使后端阶段时长=本场已测时长，分析阶段才会真正 instant→brief→standard→full。
+        const sessionData = this._latestContiguousRun(historyData);
         const sensors = sessionData.length > 0
           ? sessionData
           : [app.globalData.latestData];

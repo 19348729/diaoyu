@@ -103,7 +103,7 @@ def _wifi_kick():
         print("[保活] WiFi 踢脚失败: {}".format(e))
 
 
-def keepalive_sleep(total_ms, tick_callback=None):
+def keepalive_sleep(total_ms, tick_callback=None, is_connected=None):
     """替代 time.sleep_ms() 的保活版本。
 
     根据 KEEPALIVE_BUSY_LOOP_MODE 选择两种策略：
@@ -115,17 +115,34 @@ def keepalive_sleep(total_ms, tick_callback=None):
     Args:
         total_ms: 总休眠时间（毫秒），与 time.sleep_ms() 语义相同
         tick_callback: 睡眠期间周期性调用的回调（用于驱动 BLE 快闪 Dump 等后台任务）
+        is_connected: 可调用对象，返回当前 BLE 是否已连接。已连接时跳过 WiFi 扫描
+                      踢脚——WiFi/BLE 共用天线，连接期间的阻塞扫描会挤占 BLE 时隙
+                      导致连接监督超时断连（CPU 忙循环保活照常，不影响 BLE 中断）。
     """
     if total_ms <= 0:
         return
 
     if KEEPALIVE_BUSY_LOOP_MODE:
-        _busy_loop_keepalive(total_ms, tick_callback)
+        _busy_loop_keepalive(total_ms, tick_callback, is_connected)
     else:
-        _pulse_keepalive(total_ms, tick_callback)
+        _pulse_keepalive(total_ms, tick_callback, is_connected)
 
 
-def _busy_loop_keepalive(total_ms, tick_callback=None):
+def _kick_allowed(is_connected):
+    """是否允许执行 WiFi 扫描踢脚：未启用/未常驻或 BLE 已连接时一律禁止。"""
+    if not (KEEPALIVE_WIFI_KICK_ENABLED and KEEPALIVE_WIFI_ALWAYS_ON):
+        return False
+    # 已连接时禁止扫描，避免抢占 BLE 天线时隙导致断连
+    if is_connected:
+        try:
+            if is_connected():
+                return False
+        except Exception:
+            pass
+    return True
+
+
+def _busy_loop_keepalive(total_ms, tick_callback=None, is_connected=None):
     """纯 CPU 忙循环保活。
 
     不调 time.sleep_ms，仅用 ticks_diff 轮询计时，让 ESP32 始终维持
@@ -157,17 +174,16 @@ def _busy_loop_keepalive(total_ms, tick_callback=None):
             tick_callback()
             last_tick = now
 
-        # 周期性 WiFi 踢脚（仅在 WiFi 常驻模式下生效）
+        # 周期性 WiFi 踢脚（仅在 WiFi 常驻且未连接时生效）
         if (
-            KEEPALIVE_WIFI_KICK_ENABLED
-            and KEEPALIVE_WIFI_ALWAYS_ON
+            _kick_allowed(is_connected)
             and time.ticks_diff(now, last_kick) >= KEEPALIVE_WIFI_KICK_INTERVAL_MS
         ):
             _wifi_kick()
             last_kick = time.ticks_ms()
 
 
-def _pulse_keepalive(total_ms, tick_callback=None):
+def _pulse_keepalive(total_ms, tick_callback=None, is_connected=None):
     """原脉冲保活（节电模式，保留作为备选）。"""
     remaining = total_ms
     pulse_count = 0
@@ -190,9 +206,5 @@ def _pulse_keepalive(total_ms, tick_callback=None):
             _cpu_busy_pulse(KEEPALIVE_PULSE_DURATION_MS)
             pulse_count += 1
 
-            if (
-                KEEPALIVE_WIFI_KICK_ENABLED
-                and KEEPALIVE_WIFI_ALWAYS_ON
-                and (pulse_count % KEEPALIVE_WIFI_KICK_INTERVAL == 0)
-            ):
+            if _kick_allowed(is_connected) and (pulse_count % KEEPALIVE_WIFI_KICK_INTERVAL == 0):
                 _wifi_kick()

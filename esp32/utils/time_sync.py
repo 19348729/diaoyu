@@ -71,3 +71,23 @@ class TimeSync:
     def elapsed_since_boot_sec(self) -> int:
         """返回自开机以来经过的秒数（不依赖校准）。"""
         return time.ticks_diff(time.ticks_ms(), self._boot_ticks) // 1000
+
+    def boot_relative_to_unix(self, t_boot: int) -> int:
+        """把「开机相对秒」换算成真实 Unix 时间戳。
+
+        对表之前采集的数据，其时间戳是 now() 返回的开机相对秒（见 now()）。
+        校准后即可反推开机时刻对应的真实 Unix（boot_epoch），
+        从而把对表前的历史数据放回真实时间轴。
+
+        Args:
+            t_boot: 记录写入时的开机相对秒
+        Returns:
+            真实 Unix 时间戳；未校准时原样返回（无映射可用）
+        """
+        if not self._calibrated:
+            return t_boot
+        # 校准时刻的开机相对秒 = 校准 ticks 与开机 ticks 之差
+        calib_boot_sec = time.ticks_diff(self._base_ticks, self._boot_ticks) // 1000
+        # 开机时刻(开机相对秒=0)对应的真实 Unix
+        boot_epoch_unix = self._base_unix - calib_boot_sec
+        return boot_epoch_unix + t_boot

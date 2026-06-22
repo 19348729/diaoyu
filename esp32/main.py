@@ -182,12 +182,17 @@ def main():
 
         # ── 2.7 精确等待（扣除采集耗时）──
         # 使用 keepalive_sleep 替代 time.sleep_ms，
-        # 在睡眠期间周期性产生电流脉冲，防止充电宝小电流保护断电
-        # 传入 tick_callback 用于后台处理 BLE 快闪 Dump
+        # 在睡眠期间周期性产生电流脉冲，防止充电宝小电流保护断电。
+        # tick_callback 驱动后台 BLE 快闪 Dump；is_connected 让保活在已连接时
+        # 跳过 WiFi 扫描（避免抢占天线导致蓝牙断连）。
         elapsed = time.ticks_diff(time.ticks_ms(), loop_start)
         sleep_ms = max(0, SAMPLE_INTERVAL_SEC * 1000 - elapsed)
         if sleep_ms > 0:
-            keepalive_sleep(sleep_ms, tick_callback=tick_callback)
+            keepalive_sleep(
+                sleep_ms,
+                tick_callback=tick_callback,
+                is_connected=lambda: ble_service.is_connected,
+            )
 
 
 def _print_status(count, timestamp, t_water, t_air, p_local, ble, buf, ts):
